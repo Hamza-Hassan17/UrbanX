@@ -86,11 +86,11 @@ class RideController extends Controller
                     'message' => 'Ride not found or no longer available.'
                 ], Response::HTTP_NOT_FOUND);
             }
-            if ($ride->driver_id != $user->id) {
-                return response()->json([
-                    'message' => 'You are not assigned to this ride.'
-                ], Response::HTTP_NOT_FOUND);
-            }
+            // if ($ride->driver_id != $user->id) {
+            //     return response()->json([
+            //         'message' => 'You are not assigned to this ride.'
+            //     ], Response::HTTP_NOT_FOUND);
+            // }
 
             $isRideAccepted = $ride->status == 'accepted' ? true : false;
 
