@@ -8,4 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 class DriverReview extends Model
 {
     use HasFactory;
+
+    protected $fillable = [
+        'driver_id',
+        'review_by',
+        'rating',
+        'comments',
+    ];
 }

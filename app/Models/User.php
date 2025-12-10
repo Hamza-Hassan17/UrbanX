@@ -77,9 +77,14 @@ class User  extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasOne(DriverLicense::class, 'driver_id');
     }
-    
+
     public function driverVehicle()
     {
         return $this->hasOne(DriverVehicle::class, 'driver_id');
+    }
+
+    public function driverReviews()
+    {
+        return $this->hasMany(DriverReview::class, 'driver_id');
     }
 }

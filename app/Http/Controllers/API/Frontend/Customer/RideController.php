@@ -231,7 +231,11 @@ class RideController extends Controller
             $user = $request->user();
 
             $rideOffers = RideOffer::where('ride_id', $request->ride_id)
-                ->with('driver')
+                ->with([
+                    'driver' => function ($q) {
+                        $q->withAvg('driverReviews', 'rating');
+                    }
+                ])
                 ->where('status', 'pending')
                 ->orderBy('offered_at', 'desc')
                 ->get();
