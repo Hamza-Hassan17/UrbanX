@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API\Frontend\Customer;
 
 use App\Http\Controllers\Controller;
+use App\Models\DriverReview;
 use App\Models\PromoCode;
 use App\Models\Ride;
 use App\Models\RideOffer;
@@ -456,6 +457,42 @@ class RideController extends Controller
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Cancel Ride failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function postReview(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'driver_id' => 'required|exists:users,id',
+            'rating' => 'required|integer|min:1|max:5',
+            'comments' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $user = $request->user();
+
+            $review = new DriverReview();
+            $review->driver_id = $request->driver_id;
+            $review->review_by = $user->id;
+            $review->rating = $request->rating;
+            $review->comments = $request->comments;
+            $review->save();
+
+            return response()->json([
+                'message' => 'Review posted successfully!',
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Post Review failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);

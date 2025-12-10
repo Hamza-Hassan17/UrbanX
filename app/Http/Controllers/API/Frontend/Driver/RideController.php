@@ -180,11 +180,11 @@ class RideController extends Controller
         try {
             $ride = Ride::find($request->ride_id);
 
-            if ($ride->driver_id !== auth()->id()) {
-                return response()->json([
-                    'message' => 'You are not assigned to this ride.'
-                ], Response::HTTP_FORBIDDEN);
-            }
+            // if ($ride->driver_id !== auth()->id()) {
+            //     return response()->json([
+            //         'message' => 'You are not assigned to this ride.'
+            //     ], Response::HTTP_FORBIDDEN);
+            // }
 
             $ride->status = $request->status;
 

@@ -15,6 +15,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('driver_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('review_by')->constrained('users')->cascadeOnDelete();
+            $table->unsignedTinyInteger('rating');
+            $table->text('comments')->nullable();
             $table->timestamps();
         });
     }

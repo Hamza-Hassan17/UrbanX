@@ -60,6 +60,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/update-ride-status', [DriverRideController::class, 'updateRideStatus']);
         Route::get('/get-ride-details/{ride_id}', [DriverRideController::class, 'getRideDetails']);
 
+        //Driver Ride History
+        Route::get('/ride-history', [DriverRideController::class, 'getRideHistory']);
+
     });
 
     //Customer Routes
@@ -74,6 +77,7 @@ Route::middleware('auth:sanctum')->group(function () {
         route::post('/reject-ride-offer', [RideController::class, 'rejectRideOffer']);
         route::post('/expire-ride-offer', [RideController::class, 'expireRideOffer']);
         route::post('/cancel-ride', [RideController::class, 'cancelRide']);
+        route::post('/post-review', [RideController::class, 'postReview']);
     });
 
 });
