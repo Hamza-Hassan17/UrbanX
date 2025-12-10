@@ -78,7 +78,6 @@ class RideController extends Controller
         try {
             $user = request()->user();
             $ride = Ride::where('id', $ride_id)
-                ->where('status', 'requested')
                 ->first();
 
             if (!$ride) {
