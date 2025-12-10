@@ -73,6 +73,39 @@ class RideController extends Controller
         }
     }
 
+    public function getRideDetails($ride_id)
+    {
+        try {
+            $user = request()->user;
+            $ride = Ride::where('id', $ride_id)
+                ->where('status', 'requested')
+                ->first();
+
+            if (!$ride) {
+                return response()->json([
+                    'message' => 'Ride not found or no longer available.'
+                ], Response::HTTP_NOT_FOUND);
+            }
+            if ($ride->driver_id != $user->id) {
+                return response()->json([
+                    'message' => 'You are not assigned to this ride.'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            $isRideAccepted = $ride->status == 'accepted' ? true : false;
+
+            return response()->json([
+                'ride' => $ride,
+                'is_ride_accepted' => $isRideAccepted,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Get Ride Details failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
 
     public function OfferToRide(Request $request)
     {

@@ -58,6 +58,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/get-single-ride/{ride_id}', [DriverRideController::class, 'getSingleRideDetails']);
         Route::post('/offer-ride', [DriverRideController::class, 'OfferToRide']);
         Route::post('/update-ride-status', [DriverRideController::class, 'updateRideStatus']);
+        Route::get('/get-ride-details/{ride_id}', [DriverRideController::class, 'getRideDetails']);
+
     });
 
     //Customer Routes
