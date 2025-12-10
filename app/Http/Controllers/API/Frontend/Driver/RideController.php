@@ -76,7 +76,7 @@ class RideController extends Controller
     public function getRideDetails($ride_id)
     {
         try {
-            $user = request()->user;
+            $user = request()->user();
             $ride = Ride::where('id', $ride_id)
                 ->where('status', 'requested')
                 ->first();
