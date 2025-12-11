@@ -225,7 +225,7 @@ class ChauffersController extends Controller
     public function downloadReceipt($booking_id)
     {
         try {
-            $booking = Booking::with('transaction')->where('booking_id', $booking_id)->first();
+            $booking = Booking::with('transaction')->where('id', $booking_id)->first();
             if (!$booking) {
                 return response()->json([
                     'message' => 'Booking not found!'
