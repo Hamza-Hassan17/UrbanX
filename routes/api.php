@@ -85,6 +85,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::group(['prefix' => 'chauffeurs'], function () {
         //Driver Vehicle
         Route::get('/home', [ChauffersController::class, 'getHomeData']);
+        Route::get('/get-vehicles', [ChauffersController::class, 'getVehicles']);
+        Route::post('/booking', [ChauffersController::class, 'createBooking']);
+        Route::post('/transaction', [ChauffersController::class, 'createTransaction']);
+        Route::get('/download-receipt/{booking_id}', [ChauffersController::class, 'downloadReceipt']);
     });
 
 });
