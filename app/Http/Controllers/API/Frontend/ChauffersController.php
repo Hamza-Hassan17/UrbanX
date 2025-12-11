@@ -22,6 +22,18 @@ class ChauffersController extends Controller
             $featuredVehicles = Vehicle::where('is_active', 'active')->where('is_featured', '1')
                 ->get();
 
+            // Convert image paths to full URLs (same style as driver license)
+            $featuredCarBrands = $featuredCarBrands->map(function ($item) {
+                $item->logo = url($item->logo);
+                return $item;
+            });
+
+            $featuredVehicles = $featuredVehicles->map(function ($item) {
+                $item->main_image = url($item->main_image);
+                return $item;
+            });
+
+
             return response()->json([
                 'featured_car_brands' => $featuredCarBrands,
                 'featured_vehicles' => $featuredVehicles,
