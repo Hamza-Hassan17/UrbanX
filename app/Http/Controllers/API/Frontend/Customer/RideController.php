@@ -283,6 +283,7 @@ class RideController extends Controller
             // Update the associated ride
             $ride = Ride::find($rideOffer->ride_id);
             $ride->driver_id = $rideOffer->driver_id;
+            $ride->total_fare = $rideOffer->proposed_price;
             $ride->status = 'accepted';
             $ride->accepted_at = now();
             $ride->save();
