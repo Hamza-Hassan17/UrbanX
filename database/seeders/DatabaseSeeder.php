@@ -29,6 +29,8 @@ class DatabaseSeeder extends Seeder
             DesignationSeeder::class,
             TimezoneSeeder::class,
             SettingSeeder::class,
+            CarBrandSeeder::class,
+            VehicleSeeder::class,
         ]);
     }
 }

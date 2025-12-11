@@ -3,6 +3,7 @@
 use App\Http\Controllers\API\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\LogoutController;
 use App\Http\Controllers\API\Auth\RegisterController;
+use App\Http\Controllers\API\Frontend\ChauffersController;
 use App\Http\Controllers\API\Frontend\Customer\RideController;
 use App\Http\Controllers\API\Frontend\Driver\RideController as DriverRideController;
 use App\Http\Controllers\API\Frontend\DriverDetailsController;
@@ -78,6 +79,12 @@ Route::middleware('auth:sanctum')->group(function () {
         route::post('/expire-ride-offer', [RideController::class, 'expireRideOffer']);
         route::post('/cancel-ride', [RideController::class, 'cancelRide']);
         route::post('/post-review', [RideController::class, 'postReview']);
+    });
+
+    //Chauffeurs Routes
+    Route::group(['prefix' => 'chauffeurs'], function () {
+        //Driver Vehicle
+        Route::get('/home', [ChauffersController::class, 'getHomeData']);
     });
 
 });
