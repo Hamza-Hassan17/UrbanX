@@ -197,6 +197,7 @@ return [
         App\Providers\LocaleServiceProvider::class,
         App\Providers\MailServiceProvider::class,
         App\Providers\NotificationServiceProvider::class,
+        Barryvdh\DomPDF\ServiceProvider::class,
 
     ],
 
@@ -213,6 +214,7 @@ return [
 
     'aliases' => Facade::defaultAliases()->merge([
         // 'ExampleClass' => App\Example\ExampleClass::class,
+        'PDF' => Barryvdh\DomPDF\Facade\Pdf::class,
     ])->toArray(),
 
 ];
