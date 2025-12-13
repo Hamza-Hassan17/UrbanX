@@ -72,6 +72,30 @@ class ChauffersController extends Controller
         }
     }
 
+    public function getVehicleDetails($vehicle_id)
+    {
+        try {
+            $vehicle = Vehicle::with('carBrand')->where('id', $vehicle_id)->where('is_active', 'active')->first();
+            if (!$vehicle) {
+                return response()->json([
+                    'message' => 'Vehicle not found!'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            // Convert image path to full URL
+            $vehicle->main_image = url($vehicle->main_image);
+
+            return response()->json([
+                'vehicle' => $vehicle,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Get Vehicle Details failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public function createBooking(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -164,6 +188,8 @@ class ChauffersController extends Controller
             $booking->notes = $request->notes;
             $booking->status = 'pending';
             $booking->save();
+
+            $booking->load('vehicle');
 
             return response()->json([
                 'message' => 'Booking created successfully!',
