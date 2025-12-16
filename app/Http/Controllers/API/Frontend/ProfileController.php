@@ -42,8 +42,8 @@ class ProfileController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:users,email,' . $request->user()->id,
-            'phone' => 'required|string|max:20|unique:users,phone,' . $request->user()->id,
+            // 'email' => 'required|email|max:255|unique:users,email,' . $request->user()->id,
+            // 'phone' => 'required|string|max:20|unique:users,phone,' . $request->user()->id,
             'date_of_birth' => 'nullable|date',
             'profile_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max_size',
             'gender' => 'nullable|string|max:255',
@@ -59,8 +59,8 @@ class ProfileController extends Controller
         try {
             $user = $request->user();
             $user->name = $request->input('name');
-            $user->email = $request->input('email');
-            $user->phone = $request->input('phone');
+            // $user->email = $request->input('email');
+            // $user->phone = $request->input('phone');
             $user->save();
 
             $profile = $user->profile;
