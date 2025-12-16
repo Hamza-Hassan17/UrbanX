@@ -510,7 +510,7 @@ class RideController extends Controller
             $user = $request->user();
 
             $rideHistory = Ride::where('passenger_id', $user->id)
-                ->with('driver', 'vehicleType', 'promoCode')
+                ->with('driver')
                 ->orderBy('requested_at', 'desc')
                 ->get();
 
