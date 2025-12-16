@@ -65,11 +65,17 @@ class ChauffersController extends Controller
                 return $item;
             });
 
-            $carBrands = CarBrand::where('is_active', 'active')->where('is_featured', '1')->get();
+            $featuredCarBrands = CarBrand::where('is_featured', '1')->where('is_active', 'active')->get();
+
+            // Convert image paths to full URLs (same style as driver license)
+            $featuredCarBrands = $featuredCarBrands->map(function ($item) {
+                $item->logo = url($item->logo);
+                return $item;
+            });
 
             return response()->json([
                 'vehicles' => $vehicles,
-                'car_brands' => $carBrands,
+                'featured_car_brands' => $featuredCarBrands,
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Get Vehicles failed', ['error' => $th->getMessage()]);
