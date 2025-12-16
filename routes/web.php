@@ -7,6 +7,7 @@ use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
 use App\Http\Controllers\Dashboard\ChauffeursBooking;
 use App\Http\Controllers\Dashboard\ChauffeursVehicle;
+use App\Http\Controllers\Dashboard\ComplainController;
 use App\Http\Controllers\Dashboard\HomeController;
 use App\Http\Controllers\Dashboard\NotificationController;
 use App\Http\Controllers\Dashboard\ProfileController;
@@ -167,6 +168,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::resource('chauffeur-bookings', ChauffeursBooking::class);
             Route::post('chauffeur-bookings/status/{id}', [ChauffeursBooking::class, 'updateStatus'])->name('chauffeur-bookings.status.update');
             Route::get('chauffeur-bookings/download-receipt/{id}', [ChauffeursBooking::class, 'downloadReceipt'])->name('chauffeur-bookings.download-receipt');
+
+            //Complain Routes
+            Route::resource('complains', ComplainController::class);
+            Route::post('complains/status/{id}', [ComplainController::class, 'updateStatus'])->name('complains.status.update');
         });
     });
 

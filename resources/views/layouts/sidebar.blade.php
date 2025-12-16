@@ -60,10 +60,18 @@
                 </a>
             </li>
         @endcan
+        @can(['create complain'])
+            <li class="menu-item {{ request()->routeIs('dashboard.complains.*') ? 'active' : '' }}">
+                <a href="{{ route('dashboard.complains.index') }}" class="menu-link" style="color: #fff !important;">
+                    <i class="menu-icon tf-icons ti ti-message-exclamation"></i>
+                    <div>{{__('Complains')}}</div>
+                </a>
+            </li>
+        @endcan
         @canany(['view chauffeur vehicle', 'view chauffeur booking'])
             <li class="menu-item {{ request()->routeIs('dashboard.chauffeur-vehicles.*') || request()->routeIs('dashboard.chauffeur-bookings.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
-                    <i class="menu-icon tf-icons ti ti-users"></i>
+                    <i class="menu-icon tf-icons ti ti-steering-wheel"></i>
                     <div>{{__('Chauffeurs')}}</div>
                 </a>
                 <ul class="menu-sub">

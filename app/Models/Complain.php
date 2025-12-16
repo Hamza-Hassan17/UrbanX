@@ -16,4 +16,9 @@ class Complain extends Model
         'complain_text',
         'status',
     ];
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 }
