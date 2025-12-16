@@ -65,7 +65,7 @@ class ChauffersController extends Controller
                 return $item;
             });
 
-            $carBrands = CarBrand::where('is_active', 'active')->get();
+            $carBrands = CarBrand::where('is_active', 'active')->where('is_featured', '1')->get();
 
             return response()->json([
                 'vehicles' => $vehicles,
