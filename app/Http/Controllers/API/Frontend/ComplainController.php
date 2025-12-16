@@ -60,7 +60,7 @@ class ComplainController extends Controller
                     'name' => $complain->name,
                     'subject' => $complain->subject,
                     'complain_text' => $complain->complain_text,
-                    'status' => $complain->status,
+                    'status' => 'pending',
                 ]
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
