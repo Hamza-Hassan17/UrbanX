@@ -90,7 +90,7 @@ Route::middleware('auth:sanctum')->group(function () {
         route::post('/expire-ride-offer', [RideController::class, 'expireRideOffer']);
         route::post('/cancel-ride', [RideController::class, 'cancelRide']);
         route::post('/post-review', [RideController::class, 'postReview']);
-        route::post('/get-ride-history', [RideController::class, 'getRideHistory']);
+        route::get('/get-ride-history', [RideController::class, 'getRideHistory']);
     });
 
     //Chauffeurs Routes
