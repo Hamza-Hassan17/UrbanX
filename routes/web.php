@@ -5,6 +5,8 @@ use App\Http\Controllers\Auth\GithubController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\Dashboard\ChauffeursBooking;
+use App\Http\Controllers\Dashboard\ChauffeursVehicle;
 use App\Http\Controllers\Dashboard\HomeController;
 use App\Http\Controllers\Dashboard\NotificationController;
 use App\Http\Controllers\Dashboard\ProfileController;
@@ -158,6 +160,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             //Create Notification
             Route::get('/notifications/create', [NotificationController::class, 'create'])->name('notifications.create');
             Route::post('/notifications/store', [NotificationController::class, 'store'])->name('notifications.store');
+
+            //Chauffeurs Vehicle Routes
+            Route::resource('chauffeur-vehicles', ChauffeursVehicle::class);
+            Route::get('chauffeur-vehicles/status/{id}', [ChauffeursVehicle::class, 'updateStatus'])->name('chauffeur-vehicles.status.update');
+            Route::resource('chauffeur-bookings', ChauffeursBooking::class);
+            Route::post('chauffeur-bookings/status/{id}', [ChauffeursBooking::class, 'updateStatus'])->name('chauffeur-bookings.status.update');
+            Route::get('chauffeur-bookings/download-receipt/{id}', [ChauffeursBooking::class, 'downloadReceipt'])->name('chauffeur-bookings.download-receipt');
         });
     });
 

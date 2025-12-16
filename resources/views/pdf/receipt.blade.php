@@ -1,179 +1,231 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>Urban – Payment Receipt</title>
+    <title>Payment Receipt</title>
 
     <style>
-        body {
-            font-family: "Segoe UI", Arial, sans-serif;
-            background: #0A0D1A;
-            margin: 0;
-            padding: 50px 0;
+        /* DOMPDF PAGE FIX */
+        @page {
+            margin: 25px;
         }
 
-        /* MAIN RECEIPT CARD */
-        .receipt-wrapper {
-            width: 780px;
-            margin: auto;
-            background: #ffffff;
-            border-radius: 14px;
-            overflow: hidden;
-            box-shadow: 0px 0px 28px rgba(0, 0, 0, 0.55);
-            border: 1px solid #dadada;
+        body {
+            font-family: DejaVu Sans, Arial, sans-serif;
+            font-size: 13px;
+            color: #333;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* MAIN WRAPPER */
+        .receipt {
+            width: 100%;
+            max-width: 720px;
+            margin: 0 auto;
+            padding: 0;
         }
 
         /* HEADER */
-        .receipt-header {
-            background: #0A0D1A;
-            color: #fff;
+        .header {
+            background: #000;
             text-align: center;
-            padding: 35px 0 45px 0;
-            position: relative;
+            padding: 25px 0 20px;
+            margin-bottom: 25px;
         }
 
-        .receipt-header img {
-            width: 115px;
-            margin-bottom: 10px;
-            filter: drop-shadow(0px 0px 6px rgba(255,255,255,0.75));
+        .header img {
+            width: 150px;
+            margin-bottom: 8px;
         }
 
-        .receipt-header h2 {
+        .header h2 {
             margin: 0;
-            font-size: 30px;
-            letter-spacing: 2px;
-            font-weight: 600;
+            font-size: 22px;
+            letter-spacing: 1px;
+            color: #fff;
         }
 
-        /* CONTENT */
-        .content {
-            padding: 40px 45px;
-        }
-
+        /* SECTION TITLE */
         .section-title {
-            font-size: 20px;
-            font-weight: 700;
-            color: #0A0D1A;
-            margin: 35px 0 18px 0;
-            padding-bottom: 10px;
-            border-bottom: 2.5px solid #ececec;
+            font-size: 15px;
+            font-weight: bold;
+            margin: 22px 0 8px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
         }
 
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            row-gap: 12px;
-            font-size: 16px;
-            color: #333;
-            line-height: 1.4;
+        /* TABLES */
+        table.details,
+        table.amount {
+            width: 100%;
+            max-width: 720px;
+            margin: 0 auto;
+            border-collapse: collapse;
         }
 
-        /* BADGES */
-        .status-badge {
-            padding: 6px 14px;
-            border-radius: 6px;
-            color: white;
-            font-size: 13px;
-            font-weight: 600;
-        }
-        .confirmed { background: #28a745; }
-        .complete { background: #28a745; }
-        .pending { background: #ffc107; color: #000; }
-        .cancelled { background: #dc3545; }
-        .failed { background: #dc3545; }
-
-        /* AMOUNT BOX */
-        .amount-box {
-            margin-top: 25px;
-            padding: 22px 25px;
-            border-radius: 12px;
-            background: #F0F2FF;
-            border: 1px solid #d6d9f5;
+        table.details td {
+            padding: 6px 4px;
+            vertical-align: top;
         }
 
-        .amount-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 7px 0;
-            font-size: 16px;
+        table.details td.label {
+            width: 25%;
+            font-weight: bold;
+            color: #555;
         }
 
-        .amount-row.total {
-            font-weight: 700;
-            font-size: 21px;
-            padding-top: 14px;
-            margin-top: 6px;
-            border-top: 1px solid #bfc2e0;
+        table.details td.value {
+            width: 25%;
+        }
+
+        /* STATUS BADGE */
+        .status {
+            padding: 3px 8px;
+            font-size: 11px;
+            font-weight: bold;
+            color: #fff;
+            border-radius: 4px;
+            display: inline-block;
+        }
+
+        .pending { background: #f0ad4e; color:#000; }
+        .confirmed, .complete { background: #28a745; }
+        .cancelled, .failed { background: #dc3545; }
+
+        /* AMOUNT TABLE */
+        table.amount td {
+            padding: 7px 5px;
+        }
+
+        table.amount tr.total td {
+            border-top: 2px solid #000;
+            font-weight: bold;
+            font-size: 15px;
         }
 
         /* FOOTER */
         .footer {
+            margin-top: 35px;
             text-align: center;
-            padding: 18px 0 20px;
-            background: #fafafa;
-            font-size: 14px;
-            color: #555;
-            border-top: 1px solid #e5e5e5;
+            font-size: 11px;
+            color: #666;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
         }
     </style>
-
 </head>
+
 <body>
 
-<div class="receipt-wrapper">
+<div class="receipt">
 
     <!-- HEADER -->
-    <div class="receipt-header">
-        <img src="{{ asset('assets/img/logo/logo-full.png') }}" alt="Urban Logo">
+    <div class="header">
+        <img src="{{ public_path('assets/img/logo/logo-full.png') }}" alt="Company Logo">
         <h2>PAYMENT RECEIPT</h2>
     </div>
 
-    <div class="content">
+    <!-- BOOKING DETAILS -->
+    <div class="section-title">Booking Details</div>
+    <table class="details">
+        <tr>
+            <td class="label">Booking ID</td>
+            <td class="value">{{ $booking->booking_id }}</td>
 
-        <!-- BOOKING DETAILS -->
-        <div class="section-title">Booking Details</div>
-        <div class="grid">
-            <div><strong>Booking ID:</strong> {{ $booking->booking_id }}</div>
-            @php
-                $status = $booking->status
+            <td class="label">Status</td>
+            <td class="value">
+                <span class="status {{ strtolower($booking->status) }}">
+                    {{ ucfirst($booking->status) }}
+                </span>
+            </td>
+        </tr>
 
-            @endphp
-            <div><strong>Status:</strong> <span class="status-badge {{ strtolower($booking->status) }}">{{ ucwords($booking->status) }}</span></div>
-            <div><strong>Name:</strong> {{ $booking->name }}</div>
-            <div><strong>Email:</strong> {{ $booking->email }}</div>
-            <div><strong>Phone:</strong> {{ $booking->phone }}</div>
-            <div><strong>Rent Type:</strong> {{ ucfirst($booking->rent_type) }}</div>
-            <div><strong>With Driver:</strong> {{ $booking->with_driver == '1' ? 'Yes' : 'No' }}</div>
-            <div><strong>Pickup:</strong> {{ $booking->pickup_location }}</div>
-            <div><strong>Dropoff:</strong> {{ $booking->dropoff_location }}</div>
-            <div><strong>Start:</strong> {{ \Carbon\Carbon::parse($booking->start_time)->format('Y-m-d h:i A') }}</div>
-            <div><strong>End:</strong> {{ \Carbon\Carbon::parse($booking->end_time)->format('Y-m-d h:i A') }}</div>
+        <tr>
+            <td class="label">Customer Name</td>
+            <td class="value">{{ $booking->name }}</td>
 
-        </div>
+            <td class="label">Email</td>
+            <td class="value">{{ $booking->email }}</td>
+        </tr>
 
-        <!-- TRANSACTION DETAILS -->
-        <div class="section-title">Transaction Details</div>
-        <div class="grid">
-            <div><strong>Transaction ID:</strong> {{ $transaction->trx_id }}</div>
-            <div><strong>Payment Method:</strong> {{ ucfirst($transaction->payment_method) }}</div>
-            <div><strong>Payment Status:</strong> <span class="status-badge {{ strtolower($transaction->payment_status) }}">{{ ucwords($transaction->payment_status) }}</span></div>
-            <div><strong>Date:</strong> {{ $transaction->created_at->format('Y-m-d h:i A') }}</div>
-        </div>
+        <tr>
+            <td class="label">Phone</td>
+            <td class="value">{{ $booking->phone ?? '—' }}</td>
 
-        <!-- PAYMENT SUMMARY -->
-        <div class="section-title">Payment Summary</div>
-        <div class="amount-box">
-            <div class="amount-row"><span>Subtotal:</span> <span>{{ \App\Helpers\Helper::formatCurrency($transaction->subtotal) }}</span></div>
-            <div class="amount-row"><span>Discount:</span> <span>{{ \App\Helpers\Helper::formatCurrency($transaction->discount) }}</span></div>
-            <div class="amount-row"><span>Tax:</span> <span>{{ \App\Helpers\Helper::formatCurrency($transaction->tax) }}</span></div>
-            <div class="amount-row total"><span>Total Amount:</span> <span>{{ \App\Helpers\Helper::formatCurrency($transaction->total_amount) }}</span></div>
-        </div>
+            <td class="label">Rent Type</td>
+            <td class="value">{{ ucfirst($booking->rent_type) }}</td>
+        </tr>
 
-    </div>
+        <tr>
+            <td class="label">With Driver</td>
+            <td class="value">{{ $booking->with_driver == '1' ? 'Yes' : 'No' }}</td>
+
+            <td class="label">Pickup</td>
+            <td class="value">{{ $booking->pickup_location ?? '—' }}</td>
+        </tr>
+
+        <tr>
+            <td class="label">Dropoff</td>
+            <td class="value">{{ $booking->dropoff_location ?? '—' }}</td>
+
+            <td class="label">Duration</td>
+            <td class="value">
+                {{ \Carbon\Carbon::parse($booking->start_time)->format('d M Y h:i A') }}<br>
+                {{ \Carbon\Carbon::parse($booking->end_time)->format('d M Y h:i A') }}
+            </td>
+        </tr>
+    </table>
+
+    <!-- TRANSACTION DETAILS -->
+    <div class="section-title">Transaction Details</div>
+    <table class="details">
+        <tr>
+            <td class="label">Transaction ID</td>
+            <td class="value">{{ $transaction->trx_id }}</td>
+
+            <td class="label">Payment Method</td>
+            <td class="value">{{ ucfirst($transaction->payment_method) }}</td>
+        </tr>
+
+        <tr>
+            <td class="label">Payment Status</td>
+            <td class="value">
+                <span class="status {{ strtolower($transaction->payment_status) }}">
+                    {{ ucfirst($transaction->payment_status) }}
+                </span>
+            </td>
+
+            <td class="label">Date</td>
+            <td class="value">{{ $transaction->created_at->format('d M Y h:i A') }}</td>
+        </tr>
+    </table>
+
+    <!-- PAYMENT SUMMARY -->
+    <div class="section-title">Payment Summary</div>
+    <table class="amount">
+        <tr>
+            <td>Subtotal</td>
+            <td align="right">{{ \App\Helpers\Helper::formatCurrency($booking->subtotal) }}</td>
+        </tr>
+        <tr>
+            <td>Discount</td>
+            <td align="right">{{ \App\Helpers\Helper::formatCurrency($booking->discount) }}</td>
+        </tr>
+        <tr>
+            <td>Tax</td>
+            <td align="right">{{ \App\Helpers\Helper::formatCurrency($booking->tax) }}</td>
+        </tr>
+        <tr class="total">
+            <td>Total Amount</td>
+            <td align="right">{{ \App\Helpers\Helper::formatCurrency($booking->total_amount) }}</td>
+        </tr>
+    </table>
 
     <!-- FOOTER -->
     <div class="footer">
-        © {{ date('Y') }} {{ \App\Helpers\Helper::getCompanyName() }} — This is a system-generated receipt.
+        © {{ date('Y') }} {{ \App\Helpers\Helper::getCompanyName() }}<br>
+        This is a system-generated receipt.
     </div>
 
 </div>

@@ -503,4 +503,25 @@ class RideController extends Controller
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
+
+    public function getRideHistory(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            $rideHistory = Ride::where('passenger_id', $user->id)
+                ->with('driver', 'vehicleType', 'promoCode')
+                ->orderBy('requested_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'ride_history' => $rideHistory,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Get Ride History failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
 }

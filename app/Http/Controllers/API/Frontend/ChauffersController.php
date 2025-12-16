@@ -50,10 +50,14 @@ class ChauffersController extends Controller
         }
     }
 
-    public function getVehicles(Request $request)
+    public function getVehicles(Request $request, $brand = null)
     {
         try {
-            $vehicles = Vehicle::where('is_active', 'active')->get();
+            if ($brand) {
+                $vehicles = Vehicle::where('car_brand_id', $brand)->where('is_active', 'active')->get();
+            } else {
+                $vehicles = Vehicle::where('is_active', 'active')->get();
+            }
 
             // Convert image paths to full URLs
             $vehicles = $vehicles->map(function ($item) {
@@ -61,8 +65,11 @@ class ChauffersController extends Controller
                 return $item;
             });
 
+            $carBrands = CarBrand::where('is_active', 'active')->get();
+
             return response()->json([
                 'vehicles' => $vehicles,
+                'car_brands' => $carBrands,
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Get Vehicles failed', ['error' => $th->getMessage()]);
@@ -275,6 +282,27 @@ class ChauffersController extends Controller
             return $pdf->download('URBAN_RECEIPT_' . $booking_id . '.pdf');
         } catch (\Throwable $th) {
             Log::error('API Download Receipt failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function getBookingHistory(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            $bookings = Booking::with('vehicle', 'transaction')
+                ->where('user_id', $user->id)
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'bookings' => $bookings,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Get Booking History failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);

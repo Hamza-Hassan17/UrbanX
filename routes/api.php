@@ -4,10 +4,12 @@ use App\Http\Controllers\API\Auth\LoginController;
 use App\Http\Controllers\Api\Auth\LogoutController;
 use App\Http\Controllers\API\Auth\RegisterController;
 use App\Http\Controllers\API\Frontend\ChauffersController;
+use App\Http\Controllers\API\Frontend\ComplainController;
 use App\Http\Controllers\API\Frontend\Customer\RideController;
 use App\Http\Controllers\API\Frontend\Driver\RideController as DriverRideController;
 use App\Http\Controllers\API\Frontend\DriverDetailsController;
 use App\Http\Controllers\API\Frontend\NotificationController;
+use App\Http\Controllers\API\Frontend\ProfileController;
 use App\Http\Controllers\Dashboard\HomeController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -35,6 +37,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
     //Notifications API
     Route::get('/notifications', [NotificationController::class, 'getUserNotifications']);
+
+    //Profile API
+    Route::get('/profile', [ProfileController::class, 'getUserProfile']);
+    Route::post('/profile/update', [ProfileController::class, 'updateUserProfile']);
+    Route::post('/password/update', [ProfileController::class, 'updateUserPassword']);
+
+    //Complain API
+    Route::get('/get-complains', [ComplainController::class, 'getComplains']);
+    Route::post('/submit-complain', [ComplainController::class, 'submitComplain']);
 
     //Driver Routes
     Route::group(['prefix' => 'driver'], function () {
@@ -79,17 +90,19 @@ Route::middleware('auth:sanctum')->group(function () {
         route::post('/expire-ride-offer', [RideController::class, 'expireRideOffer']);
         route::post('/cancel-ride', [RideController::class, 'cancelRide']);
         route::post('/post-review', [RideController::class, 'postReview']);
+        route::post('/get-ride-history', [RideController::class, 'getRideHistory']);
     });
 
     //Chauffeurs Routes
     Route::group(['prefix' => 'chauffeurs'], function () {
         //Driver Vehicle
         Route::get('/home', [ChauffersController::class, 'getHomeData']);
-        Route::get('/get-vehicles', [ChauffersController::class, 'getVehicles']);
+        Route::get('/get-vehicles/{brand?}', [ChauffersController::class, 'getVehicles']);
         Route::get('/get-vehicle-details/{vehicle_id}', [ChauffersController::class, 'getVehicleDetails']);
         Route::post('/booking', [ChauffersController::class, 'createBooking']);
         Route::post('/transaction', [ChauffersController::class, 'createTransaction']);
         Route::get('/download-receipt/{booking_id}', [ChauffersController::class, 'downloadReceipt']);
+        Route::get('/get-booking-history', [ChauffersController::class, 'getBookingHistory']);
     });
 
 });

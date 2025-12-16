@@ -60,6 +60,30 @@
                 </a>
             </li>
         @endcan
+        @canany(['view chauffeur vehicle', 'view chauffeur booking'])
+            <li class="menu-item {{ request()->routeIs('dashboard.chauffeur-vehicles.*') || request()->routeIs('dashboard.chauffeur-bookings.*') ? 'open' : '' }}">
+                <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
+                    <i class="menu-icon tf-icons ti ti-users"></i>
+                    <div>{{__('Chauffeurs')}}</div>
+                </a>
+                <ul class="menu-sub">
+                    @can(['view chauffeur vehicle'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.chauffeur-vehicles.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.chauffeur-vehicles.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Vehicles')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['view chauffeur booking'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.chauffeur-bookings.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.chauffeur-bookings.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Booking')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                </ul>
+            </li>
+        @endcan
         @canany(['view user', 'view archived user'])
             <li class="menu-item {{ request()->routeIs('dashboard.user.*') || request()->routeIs('dashboard.archived-user.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
