@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\API\Auth\LoginController;
-use App\Http\Controllers\Api\Auth\LogoutController;
+use App\Http\Controllers\API\Auth\LogoutController;
 use App\Http\Controllers\API\Auth\RegisterController;
 use App\Http\Controllers\API\Frontend\ChauffersController;
 use App\Http\Controllers\API\Frontend\ComplainController;
