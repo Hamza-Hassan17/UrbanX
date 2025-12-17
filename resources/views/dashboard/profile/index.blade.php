@@ -148,7 +148,7 @@
                         @if ($profile->gender)
                             <li class="d-flex align-items-center mb-2">
                                 <i class="ti ti-gender-bigender ti-lg"></i><span class="fw-medium mx-2">{{ __('Gender') }}:</span>
-                                <span>{{ $profile->gender->name }}</span>
+                                <span>{{ $profile->gender }}</span>
                             </li>
                         @endif
                         @if ($profile->maritalStatus)
