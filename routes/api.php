@@ -103,6 +103,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/transaction', [ChauffersController::class, 'createTransaction']);
         Route::get('/download-receipt/{booking_id}', [ChauffersController::class, 'downloadReceipt']);
         Route::get('/get-booking-history', [ChauffersController::class, 'getBookingHistory']);
+        Route::get('/favourite-vehicles', [ChauffersController::class, 'getFavouriteVehicles']);
+        Route::get('/add-to-favourite/{vehicle_id}', [ChauffersController::class, 'addToFavourite']);
     });
 
 });

@@ -168,15 +168,12 @@ class ChauffersController extends Controller
             if ($totalHours < 24) {
                 // Rent by Hours
                 $price = $vehicle->price_per_hour * $totalHours;
-
             } elseif ($totalDays < 7) {
                 // Rent by Days
                 $price = $vehicle->price_per_day * $totalDays;
-
             } elseif ($totalDays >= 7 && $totalDays < 30) {
                 // Rent by Weeks
                 $price = $vehicle->price_per_week * $totalWeeks;
-
             } else {
                 // Rent by Months
                 $price = $vehicle->price_per_month * $totalMonths;
@@ -309,6 +306,70 @@ class ChauffersController extends Controller
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Get Booking History failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function getFavouriteVehicles(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            $chauffeurFavourites = $user->chauffeurFavourites()->pluck('vehicle_id')->toArray();
+
+            $vehicles = Vehicle::whereIn('id', $chauffeurFavourites)
+                ->where('is_active', 'active')
+                ->get();
+
+            // Convert image paths to full URLs
+            $vehicles = $vehicles->map(function ($item) {
+                $item->main_image = url($item->main_image);
+                return $item;
+            });
+
+            return response()->json([
+                'favourite_vehicles' => $vehicles,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Get Favourite Vehicles failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function addToFavourite(Request $request, $vehicle_id)
+    {
+        try {
+            $user = $request->user();
+
+            $vehicle = Vehicle::where('id', $vehicle_id)->where('is_active', 'active')->first();
+            if (!$vehicle) {
+                return response()->json([
+                    'message' => 'Vehicle not found!'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            // Check if already in favourites
+            $existingFavourite = $user->chauffeurFavourites()->where('vehicle_id', $vehicle_id)->first();
+            if ($existingFavourite) {
+                $existingFavourite->delete();
+                $message = 'Vehicle removed from favourites successfully!';
+            } else {
+                // Add to favourites
+                $user->chauffeurFavourites()->create([
+                    'vehicle_id' => $vehicle_id,
+                ]);
+                $message = 'Vehicle added to favourites successfully!';
+            }
+
+            return response()->json([
+                'message' => $message,
+            ], Response::HTTP_CREATED);
+        } catch (\Throwable $th) {
+            Log::error('API Add to Favourite failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
