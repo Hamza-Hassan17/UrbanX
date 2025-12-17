@@ -426,11 +426,11 @@ class RideController extends Controller
 
             $ride = Ride::find($request->ride_id);
 
-            if ($ride->passenger_id !== $user->id) {
-                return response()->json([
-                    'message' => 'You are not authorized to cancel this ride.'
-                ], Response::HTTP_FORBIDDEN);
-            }
+            // if ($ride->passenger_id !== $user->id) {
+            //     return response()->json([
+            //         'message' => 'You are not authorized to cancel this ride.'
+            //     ], Response::HTTP_FORBIDDEN);
+            // }
 
             if (in_array($ride->status, ['completed', 'cancelled'])) {
                 return response()->json([
