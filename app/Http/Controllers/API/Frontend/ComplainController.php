@@ -53,6 +53,15 @@ class ComplainController extends Controller
             $complain->complain_text = $request->input('complain_text');
             $complain->save();
 
+            app('notificationService')->notifyUsers(
+                [$user],
+                'Complain Submitted',
+                'Your complain has been submitted successfully and is pending review.',
+                'complains',
+                $complain->id,
+                'complain_details'
+            );
+
 
             return response()->json([
                 'message' => 'Complain submitted successfully',

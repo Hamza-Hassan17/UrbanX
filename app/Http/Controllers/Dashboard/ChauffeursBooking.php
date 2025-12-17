@@ -110,6 +110,16 @@ class ChauffeursBooking extends Controller
             $booking->status = $request->status;
             $booking->save();
 
+            $customer = $booking->user;
+            app('notificationService')->notifyUsers(
+                [$customer],
+                'Booking Status Updated',
+                'Your booking status has been updated to ' . $booking->status . '.',
+                'bookings',
+                $booking->id,
+                'booking_details'
+            );
+
             return redirect()->back()->with('success', 'Booking status updated successfully');
         } catch (\Throwable $th) {
             Log::error('Booking Status Updation Failed', ['error' => $th->getMessage()]);

@@ -201,6 +201,15 @@ class ChauffersController extends Controller
 
             $booking->load('vehicle');
 
+            app('notificationService')->notifyUsers(
+                [$user],
+                'Booking Requested',
+                'Your booking has been created successfully and is pending confirmation.',
+                'bookings',
+                $booking->id,
+                'booking_details'
+            );
+
             return response()->json([
                 'message' => 'Booking created successfully!',
                 'booking' => $booking,
@@ -244,6 +253,15 @@ class ChauffersController extends Controller
             $transaction->payment_method = $request->payment_method;
             $transaction->payment_status = 'pending';
             $transaction->save();
+
+            app('notificationService')->notifyUsers(
+                [$user],
+                'Transaction Created',
+                'Your transaction has been created successfully for the booking.',
+                'transactions',
+                $transaction->id,
+                'transaction_details'
+            );
 
             return response()->json([
                 'message' => 'Transaction created successfully!',
