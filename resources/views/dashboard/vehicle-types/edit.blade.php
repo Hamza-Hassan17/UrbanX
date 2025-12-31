@@ -47,6 +47,32 @@
                             @enderror
                         </div>
                         <div class="mb-4 col-md-4">
+                            <label for="first_km_price" class="form-label">{{ __('First KM Price') }}</label><span
+                                class="text-danger">*</span>
+                            <input class="form-control @error('first_km_price') is-invalid @enderror" type="number"
+                                min="0" id="first_km_price" name="first_km_price"
+                                value="{{ old('first_km_price', $vehicleType->first_km_price) }}" required
+                                placeholder="{{ __('Enter first km price') }}" />
+                            @error('first_km_price')
+                                <span class="invalid-feedback" role="alert">
+                                    <strong>{{ $message }}</strong>
+                                </span>
+                            @enderror
+                        </div>
+                        <div class="mb-4 col-md-4">
+                            <label for="other_km_price" class="form-label">{{ __('Other KM Price') }}</label><span
+                                class="text-danger">*</span>
+                            <input class="form-control @error('other_km_price') is-invalid @enderror" type="number"
+                                min="0" id="other_km_price" name="other_km_price"
+                                value="{{ old('other_km_price', $vehicleType->other_km_price) }}" required
+                                placeholder="{{ __('Enter other km price') }}" />
+                            @error('other_km_price')
+                                <span class="invalid-feedback" role="alert">
+                                    <strong>{{ $message }}</strong>
+                                </span>
+                            @enderror
+                        </div>
+                        <div class="mb-4 col-md-4">
                             <label for="seats" class="form-label">{{ __('Seats') }}</label><span
                                 class="text-danger">*</span>
                             <input class="form-control @error('seats') is-invalid @enderror" type="number" min="0"

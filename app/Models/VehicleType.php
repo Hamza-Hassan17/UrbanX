@@ -13,6 +13,8 @@ class VehicleType extends Model
         'name',
         'icon',
         'base_fare',
+        'first_km_price',
+        'other_km_price',
         'seats',
         'is_active',
     ];

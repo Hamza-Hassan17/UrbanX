@@ -16,6 +16,8 @@ return new class extends Migration
             $table->string('name');
             $table->string('icon')->nullable();
             $table->decimal('base_fare', 8, 2)->nullable();
+            $table->decimal('first_km_price', 8, 2)->nullable();
+            $table->decimal('other_km_price', 8, 2)->nullable();
             $table->integer('seats')->nullable();
             $table->enum('is_active', ['active', 'inactive'])->default('active');
             $table->timestamps();

@@ -53,6 +53,8 @@ class VehicleTypeController extends Controller
             'name' => 'required|string|max:255',
             'icon' => 'required|string|max:255',
             'base_fare' => 'nullable|numeric|min:0',
+            'first_km_price' => 'nullable|numeric|min:0',
+            'other_km_price' => 'nullable|numeric|min:0',
             'seats' => 'nullable|integer|min:1',
         ]);
 
@@ -66,6 +68,8 @@ class VehicleTypeController extends Controller
             $vehicleType->name = $request->name;
             $vehicleType->icon = 'icons/'.$request->icon;
             $vehicleType->base_fare = $request->base_fare;
+            $vehicleType->first_km_price = $request->first_km_price;
+            $vehicleType->other_km_price = $request->other_km_price;
             $vehicleType->seats = $request->seats;
             $vehicleType->save();
 
@@ -113,6 +117,8 @@ class VehicleTypeController extends Controller
             'name' => 'required|string|max:255',
             'icon' => 'required|string|max:255',
             'base_fare' => 'nullable|numeric|min:0',
+            'first_km_price' => 'nullable|numeric|min:0',
+            'other_km_price' => 'nullable|numeric|min:0',
             'seats' => 'nullable|integer|min:1',
         ]);
 
@@ -126,6 +132,8 @@ class VehicleTypeController extends Controller
             $vehicleType->name = $request->name;
             $vehicleType->icon = 'icons/'.$request->icon;
             $vehicleType->base_fare = $request->base_fare;
+            $vehicleType->first_km_price = $request->first_km_price;
+            $vehicleType->other_km_price = $request->other_km_price;
             $vehicleType->seats = $request->seats;
             $vehicleType->save();
 
