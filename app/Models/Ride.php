@@ -22,6 +22,7 @@ class Ride extends Model
         'duration_minutes',
         'subtotal',
         'discount_amount',
+        'extra_charges',
         'total_fare',
         'status',
         'requested_at',
@@ -36,7 +37,7 @@ class Ride extends Model
     {
         return $this->hasMany(RideOffer::class, 'ride_id');
     }
-    
+
     public function passenger()
     {
         return $this->belongsTo(User::class, 'passenger_id');

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API\Frontend\Customer;
 use App\Http\Controllers\Controller;
 use App\Models\DriverReview;
 use App\Models\PromoCode;
+use App\Models\RideExtraCharge;
 use App\Models\Ride;
 use App\Models\RideOffer;
 use App\Models\VehicleType;
@@ -621,6 +622,45 @@ class RideController extends Controller
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Get Ride History failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function extraChargeRide(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'ride_id' => 'required|exists:rides,id',
+            'charge_type' => 'required|string|max:255',
+            'amount' => 'required|numeric|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $ride = Ride::find($request->ride_id);
+
+            $rideExtraCharge = new RideExtraCharge();
+            $rideExtraCharge->ride_id = $ride->id;
+            $rideExtraCharge->charge_type = $request->charge_type;
+            $rideExtraCharge->amount = $request->amount;
+            $rideExtraCharge->save();
+
+            $ride->extra_charges += $request->amount;
+            $ride->total_fare += $request->amount;
+            $ride->save();
+
+            return response()->json([
+                'message' => 'Extra charge added successfully!',
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Extra Charge failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);

@@ -86,6 +86,7 @@ Route::middleware('auth:sanctum')->group(function () {
         route::post('/apply-promo-code', [RideController::class, 'promoCodeApply']);
         route::post('/get-ride-offers', [RideController::class, 'rideOffers']);
         route::post('/accept-ride-offer', [RideController::class, 'acceptRideOffer']);
+        route::post('/ride-extra-charge', [RideController::class, 'extraChargeRide']);
         route::post('/reject-ride-offer', [RideController::class, 'rejectRideOffer']);
         route::post('/expire-ride-offer', [RideController::class, 'expireRideOffer']);
         route::post('/cancel-ride', [RideController::class, 'cancelRide']);

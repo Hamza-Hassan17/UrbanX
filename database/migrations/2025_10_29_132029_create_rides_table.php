@@ -25,6 +25,7 @@ return new class extends Migration
             $table->integer('duration_minutes')->nullable();
             $table->decimal('subtotal', 8, 2)->default(0);
             $table->decimal('discount_amount', 8, 2)->default(0);
+            $table->decimal('extra_charges', 8, 2)->default(0);
             $table->decimal('total_fare', 8, 2)->default(0);
             $table->enum('status', [
                 'requested',
