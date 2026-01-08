@@ -13,6 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\Response;
 
 class DriverDetailsController extends Controller
@@ -33,11 +34,14 @@ class DriverDetailsController extends Controller
 
             if ($driverVehicle) {
                 $images = [];
+
                 if (!empty($driverVehicle->vehicle_images)) {
                     $decodedImages = json_decode($driverVehicle->vehicle_images, true);
+
                     if (is_array($decodedImages)) {
                         foreach ($decodedImages as $img) {
-                            $images[] = url($img);
+                            // Correct way for storage images
+                            $images[] = Storage::url($img);
                         }
                     }
                 }
@@ -162,8 +166,8 @@ class DriverDetailsController extends Controller
                     'name' => $driverLicense->name,
                     'license_number' => $driverLicense->license_number,
                     'address' => $driverLicense->address,
-                    'front_picture' => url($driverLicense->front_picture),
-                    'back_picture' => url($driverLicense->back_picture),
+                    'front_picture' => Storage::url($driverLicense->front_picture),
+                    'back_picture' => Storage::url($driverLicense->back_picture),
                 ];
             }
 
@@ -353,8 +357,8 @@ class DriverDetailsController extends Controller
                     'name' => $driverCNIC->name,
                     'cnic_number' => $driverCNIC->cnic_number,
                     'issue_date' => $driverCNIC->issue_date,
-                    'front_picture' => url($driverCNIC->front_picture),
-                    'back_picture' => url($driverCNIC->back_picture),
+                    'front_picture' => Storage::url($driverCNIC->front_picture),
+                    'back_picture' => Storage::url($driverCNIC->back_picture),
                 ];
             }
 
