@@ -52,6 +52,11 @@ Route::get('/lang/{lang}', function ($lang) {
     }
 })->name('lang');
 
+Route::get('/storage-link', function () {
+    Artisan::call('storage:link');
+    return 'Storage link created successfully';
+});
+
 Route::get('/current-time', function () {
     return response()->json([
         'time' => Carbon::now()->format('h:iA') // Returns time in 12-hour format with AM/PM
