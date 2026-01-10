@@ -8,12 +8,48 @@ use App\Models\Ride;
 use App\Models\RideOffer;
 use App\Models\VehicleType;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class RideController extends Controller
 {
+    // public function getLatestRides(Request $request)
+    // {
+    //     try {
+    //         $tenMinutesAgo = now()->subMinutes(10);
+
+    //         $driverVehicleType = DriverVehicle::where('driver_id', auth()->id())
+    //             ->value('vehicle_type_id');
+
+    //         if (!$driverVehicleType) {
+    //             return response()->json([
+    //                 'message' => 'Driver vehicle not found.'
+    //             ], Response::HTTP_BAD_REQUEST);
+    //         }
+
+    //         $offeredRideIds = RideOffer::where('driver_id', auth()->id())
+    //             ->pluck('ride_id');
+
+    //         $rides = Ride::where('status', 'requested')
+    //             ->where('requested_at', '>=', $tenMinutesAgo)
+    //             ->where('vehicle_type_id', $driverVehicleType)
+    //             ->whereNotIn('id', $offeredRideIds)
+    //             ->orderBy('requested_at', 'desc')
+    //             ->get();
+
+    //         return response()->json([
+    //             'rides' => $rides,
+    //         ], Response::HTTP_OK);
+    //     } catch (\Throwable $th) {
+    //         Log::error('API Get Rides failed', ['error' => $th->getMessage()]);
+    //         return response()->json([
+    //             'message' => 'Something went wrong!'
+    //         ], Response::HTTP_INTERNAL_SERVER_ERROR);
+    //     }
+    // }
+
     public function getLatestRides(Request $request)
     {
         try {
@@ -31,12 +67,36 @@ class RideController extends Controller
             $offeredRideIds = RideOffer::where('driver_id', auth()->id())
                 ->pluck('ride_id');
 
+            // Fetch rides
             $rides = Ride::where('status', 'requested')
                 ->where('requested_at', '>=', $tenMinutesAgo)
                 ->where('vehicle_type_id', $driverVehicleType)
                 ->whereNotIn('id', $offeredRideIds)
                 ->orderBy('requested_at', 'desc')
                 ->get();
+
+            // Get current busy hour multiplier
+            $now = now()->format('H:i');
+            $busyHour = DB::table('boost_hours')
+                ->where('start', '<=', $now)
+                ->where('end', '>=', $now)
+                ->first();
+
+            $multiplier = $busyHour ? (float) $busyHour->multiplier : 1.0;
+            $isBoost = $multiplier > 1 ? true : false;
+
+            // Append boost info to each ride
+            $rides->transform(function ($ride) use ($multiplier, $isBoost) {
+                $ride->boost_multiplier = $multiplier;
+                $ride->is_boost = $isBoost;
+
+                // Optional: calculate fare with multiplier if total_fare exists
+                if (isset($ride->total_fare)) {
+                    $ride->final_fare = $ride->total_fare * $multiplier;
+                }
+
+                return $ride;
+            });
 
             return response()->json([
                 'rides' => $rides,
@@ -49,6 +109,7 @@ class RideController extends Controller
         }
     }
 
+
     public function getSingleRideDetails($ride_id)
     {
         try {
@@ -60,6 +121,25 @@ class RideController extends Controller
                 return response()->json([
                     'message' => 'Ride not found or no longer available.'
                 ], Response::HTTP_NOT_FOUND);
+            }
+
+            // Get current busy hour multiplier
+            $now = now()->format('H:i');
+            $busyHour = DB::table('boost_hours')
+                ->where('start', '<=', $now)
+                ->where('end', '>=', $now)
+                ->first();
+
+            $multiplier = $busyHour ? (float) $busyHour->multiplier : 1.0;
+            $isBoost = $multiplier > 1 ? true : false;
+
+            // Append boost info to the ride
+            $ride->boost_multiplier = $multiplier;
+            $ride->is_boost = $isBoost;
+
+            // Optional: calculate final fare if total_fare exists
+            if (isset($ride->total_fare)) {
+                $ride->final_fare = $ride->total_fare * $multiplier;
             }
 
             return response()->json([
@@ -111,6 +191,7 @@ class RideController extends Controller
         $validator = Validator::make($request->all(), [
             'ride_id' => 'required|exists:rides,id',
             'proposed_price' => 'required|numeric|min:0',
+            'boost_price' => 'required|numeric|min:0',
             'eta_minutes' => 'required|integer|min:0',
             'note' => 'nullable|string|max:1000',
         ]);

@@ -68,6 +68,14 @@
                 </a>
             </li>
         @endcan
+        @can(['create boost hour'])
+            <li class="menu-item {{ request()->routeIs('dashboard.boost-hours.*') ? 'active' : '' }}">
+                <a href="{{ route('dashboard.boost-hours.index') }}" class="menu-link" style="color: #fff !important;">
+                    <i class="menu-icon tf-icons ti ti-clock"></i>
+                    <div>{{__('Boost Hours')}}</div>
+                </a>
+            </li>
+        @endcan
         @canany(['view chauffeur vehicle', 'view chauffeur booking'])
             <li class="menu-item {{ request()->routeIs('dashboard.chauffeur-vehicles.*') || request()->routeIs('dashboard.chauffeur-bookings.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">

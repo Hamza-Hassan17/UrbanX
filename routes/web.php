@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\GithubController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\Dashboard\BoostPriceController;
 use App\Http\Controllers\Dashboard\ChauffeursBooking;
 use App\Http\Controllers\Dashboard\ChauffeursVehicle;
 use App\Http\Controllers\Dashboard\ComplainController;
@@ -177,6 +178,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             //Complain Routes
             Route::resource('complains', ComplainController::class);
             Route::post('complains/status/{id}', [ComplainController::class, 'updateStatus'])->name('complains.status.update');
+
+            //Boost Hours
+            Route::resource('boost-hours', BoostPriceController::class);
         });
     });
 
