@@ -110,9 +110,12 @@ class BoostPriceController extends Controller
     {
         $this->authorize('update boost hour');
         $validator = Validator::make($request->all(), [
-            'start' => 'required|time',
-            'end' => 'required|time|after:start',
-            'multiplier' => 'required|numeric|min:1',
+            'start' => ['required', 'date_format:H:i'],
+            'end' => ['required', 'date_format:H:i'],
+            'multiplier' => ['required', 'numeric', 'min:1'],
+        ], [
+            'start.date_format' => 'Start time must be in HH:MM format.',
+            'end.date_format' => 'End time must be in HH:MM format.',
         ]);
 
         if ($validator->fails()) {

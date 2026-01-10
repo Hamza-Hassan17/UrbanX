@@ -191,7 +191,6 @@ class RideController extends Controller
         $validator = Validator::make($request->all(), [
             'ride_id' => 'required|exists:rides,id',
             'proposed_price' => 'required|numeric|min:0',
-            'boost_price' => 'required|numeric|min:0',
             'eta_minutes' => 'required|integer|min:0',
             'note' => 'nullable|string|max:1000',
         ]);
