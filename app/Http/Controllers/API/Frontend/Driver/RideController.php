@@ -7,6 +7,7 @@ use App\Models\DriverVehicle;
 use App\Models\Ride;
 use App\Models\RideOffer;
 use App\Models\VehicleType;
+use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -15,40 +16,12 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RideController extends Controller
 {
-    // public function getLatestRides(Request $request)
-    // {
-    //     try {
-    //         $tenMinutesAgo = now()->subMinutes(10);
+    protected $firebase;
 
-    //         $driverVehicleType = DriverVehicle::where('driver_id', auth()->id())
-    //             ->value('vehicle_type_id');
-
-    //         if (!$driverVehicleType) {
-    //             return response()->json([
-    //                 'message' => 'Driver vehicle not found.'
-    //             ], Response::HTTP_BAD_REQUEST);
-    //         }
-
-    //         $offeredRideIds = RideOffer::where('driver_id', auth()->id())
-    //             ->pluck('ride_id');
-
-    //         $rides = Ride::where('status', 'requested')
-    //             ->where('requested_at', '>=', $tenMinutesAgo)
-    //             ->where('vehicle_type_id', $driverVehicleType)
-    //             ->whereNotIn('id', $offeredRideIds)
-    //             ->orderBy('requested_at', 'desc')
-    //             ->get();
-
-    //         return response()->json([
-    //             'rides' => $rides,
-    //         ], Response::HTTP_OK);
-    //     } catch (\Throwable $th) {
-    //         Log::error('API Get Rides failed', ['error' => $th->getMessage()]);
-    //         return response()->json([
-    //             'message' => 'Something went wrong!'
-    //         ], Response::HTTP_INTERNAL_SERVER_ERROR);
-    //     }
-    // }
+    public function __construct(FirebaseService $firebase)
+    {
+        $this->firebase = $firebase->getDatabase();
+    }
 
     public function getLatestRides(Request $request)
     {
@@ -220,6 +193,20 @@ class RideController extends Controller
             $rideOffer->offered_at = now();
             $rideOffer->status = 'pending';
             $rideOffer->save();
+
+            $this->firebase
+            ->getReference(
+                'ride_offers/ride_'.$ride->id.'/offer_'.$rideOffer->id
+            )
+            ->set([
+                'offer_id' => $rideOffer->id,
+                'driver_id' => $rideOffer->driver_id,
+                'proposed_price' => $rideOffer->proposed_price,
+                'eta_minutes' => $rideOffer->eta_minutes,
+                'note' => $rideOffer->note,
+                'status' => 'pending',
+                'offered_at' => now()->toDateTimeString(),
+            ]);
 
             $passenger = $ride->passenger;
             app('notificationService')->notifyUsers(

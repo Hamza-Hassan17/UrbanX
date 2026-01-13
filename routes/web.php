@@ -20,6 +20,7 @@ use App\Http\Controllers\Dashboard\User\UserController;
 use App\Http\Controllers\Dashboard\DriverController;
 use App\Http\Controllers\Dashboard\PromoCodeController;
 use App\Http\Controllers\Dashboard\VehicleTypeController;
+use App\Http\Controllers\FirebaseController;
 use App\Http\Middleware\CheckAccountActivation;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
@@ -190,6 +191,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 Route::name('frontend.')->group(function () {
 
 });
+
+Route::get('/firebase-test', [FirebaseController::class, 'test']);
 
 
 //Artisan Routes

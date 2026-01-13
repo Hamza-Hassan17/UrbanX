@@ -9,49 +9,21 @@ use App\Models\RideExtraCharge;
 use App\Models\Ride;
 use App\Models\RideOffer;
 use App\Models\VehicleType;
+use App\Services\FirebaseService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
 class RideController extends Controller
 {
-    // public function calculateDistanceFare(Request $request)
-    // {
-    //     $validator = Validator::make($request->all(), [
-    //         'vehicle_type_id' => 'nullable|exists:vehicle_types,id',
-    //         'distance_km' => 'required|numeric|min:0',
-    //     ]);
+    protected $firebase;
 
-    //     if ($validator->fails()) {
-    //         return response()->json([
-    //             'message' => 'Validation failed',
-    //             'errors' => $validator->errors()
-    //         ], Response::HTTP_BAD_REQUEST);
-    //     }
-
-    //     try {
-    //         // Fetch vehicle type pricing details
-    //         $vehicleType = VehicleType::find($request->vehicle_type_id);
-    //         if (!$vehicleType) {
-    //             $baseFare = 5.00;
-    //         }else{
-    //             $baseFare = $vehicleType->base_fare;
-    //         }
-
-    //         // Calculate fare components
-    //         $totalFare = $request->distance_km * $baseFare;
-
-    //         return response()->json([
-    //             'total_fare' => $totalFare,
-    //         ], Response::HTTP_OK);
-    //     } catch (\Throwable $th) {
-    //         Log::error('API Calculate Ride Fare failed', ['error' => $th->getMessage()]);
-    //         return response()->json([
-    //             'message' => 'Something went wrong!'
-    //         ], Response::HTTP_INTERNAL_SERVER_ERROR);
-    //     }
-    // }
+    public function __construct(FirebaseService $firebase)
+    {
+        $this->firebase = $firebase->getDatabase();
+    }
 
     public function calculateDistanceFare(Request $request)
     {
@@ -305,6 +277,24 @@ class RideController extends Controller
             $ride->status = 'requested';
             $ride->save();
 
+            $this->firebase->getReference('ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id)
+                ->set([
+                    'ride_id' => $ride->id,
+                    'passenger_id' => $ride->passenger_id,
+                    'vehicle_type_id' => $ride->vehicle_type_id,
+                    'pickup_latitude' => $ride->pickup_latitude,
+                    'pickup_longitude' => $ride->pickup_longitude,
+                    'dropoff_latitude' => $ride->dropoff_latitude,
+                    'dropoff_longitude' => $ride->dropoff_longitude,
+                    'distance_km' => $ride->distance_km,
+                    'duration_minutes' => $ride->duration_minutes,
+                    'subtotal' => $ride->subtotal,
+                    'discount_amount' => $ride->discount_amount,
+                    'total_fare' => $ride->total_fare,
+                    'status' => $ride->status,
+                    'requested_at' => $ride->requested_at->toDateTimeString(),
+                ]);
+
             return response()->json([
                 'ride_id' => $ride->id,
                 'message' => 'Ride requested successfully!',
@@ -354,6 +344,78 @@ class RideController extends Controller
         }
     }
 
+    // public function acceptRideOffer(Request $request)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         'ride_offer_id' => 'required|exists:ride_offers,id',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'message' => 'Validation failed',
+    //             'errors' => $validator->errors()
+    //         ], Response::HTTP_BAD_REQUEST);
+    //     }
+
+    //     try {
+    //         $user = $request->user();
+
+    //         $rideOffer = RideOffer::find($request->ride_offer_id);
+
+    //         if ($rideOffer->status !== 'pending') {
+    //             return response()->json([
+    //                 'message' => 'This ride offer is no longer available.'
+    //             ], Response::HTTP_BAD_REQUEST);
+    //         }
+
+    //         // Update ride offer status to accepted
+    //         $rideOffer->status = 'accepted';
+    //         $rideOffer->accepted_at = now();
+    //         $rideOffer->save();
+
+    //         // Update the associated ride
+    //         $ride = Ride::find($rideOffer->ride_id);
+    //         $ride->driver_id = $rideOffer->driver_id;
+    //         $ride->total_fare = $rideOffer->proposed_price;
+    //         $ride->status = 'accepted';
+    //         $ride->accepted_at = now();
+    //         $ride->save();
+
+    //         $this->firebase
+    //             ->getReference('ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id.'/status')
+    //             ->set('accepted');
+
+    //         $this->firebase
+    //         ->getReference(
+    //             "ride_offers/ride_{$ride->id}/offer_{$rideOffer->id}"
+    //         )
+    //         ->update([
+    //             'status' => 'accepted',
+    //             'ride_id' => $ride->id,
+    //             'driver_id' => $rideOffer->driver_id,
+    //         ]);
+
+    //         $driver = $rideOffer->driver;
+    //         app('notificationService')->notifyUsers(
+    //             [$driver],
+    //             'Ride Offer Accepted',
+    //             'Your ride offer has been accepted by the passenger.',
+    //             'ride_offers',
+    //             $rideOffer->id,
+    //             'ride_offer_details'
+    //         );
+
+    //         return response()->json([
+    //             'message' => 'Ride offer accepted successfully!',
+    //         ], Response::HTTP_OK);
+    //     } catch (\Throwable $th) {
+    //         Log::error('API Accept Ride Offer failed', ['error' => $th->getMessage()]);
+    //         return response()->json([
+    //             'message' => 'Something went wrong!'
+    //         ], Response::HTTP_INTERNAL_SERVER_ERROR);
+    //     }
+    // }
+
     public function acceptRideOffer(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -362,53 +424,88 @@ class RideController extends Controller
 
         if ($validator->fails()) {
             return response()->json([
-                'message' => 'Validation failed',
                 'errors' => $validator->errors()
-            ], Response::HTTP_BAD_REQUEST);
+            ], 400);
         }
 
-        try {
-            $user = $request->user();
+        DB::beginTransaction();
 
-            $rideOffer = RideOffer::find($request->ride_offer_id);
+        try {
+            $rideOffer = RideOffer::lockForUpdate()
+                ->find($request->ride_offer_id);
 
             if ($rideOffer->status !== 'pending') {
                 return response()->json([
-                    'message' => 'This ride offer is no longer available.'
-                ], Response::HTTP_BAD_REQUEST);
+                    'message' => 'Offer already processed'
+                ], 400);
             }
 
-            // Update ride offer status to accepted
-            $rideOffer->status = 'accepted';
-            $rideOffer->accepted_at = now();
-            $rideOffer->save();
+            $ride = Ride::lockForUpdate()
+                ->find($rideOffer->ride_id);
 
-            // Update the associated ride
-            $ride = Ride::find($rideOffer->ride_id);
-            $ride->driver_id = $rideOffer->driver_id;
-            $ride->total_fare = $rideOffer->proposed_price;
-            $ride->status = 'accepted';
-            $ride->accepted_at = now();
-            $ride->save();
+            if ($ride->status !== 'requested') {
+                return response()->json([
+                    'message' => 'Ride already accepted'
+                ], 400);
+            }
 
-            $driver = $rideOffer->driver;
-            app('notificationService')->notifyUsers(
-                [$driver],
-                'Ride Offer Accepted',
-                'Your ride offer has been accepted by the passenger.',
-                'ride_offers',
-                $rideOffer->id,
-                'ride_offer_details'
-            );
+            $rideOffer->update([
+                'status' => 'accepted',
+                'accepted_at' => now(),
+            ]);
+
+            $ride->update([
+                'driver_id' => $rideOffer->driver_id,
+                'total_fare' => $rideOffer->proposed_price,
+                'status' => 'accepted',
+                'accepted_at' => now(),
+            ]);
+
+            $this->firebase
+                ->getReference(
+                    'ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id
+                )
+                ->remove();
+
+            $this->firebase
+                ->getReference(
+                    "ride_offers/ride_{$ride->id}/offer_{$rideOffer->id}"
+                )
+                ->update([
+                    'status' => 'accepted',
+                    'ride_id' => $ride->id,
+                    'driver_id' => $rideOffer->driver_id,
+                ]);
+
+            $offersRef = $this->firebase
+                ->getReference("ride_offers/ride_{$ride->id}")
+                ->getValue();
+
+            if ($offersRef) {
+                foreach ($offersRef as $key => $offer) {
+                    if ($key !== 'offer_'.$rideOffer->id) {
+                        $this->firebase
+                            ->getReference("ride_offers/ride_{$ride->id}/{$key}")
+                            ->remove();
+                    }
+                }
+            }
+
+            DB::commit();
 
             return response()->json([
-                'message' => 'Ride offer accepted successfully!',
-            ], Response::HTTP_OK);
-        } catch (\Throwable $th) {
-            Log::error('API Accept Ride Offer failed', ['error' => $th->getMessage()]);
+                'message' => 'Ride offer accepted successfully'
+            ]);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            Log::error('Accept Ride Offer Failed', [
+                'error' => $e->getMessage()
+            ]);
+
             return response()->json([
-                'message' => 'Something went wrong!'
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+                'message' => 'Something went wrong'
+            ], 500);
         }
     }
 
@@ -439,6 +536,9 @@ class RideController extends Controller
             // Update ride offer status to cancelled
             $rideOffer->status = 'rejected';
             $rideOffer->save();
+
+            $this->firebase->getReference('ride_offers/ride_offer_'.$rideOffer->id.'/status')
+                ->set('rejected');
 
             $driver = $rideOffer->driver;
             app('notificationService')->notifyUsers(
@@ -546,6 +646,9 @@ class RideController extends Controller
             $ride->cancelled_at = now();
             $ride->cancel_reason = $request->cancel_reason;
             $ride->save();
+
+            $this->firebase->getReference('ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id.'/status')
+                ->set('cancelled');
 
             // Notify the driver if assigned
             if ($ride->driver_id) {
