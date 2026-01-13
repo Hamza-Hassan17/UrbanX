@@ -195,18 +195,25 @@ class RideController extends Controller
             $rideOffer->save();
 
             $this->firebase
-            ->getReference(
-                'ride_offers/ride_'.$ride->id.'/offer_'.$rideOffer->id
-            )
-            ->set([
-                'offer_id' => $rideOffer->id,
-                'driver_id' => $rideOffer->driver_id,
-                'proposed_price' => $rideOffer->proposed_price,
-                'eta_minutes' => $rideOffer->eta_minutes,
-                'note' => $rideOffer->note,
-                'status' => 'pending',
-                'offered_at' => now()->toDateTimeString(),
-            ]);
+                ->getReference(
+                    'ride_offers/ride_' . $ride->id . '/offer_' . $rideOffer->id
+                )
+                ->set([
+                    'offer_id' => $rideOffer->id,
+                    'ride_id' => $ride->id,
+                    'driver_id' => $rideOffer->driver_id,
+                    'driver_name' => $rideOffer->driver->name,
+                    'driver_email' => $rideOffer->driver->email,
+                    'driver_phone' => $rideOffer->driver->phone,
+                    'driver_rating' => round($rideOffer->driver->driverReviews()->avg('rating'), 1),
+                    'vehicle_type' => $rideOffer->driver->vehicle->type ?? null,
+                    'proposed_price' => $rideOffer->proposed_price,
+                    'eta_minutes' => $rideOffer->eta_minutes,
+                    'note' => $rideOffer->note,
+                    'status' => 'pending',
+                    'offered_at' => now()->toDateTimeString(),
+                ]);
+
 
             $passenger = $ride->passenger;
             app('notificationService')->notifyUsers(
@@ -263,13 +270,13 @@ class RideController extends Controller
 
             $ride->save();
             $passenger = $ride->passenger;
-            if($request->status === 'en_route'){
+            if ($request->status === 'en_route') {
                 $title = 'Driver En Route';
                 $message = "Your driver is en route to the pickup location.";
-            } elseif($request->status === 'arrived'){
+            } elseif ($request->status === 'arrived') {
                 $title = 'Driver Arrived';
                 $message = "Your driver has arrived at the pickup location.";
-            } elseif($request->status === 'started'){
+            } elseif ($request->status === 'started') {
                 $title = 'Ride Started';
                 $message = "Your ride has started.";
             } else {
