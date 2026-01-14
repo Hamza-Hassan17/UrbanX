@@ -25,6 +25,56 @@ class RideController extends Controller
         $this->firebase = $firebase->getDatabase();
     }
 
+    // public function calculateDistanceFare(Request $request)
+    // {
+    //     $validator = Validator::make($request->all(), [
+    //         'vehicle_type_id' => 'nullable|exists:vehicle_types,id',
+    //         'distance_km' => 'required|numeric|min:1',
+    //     ]);
+
+    //     if ($validator->fails()) {
+    //         return response()->json([
+    //             'message' => 'Validation failed',
+    //             'errors' => $validator->errors()
+    //         ], Response::HTTP_BAD_REQUEST);
+    //     }
+
+    //     try {
+    //         $distance = $request->distance_km;
+
+    //         // Default prices if vehicle type not found
+    //         $firstKmPrice = 150.00;
+    //         $otherKmPrice = 45.00;
+
+    //         if ($request->vehicle_type_id) {
+    //             $vehicleType = VehicleType::find($request->vehicle_type_id);
+
+    //             if ($vehicleType) {
+    //                 $firstKmPrice = $vehicleType->first_km_price ?? $firstKmPrice;
+    //                 $otherKmPrice = $vehicleType->other_km_price ?? $otherKmPrice;
+    //             }
+    //         }
+
+    //         // Fare calculation
+    //         $totalFare = $firstKmPrice;
+
+    //         if ($distance > 1) {
+    //             $totalFare += ($distance - 1) * $otherKmPrice;
+    //         }
+
+    //         return response()->json([
+    //             'total_fare' => round($totalFare, 2),
+    //         ], Response::HTTP_OK);
+
+    //     } catch (\Throwable $th) {
+    //         Log::error('API Calculate Ride Fare failed', ['error' => $th->getMessage()]);
+
+    //         return response()->json([
+    //             'message' => 'Something went wrong!'
+    //         ], Response::HTTP_INTERNAL_SERVER_ERROR);
+    //     }
+    // }
+
     public function calculateDistanceFare(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -42,7 +92,17 @@ class RideController extends Controller
         try {
             $distance = $request->distance_km;
 
-            // Default prices if vehicle type not found
+            /* 🔥 Get current boost hour */
+            $now = now()->format('H:i');
+            $busyHour = DB::table('boost_hours')
+                ->where('start', '<=', $now)
+                ->where('end', '>=', $now)
+                ->first();
+
+            $multiplier = $busyHour ? (float) $busyHour->multiplier : 1.0;
+            $isBoost = $multiplier > 1;
+
+            // Default prices
             $firstKmPrice = 150.00;
             $otherKmPrice = 45.00;
 
@@ -62,8 +122,13 @@ class RideController extends Controller
                 $totalFare += ($distance - 1) * $otherKmPrice;
             }
 
+            $boostedFare = $totalFare * $multiplier;
+
             return response()->json([
-                'total_fare' => round($totalFare, 2),
+                'total_fare'       => round($totalFare, 2),
+                'is_boost'         => $isBoost,
+                'boost_multiplier' => $multiplier,
+                'boosted_fare'     => round($boostedFare, 2),
             ], Response::HTTP_OK);
 
         } catch (\Throwable $th) {
@@ -74,6 +139,7 @@ class RideController extends Controller
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
+
 
 
     public function promoCodeApply(Request $request)
@@ -152,7 +218,7 @@ class RideController extends Controller
     // public function getVehicleTypes(Request $request)
     // {
     //     $validator = Validator::make($request->all(), [
-    //         'distance_km' => 'required|numeric|min:0',
+    //         'distance_km' => 'required|numeric|min:1',
     //     ]);
 
     //     if ($validator->fails()) {
@@ -161,22 +227,38 @@ class RideController extends Controller
     //             'errors' => $validator->errors()
     //         ], Response::HTTP_BAD_REQUEST);
     //     }
+
     //     try {
+    //         $distance = $request->distance_km;
+
     //         $vehicleTypes = VehicleType::where('is_active', 'active')->get();
 
-    //         $data = $vehicleTypes->map(function ($v) use ($request) {
+    //         $data = $vehicleTypes->map(function ($v) use ($distance) {
+
+    //             // First km price
+    //             $fare = $v->first_km_price ?? 0;
+
+    //             // Remaining km calculation
+    //             if ($distance > 1) {
+    //                 $remainingKm = $distance - 1;
+    //                 $fare += $remainingKm * ($v->other_km_price ?? 0);
+    //             }
+
     //             return [
     //                 'id'   => $v->id,
     //                 'name' => $v->name,
-    //                 'icon' => ( $v->icon ) ? url($v->icon) : null,
-    //                 'fare' => $request->distance_km * $v->base_fare,
+    //                 'icon' => $v->icon ? url($v->icon) : null,
+    //                 'fare' => round($fare, 2),
     //             ];
     //         });
+
     //         return response()->json([
     //             'vehicle_types' => $data,
     //         ], Response::HTTP_OK);
+
     //     } catch (\Throwable $th) {
     //         Log::error('API Get Vehicle Types failed', ['error' => $th->getMessage()]);
+
     //         return response()->json([
     //             'message' => 'Something went wrong!'
     //         ], Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -199,24 +281,38 @@ class RideController extends Controller
         try {
             $distance = $request->distance_km;
 
+            /* 🔥 Get current boost hour */
+            $now = now()->format('H:i');
+            $busyHour = DB::table('boost_hours')
+                ->where('start', '<=', $now)
+                ->where('end', '>=', $now)
+                ->first();
+
+            $multiplier = $busyHour ? (float) $busyHour->multiplier : 1.0;
+            $isBoost = $multiplier > 1;
+
             $vehicleTypes = VehicleType::where('is_active', 'active')->get();
 
-            $data = $vehicleTypes->map(function ($v) use ($distance) {
+            $data = $vehicleTypes->map(function ($v) use ($distance, $multiplier, $isBoost) {
 
-                // First km price
+                // Base fare
                 $fare = $v->first_km_price ?? 0;
 
-                // Remaining km calculation
                 if ($distance > 1) {
                     $remainingKm = $distance - 1;
                     $fare += $remainingKm * ($v->other_km_price ?? 0);
                 }
 
+                $boostedFare = $fare * $multiplier;
+
                 return [
-                    'id'   => $v->id,
-                    'name' => $v->name,
-                    'icon' => $v->icon ? url($v->icon) : null,
-                    'fare' => round($fare, 2),
+                    'id'               => $v->id,
+                    'name'             => $v->name,
+                    'icon'             => $v->icon ? url($v->icon) : null,
+                    'fare'             => round($fare, 2),
+                    'is_boost'         => $isBoost,
+                    'boost_multiplier' => $multiplier,
+                    'boosted_fare'     => round($boostedFare, 2),
                 ];
             });
 
@@ -232,6 +328,7 @@ class RideController extends Controller
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
+
 
 
     public function requestRide(Request $request)
