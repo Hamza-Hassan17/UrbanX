@@ -9,6 +9,13 @@ class Ride extends Model
 {
     use HasFactory;
 
+    protected $casts = [
+        'started_at'   => 'datetime',
+        'completed_at' => 'datetime',
+        'requested_at' => 'datetime',
+    ];
+
+
     protected $fillable = [
         'passenger_id',
         'driver_id',

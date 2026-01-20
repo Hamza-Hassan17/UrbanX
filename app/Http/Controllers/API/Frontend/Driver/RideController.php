@@ -297,8 +297,8 @@ class RideController extends Controller
                 ->getReference('ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id)
                 ->update([
                     'status' => $ride->status,
-                    'started_at' => $ride->started_at ? $ride->started_at->toDateTimeString() : null,
-                    'completed_at' => $ride->completed_at ? $ride->completed_at->toDateTimeString() : null,
+                    'started_at' => $ride->started_at ? \Carbon\Carbon::parse($ride->started_at)->toDateTimeString() : null,
+                    'completed_at' => $ride->completed_at ? \Carbon\Carbon::parse($ride->completed_at)->toDateTimeString() : null,
                     'updated_at' => now()->toDateTimeString(),
                 ]);
 
