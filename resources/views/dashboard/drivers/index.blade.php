@@ -22,7 +22,8 @@
                             <th>{{ __('Email') }}</th>
                             <th>{{ __('Phone Number') }}</th>
                             <th>{{ __('Created Date') }}</th>
-                            @canany(['delete driver', 'view driver'])<th>{{ __('Action') }}</th>@endcan
+                            <th>{{ __('Status') }}</th>
+                            @canany(['delete driver', 'view driver', 'update driver'])<th>{{ __('Action') }}</th>@endcan
                         </tr>
                     </thead>
                     <tbody>
@@ -33,7 +34,11 @@
                                 <td>{{ $driver->email }}</td>
                                 <td>{{ $driver->profile->phone_number }}</td>
                                 <td>{{ $driver->created_at->format('M d, Y') }}</td>
-                                @canany(['delete driver', 'view driver'])
+                                <td>
+                                    <span
+                                        class="badge me-4 bg-label-{{ $driver->is_active == 'active' ? 'success' : 'danger' }}">{{ ucfirst($driver->is_active) }}</span>
+                                </td>
+                                @canany(['delete driver', 'view driver', 'update driver'])
                                     <td class="d-flex">
                                         @canany(['delete driver'])
                                             <form action="{{ route('dashboard.user.destroy', $driver->id) }}" method="POST">
@@ -53,6 +58,20 @@
                                                     data-bs-toggle="tooltip" data-bs-placement="top"
                                                     title="{{ __('View Driver Details') }}">
                                                     <i class="ti ti-eye ti-md"></i>
+                                                </a>
+                                            </span>
+                                        @endcan
+                                        @can(['update driver'])
+                                            <span class="text-nowrap">
+                                                <a href="{{ route('dashboard.user.status.update', $driver->id) }}"
+                                                    class="btn btn-icon btn-text-primary waves-effect waves-light rounded-pill me-1"
+                                                    data-bs-toggle="tooltip" data-bs-placement="top"
+                                                    title="{{ $driver->is_active == 'active' ? __('Deactivate User') : __('Activate User') }}">
+                                                    @if ($driver->is_active == 'active')
+                                                        <i class="ti ti-toggle-right ti-md text-success"></i>
+                                                    @else
+                                                        <i class="ti ti-toggle-left ti-md text-danger"></i>
+                                                    @endif
                                                 </a>
                                             </span>
                                         @endcan
