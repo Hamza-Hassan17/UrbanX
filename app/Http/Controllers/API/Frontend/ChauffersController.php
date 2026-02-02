@@ -167,17 +167,26 @@ class ChauffersController extends Controller
             // --------- PRICE CALCULATION ---------
             if ($totalHours < 24) {
                 // Rent by Hours
+                Log::info('Total Hours: ' . $totalHours);
                 $price = $vehicle->price_per_hour * $totalHours;
+                Log::info('Hourly Price: ' . $vehicle->price_per_hour);
             } elseif ($totalDays < 7) {
                 // Rent by Days
+                Log::info('Total Days: ' . $totalDays);
                 $price = $vehicle->price_per_day * $totalDays;
+                Log::info('Daily Price: ' . $vehicle->price_per_day);
             } elseif ($totalDays >= 7 && $totalDays < 30) {
                 // Rent by Weeks
+                Log::info('Total Weeks: ' . $totalWeeks);
                 $price = $vehicle->price_per_week * $totalWeeks;
+                Log::info('Weekly Price: ' . $vehicle->price_per_week);
             } else {
                 // Rent by Months
+                Log::info('Total Months: ' . $totalMonths);
                 $price = $vehicle->price_per_month * $totalMonths;
+                Log::info('Monthly Price: ' . $vehicle->price_per_month);
             }
+            Log::info('Calculated Price: ' . $price);
 
             $booking = new Booking();
             $booking->user_id = $user->id;
