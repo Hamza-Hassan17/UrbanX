@@ -22,10 +22,10 @@
 
         .dashboard-container {
             /* display: grid;
-                grid-template-columns: 380px 1fr;
-                grid-template-rows: 80px 1fr;
-                min-height: 100vh;
-                gap: 0; */
+                    grid-template-columns: 380px 1fr;
+                    grid-template-rows: 80px 1fr;
+                    min-height: 100vh;
+                    gap: 0; */
             display: flex;
             flex-direction: column
         }
@@ -697,27 +697,6 @@
                 opacity: 1;
             }
         }
-
-        #fare-container {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 1.2em;
-}
-
-#final-fare {
-    font-weight: bold;
-    position: relative;
-}
-
-#boost-multiplier {
-    font-size: 0.7em;
-    color: #2563eb;
-    position: absolute;
-    top: -8px;
-    right: -5px;
-}
-
     </style>
 @endsection
 
@@ -744,11 +723,13 @@
                         <h3>{{ $driver->name ?? 'Not Assigned' }}</h3>
                         <div class="driver-meta">
                             <span><i class="fas fa-id-badge"></i> ID: {{ $driver->id }}</span>
-                            <span><i class="fas fa-car"></i> {{ $driver->driverVehicle ? $driver->driverVehicle->vehicle_name.' '.$driver->driverVehicle->vehicle_make : 'N/A' }}</span>
+                            <span><i class="fas fa-car"></i>
+                                {{ $driver->driverVehicle ? $driver->driverVehicle->vehicle_name . ' ' . $driver->driverVehicle->vehicle_make : 'N/A' }}</span>
                             <span><i class="fas fa-star"></i> Rating: 4.8/5.0</span>
                         </div>
 
-                        <input type="text" hidden value="{{ $driver->driverVehicle->vehicle_type_id }}" name="vehicle_type_id" id="vehicle_type_id">
+                        <input type="text" hidden value="{{ $driver->driverVehicle->vehicle_type_id }}"
+                            name="vehicle_type_id" id="vehicle_type_id">
                     </div>
                 </div>
                 <div class="driver-actions">
@@ -801,10 +782,12 @@
                     </div>
                     <div class="stat-item">
                         <div class="stat-value" id="fare-container">
-                            <span id="original-fare" style="text-decoration: line-through; color: gray; display: none; margin-right: 5px;"></span>
+                            <span id="original-fare"
+                                style="text-decoration: line-through; color: gray; display: none; margin-right: 5px;"></span>
                             <span id="final-fare" style="position: relative; font-weight: bold; color: #ef4444;">
                                 Rs 0
-                                <sup id="boost-multiplier" style="font-size: 0.6em; color: #2563eb; display: none; position: absolute; top: -10px; right: -5px;">x1.0</sup>
+                                <sup id="boost-multiplier"
+                                    style="font-size: 0.6em; color: #2563eb; display: none; position: absolute; top: -10px; right: -5px;">x1.0</sup>
                             </span>
                         </div>
                         <div class="stat-label">Est. Fare</div>
@@ -853,7 +836,8 @@
                                     $activeStatuses = ['requested', 'accepted', 'en_route', 'arrived', 'started'];
                                 @endphp
 
-                                <span class="trip-status
+                                <span
+                                    class="trip-status
                                     {{ in_array($ride->status, $activeStatuses) ? 'status-active' : 'status-pending' }}">
                                     {{ ucwords(str_replace('_', ' ', $ride->status)) }}
                                 </span>
@@ -1328,8 +1312,7 @@
                 const marker = L.marker(
                         [parseFloat(driver.lat), parseFloat(driver.lng)], {
                             icon: driver.status === 'available' ?
-                                taxiIcon :
-                                taxiIconBusy
+                                taxiIcon : taxiIconBusy
                         }
                     )
                     .bindPopup(`
@@ -1500,7 +1483,7 @@
                 // Simple Euclidean distance (approximate)
                 const dx = pickupLat - driver.lat;
                 const dy = pickupLng - driver.lng;
-                const distance = Math.sqrt(dx*dx + dy*dy);
+                const distance = Math.sqrt(dx * dx + dy * dy);
 
                 if (distance < minDistance) {
                     minDistance = distance;
@@ -1605,94 +1588,50 @@
                 })
             }).addTo(map);
 
-            // Listen for route found event
-            // routingControl.on('routesfound', function(e) {
-            //     const routes = e.routes;
-            //     if (routes && routes.length > 0) {
-            //         const route = routes[0];
-            //         const distance = (route.summary.totalDistance / 1000).toFixed(1);
-            //         const time = Math.round(route.summary.totalTime / 60);
-            //         const fare = Math.round(100 + distance * 25);
-
-            //         // Get selected driver
-            //         const driverName = document.querySelector('.driver-info h3').textContent;
-            //         const vehicleTypeId = document.querySelector('#vehicle_type_id')?.value || null;
-
-            //         // Call API
-            //         const fareData = await fetchFare(vehicleTypeId, distance);
-
-            //         if (fareData) {
-            //             document.getElementById('distance').textContent = `${distance} km`;
-            //             document.getElementById('time').textContent = `${time} min`;
-            //             document.getElementById('fare').textContent = `Rs ${fareData.boosted_fare}`;
-
-            //             // Show boost multiplier if applicable
-            //             if (fareData.is_boost) {
-            //                 document.getElementById('boost-multiplier').textContent = `x${fareData.boost_multiplier}`;
-            //                 document.getElementById('boost-container').style.display = 'block';
-            //             } else {
-            //                 document.getElementById('boost-container').style.display = 'none';
-            //             }
-            //         }
-
-            //         // // Update UI
-            //         // document.getElementById('distance').textContent = `${distance} km`;
-            //         // document.getElementById('time').textContent = `${time} min`;
-            //         // document.getElementById('fare').textContent = `Rs ${fare}`;
-
-            //         // Fit map to show route
-            //         const bounds = L.latLngBounds([
-            //             [pickupCoordinates[0], pickupCoordinates[1]],
-            //             [destinationCoordinates[0], destinationCoordinates[1]]
-            //         ]);
-            //         map.fitBounds(bounds.pad(0.1));
-            //     }
-            // });
-
             routingControl.on('routesfound', async function(e) {
-    const routes = e.routes;
-    if (routes && routes.length > 0) {
-        const route = routes[0];
-        const distance = (route.summary.totalDistance / 1000).toFixed(1);
-        const time = Math.round(route.summary.totalTime / 60);
+                const routes = e.routes;
+                if (routes && routes.length > 0) {
+                    const route = routes[0];
+                    const distance = (route.summary.totalDistance / 1000).toFixed(1);
+                    const time = Math.round(route.summary.totalTime / 60);
 
-        const vehicleTypeId = document.querySelector('#vehicle_type_id')?.value || null;
+                    const vehicleTypeId = document.querySelector('#vehicle_type_id')?.value || null;
 
-        // Call fare API
-        const fareData = await fetchFare(vehicleTypeId, distance);
+                    // Call fare API
+                    const fareData = await fetchFare(vehicleTypeId, distance);
 
-        if (fareData) {
-            document.getElementById('distance').textContent = `${distance} km`;
-            document.getElementById('time').textContent = `${time} min`;
+                    if (fareData) {
+                        document.getElementById('distance').textContent = `${distance} km`;
+                        document.getElementById('time').textContent = `${time} min`;
 
-            const originalFareEl = document.getElementById('original-fare');
-            const finalFareEl = document.getElementById('final-fare');
-            const boostEl = document.getElementById('boost-multiplier');
+                        const originalFareEl = document.getElementById('original-fare');
+                        const finalFareEl = document.getElementById('final-fare');
+                        const boostEl = document.getElementById('boost-multiplier');
 
-            if (fareData.is_boost) {
-                originalFareEl.style.display = 'inline';
-                originalFareEl.textContent = `Rs ${fareData.total_fare}`;
+                        if (fareData.is_boost) {
+                            originalFareEl.style.display = 'inline';
+                            originalFareEl.textContent = `Rs ${fareData.total_fare}`;
 
-                finalFareEl.textContent = `Rs ${fareData.boosted_fare}`;
-                finalFareEl.style.color = '#ef4444';
+                            finalFareEl.textContent = `Rs ${fareData.boosted_fare}`;
+                            finalFareEl.style.color = '#ef4444';
 
-                boostEl.style.display = 'inline';
-                boostEl.textContent = `x${fareData.boost_multiplier}`;
-            } else {
-                originalFareEl.style.display = 'none';
-                finalFareEl.textContent = `Rs ${fareData.total_fare}`;
-                finalFareEl.style.color = '';
-                boostEl.style.display = 'none';
-            }
-        }
+                            boostEl.style.display = 'block';
+                            boostEl.textContent = `x${fareData.boost_multiplier}`;
+                        } else {
+                            originalFareEl.style.display = 'none';
+                            finalFareEl.textContent = `Rs ${fareData.total_fare}`;
+                            finalFareEl.style.color = '';
+                            boostEl.style.display = 'none';
+                        }
+                    }
 
-        const bounds = L.latLngBounds([
-            [pickupCoordinates[0], pickupCoordinates[1]],
-            [destinationCoordinates[0], destinationCoordinates[1]]
-        ]);
-        map.fitBounds(bounds.pad(0.1));
-    }
-});
+                    const bounds = L.latLngBounds([
+                        [pickupCoordinates[0], pickupCoordinates[1]],
+                        [destinationCoordinates[0], destinationCoordinates[1]]
+                    ]);
+                    map.fitBounds(bounds.pad(0.1));
+                }
+            });
 
 
 
@@ -1705,13 +1644,16 @@
         function updateDriverCard(driver) {
             if (!driver) return;
 
-            const initials = driver.name ? driver.name.substring(0,2).toUpperCase() : 'NA';
+            const initials = driver.name ? driver.name.substring(0, 2).toUpperCase() : 'NA';
             const driverCard = document.querySelector('.driver-card');
 
-            driverCard.querySelector('.driver-avatar').innerHTML = `${initials}<div class="driver-status status-online"></div>`;
+            driverCard.querySelector('.driver-avatar').innerHTML =
+                `${initials}<div class="driver-status status-online"></div>`;
             driverCard.querySelector('.driver-info h3').textContent = driver.name;
-            driverCard.querySelector('.driver-info .driver-meta span:nth-child(1)').innerHTML = `<i class="fas fa-id-badge"></i> ID: ${driver.id}`;
-            driverCard.querySelector('.driver-info .driver-meta span:nth-child(2)').innerHTML = `<i class="fas fa-car"></i> ${driver.vehicle}`;
+            driverCard.querySelector('.driver-info .driver-meta span:nth-child(1)').innerHTML =
+                `<i class="fas fa-id-badge"></i> ID: ${driver.id}`;
+            driverCard.querySelector('.driver-info .driver-meta span:nth-child(2)').innerHTML =
+                `<i class="fas fa-car"></i> ${driver.vehicle}`;
             driverCard.querySelector('#vehicle_type_id').value = driver.vehicle_type_id;
         }
 
@@ -1833,61 +1775,6 @@
             }
         };
 
-        // Add new trip to the list
-        // function addNewTrip(driverName, pickup, destination) {
-        //     const tripList = document.querySelector('.trip-list');
-        //     const tripCount = document.querySelector('.trip-count');
-
-        //     // Create new trip card
-        //     const newTrip = document.createElement('div');
-        //     newTrip.className = 'trip-card';
-        //     newTrip.innerHTML = `
-        //         <div class="trip-card-header">
-        //             <span class="trip-id">TRIP-4893</span>
-        //             <span class="trip-status status-active">Active</span>
-        //         </div>
-        //         <div class="trip-route">
-        //             <div class="route-point">
-        //                 <div class="point-icon pickup-icon">
-        //                     <i class="fas fa-location-dot"></i>
-        //                 </div>
-        //                 <div class="point-details">
-        //                     <h4>Pickup: ${pickup.split(',')[0]}</h4>
-        //                     <p>Just now • ${pickup.substring(0, 50)}...</p>
-        //                 </div>
-        //             </div>
-        //             <div class="route-point">
-        //                 <div class="point-icon dropoff-icon">
-        //                     <i class="fas fa-flag-checkered"></i>
-        //                 </div>
-        //                 <div class="point-details">
-        //                     <h4>Dropoff: ${destination.split(',')[0]}</h4>
-        //                     <p>${destination.substring(0, 50)}...</p>
-        //                 </div>
-        //             </div>
-        //         </div>
-        //         <div class="trip-footer">
-        //             <div class="trip-driver">
-        //                 <div class="driver-small">${driverName.split(' ').map(n => n[0]).join('')}</div>
-        //                 <div>
-        //                     <div class="driver-name">${driverName}</div>
-        //                     <div style="font-size: 12px; color: var(--gray);">ETA: ${document.getElementById('time').textContent}</div>
-        //                 </div>
-        //             </div>
-        //             <div class="trip-fare">${document.getElementById('fare').textContent}</div>
-        //         </div>
-        //     `;
-
-        //     // Insert at the beginning
-        //     tripList.insertBefore(newTrip, tripList.firstChild);
-
-        //     // Update trip count
-        //     const currentCount = parseInt(tripCount.textContent);
-        //     tripCount.textContent = `${currentCount + 1} Trips`;
-
-        //     showNotification('Trip assigned successfully!', 'success');
-        // }
-
         function reverseGeocode(lat, lng, elementId) {
             if (!lat || !lng) {
                 document.getElementById(elementId).innerText = 'Location unavailable';
@@ -1910,7 +1797,7 @@
         }
     </script>
 
-    @foreach($rides as $ride)
+    @foreach ($rides as $ride)
         <script>
             reverseGeocode({{ $ride->pickup_latitude }}, {{ $ride->pickup_longitude }}, 'pickup-{{ $ride->id }}');
             reverseGeocode({{ $ride->dropoff_latitude }}, {{ $ride->dropoff_longitude }}, 'dropoff-{{ $ride->id }}');
