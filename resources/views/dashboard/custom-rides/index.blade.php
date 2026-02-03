@@ -716,14 +716,14 @@
                 </div>
                 <div class="driver-header">
                     <div class="driver-avatar">
-                        AA
+                        {{ strtoupper(substr($driver->name ?? 'NA', 0, 2)) }}
                         <div class="driver-status status-online"></div>
                     </div>
                     <div class="driver-info">
-                        <h3>Ali Ahmed</h3>
+                        <h3>{{ $driver->name ?? 'Not Assigned' }}</h3>
                         <div class="driver-meta">
-                            <span><i class="fas fa-id-badge"></i> ID: DRV-7824</span>
-                            <span><i class="fas fa-car"></i> Toyota Corolla</span>
+                            <span><i class="fas fa-id-badge"></i> ID: {{ $driver->id }}</span>
+                            <span><i class="fas fa-car"></i> {{ $driver->driverVehicle ? $driver->driverVehicle->vehicle_name.' '.$driver->driverVehicle->vehicle_make : 'N/A' }}</span>
                             <span><i class="fas fa-star"></i> Rating: 4.8/5.0</span>
                         </div>
                     </div>
@@ -857,7 +857,7 @@
                             <div class="trip-footer">
                                 <div class="trip-driver">
                                     <div class="driver-small">
-                                        {{ strtoupper(substr($ride->driver->name ?? 'N/A', 0, 2)) }}
+                                        {{ strtoupper(substr($ride->driver->name ?? 'NA', 0, 2)) }}
                                     </div>
                                     <div>
                                         <div class="driver-name">
@@ -1431,7 +1431,57 @@
             }, 500); // 500ms debounce
         }
 
+        function getNearestDriver(pickupLat, pickupLng) {
+            if (!pickupLat || !pickupLng || !drivers || drivers.length === 0) return null;
+
+            let nearestDriver = null;
+            let minDistance = Infinity;
+
+            drivers.forEach(driver => {
+                if (driver.status !== 'available') return; // only available drivers
+                if (!driver.lat || !driver.lng) return;
+
+                // Simple Euclidean distance (approximate)
+                const dx = pickupLat - driver.lat;
+                const dy = pickupLng - driver.lng;
+                const distance = Math.sqrt(dx*dx + dy*dy);
+
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestDriver = driver;
+                }
+            });
+
+            return nearestDriver;
+        }
+
         // Update pickup location on map
+        // function updatePickupLocation(lat, lng, address) {
+        //     pickupCoordinates = [lat, lng];
+
+        //     // Remove existing pickup marker
+        //     if (pickupMarker) {
+        //         map.removeLayer(pickupMarker);
+        //     }
+
+        //     // Add new pickup marker
+        //     pickupMarker = L.marker([lat, lng], {
+        //         icon: L.divIcon({
+        //             className: 'custom-div-icon',
+        //             html: '<div style="background-color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 3px solid #2563eb; box-shadow: 0 2px 5px rgba(0,0,0,0.2);"><i class="fas fa-location-dot" style="color: #2563eb; font-size: 18px;"></i></div>',
+        //             iconSize: [40, 40],
+        //             iconAnchor: [20, 20]
+        //         })
+        //     }).bindPopup(`<b>Pickup Location</b><br>${address}`).addTo(map);
+
+        //     // Update route if destination exists
+        //     if (destinationCoordinates) {
+        //         updateRoute();
+        //     }
+
+        //     showNotification('Pickup location set', 'success');
+        // }
+
         function updatePickupLocation(lat, lng, address) {
             pickupCoordinates = [lat, lng];
 
@@ -1456,6 +1506,13 @@
             }
 
             showNotification('Pickup location set', 'success');
+
+            // --- AUTO-SELECT NEAREST DRIVER ---
+            const nearestDriver = getNearestDriver(lat, lng);
+            if (nearestDriver) {
+                updateDriverCard(nearestDriver);
+                showNotification(`Nearest driver selected: ${nearestDriver.name}`, 'info');
+            }
         }
 
         // Update destination location on map
@@ -1548,6 +1605,19 @@
             });
         }
 
+        function updateDriverCard(driver) {
+            if (!driver) return;
+
+            const initials = driver.name ? driver.name.substring(0,2).toUpperCase() : 'NA';
+            const driverCard = document.querySelector('.driver-card');
+
+            driverCard.querySelector('.driver-avatar').innerHTML = `${initials}<div class="driver-status status-online"></div>`;
+            driverCard.querySelector('.driver-info h3').textContent = driver.name;
+            driverCard.querySelector('.driver-info .driver-meta span:nth-child(1)').innerHTML = `<i class="fas fa-id-badge"></i> ID: ${driver.id}`;
+            driverCard.querySelector('.driver-info .driver-meta span:nth-child(2)').innerHTML = `<i class="fas fa-car"></i> ${driver.vehicle}`;
+        }
+
+
         // Calculate fallback distance if routing fails
         function calculateFallbackDistance() {
             if (!pickupCoordinates || !destinationCoordinates) return;
@@ -1605,27 +1675,6 @@
                     destDropdown.style.display = 'none';
                 }
             });
-
-            // // Map filter controls
-            // document.getElementById('show-all').addEventListener('click', function() {
-            //     setActiveButton(this);
-            //     // In a real app, you would filter markers here
-            // });
-
-            // document.getElementById('show-available').addEventListener('click', function() {
-            //     setActiveButton(this);
-            //     // In a real app, you would filter markers here
-            // });
-
-            // document.getElementById('show-busy').addEventListener('click', function() {
-            //     setActiveButton(this);
-            //     // In a real app, you would filter markers here
-            // });
-
-            // function setActiveButton(button) {
-            //     document.querySelectorAll('.map-btn').forEach(btn => btn.classList.remove('active'));
-            //     button.classList.add('active');
-            // }
 
             // Assign trip button
             document.getElementById('assign-trip').addEventListener('click', function() {

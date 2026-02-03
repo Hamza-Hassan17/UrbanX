@@ -33,13 +33,20 @@ class CustomRideController extends Controller
                 ];
             });
 
+            $driver = User::role('driver')
+                ->where('driver_status', 'available') // only available drivers
+                ->whereHas('driverVehicle')          // must have a vehicle
+                ->inRandomOrder()                    // randomize
+                ->with('driverVehicle')              // eager load vehicle info
+                ->first();
+
             $rides = Ride::with(['driver'])
                 ->latest()
                 ->take(4)
                 ->get();
 
             $activeRidesCount = Ride::whereIn('status', ['requested', 'accepted', 'en_route', 'arrived', 'started'])->count();
-            return view('dashboard.custom-rides.index', compact('drivers', 'rides', 'activeRidesCount'));
+            return view('dashboard.custom-rides.index', compact('drivers', 'rides', 'activeRidesCount', 'driver'));
         } catch (\Throwable $th) {
             Log::error('Custom Rides Index Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
