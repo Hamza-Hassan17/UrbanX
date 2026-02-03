@@ -1272,7 +1272,7 @@
 
         async function fetchFare(vehicleTypeId, distanceKm) {
             try {
-                const response = await fetch('/api/customer/calculate-distance-fare', {
+                const response = await fetch('/api/calculate-distance-fare', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
