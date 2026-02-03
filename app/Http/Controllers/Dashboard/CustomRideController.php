@@ -15,6 +15,7 @@ class CustomRideController extends Controller
         try {
             $drivers = User::with('driverVehicle')
             ->role('driver')
+            ->whereHas('driverVehicle')
             ->get()
             ->map(function ($driver) {
                 return [
@@ -26,7 +27,7 @@ class CustomRideController extends Controller
                     'icon'   => $driver->driver_status === 'available'
                                     ? 'taxiIcon'
                                     : 'taxiIconBusy',
-                    'vehicle'  => $driver->driverVehicle ? $driver->driverVehicle->vehicle_name.' '.$driver->driverVehicle->vehicle_make.' '.$driver->driverVehicle->vehicle_model.' '.$driver->driverVehicle->vehicle_year : 'N/A',
+                    'vehicle'  => $driver->driverVehicle ? $driver->driverVehicle->vehicle_name.' '.$driver->driverVehicle->vehicle_make.' '.$driver->driverVehicle->vehicle_year : 'N/A',
                     'city'   => 'Karachi',
                 ];
             });
