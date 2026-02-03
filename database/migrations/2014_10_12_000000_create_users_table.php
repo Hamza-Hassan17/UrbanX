@@ -21,6 +21,7 @@ return new class extends Migration
             $table->string('password');
             $table->rememberToken();
             $table->enum('is_active', ['active', 'inactive'])->default('active');
+            $table->enum('driver_status', ['busy', 'available'])->default('available');
             $table->string('provider')->nullable();
             $table->string('provider_id')->nullable();
             $table->string('phone_otp')->nullable();

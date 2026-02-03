@@ -9,6 +9,7 @@ use App\Http\Controllers\Dashboard\BoostPriceController;
 use App\Http\Controllers\Dashboard\ChauffeursBooking;
 use App\Http\Controllers\Dashboard\ChauffeursVehicle;
 use App\Http\Controllers\Dashboard\ComplainController;
+use App\Http\Controllers\Dashboard\CustomRideController;
 use App\Http\Controllers\Dashboard\HomeController;
 use App\Http\Controllers\Dashboard\NotificationController;
 use App\Http\Controllers\Dashboard\ProfileController;
@@ -182,6 +183,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             //Boost Hours
             Route::resource('boost-hours', BoostPriceController::class);
+
+            //Dashboard Custom Rides Routes
+            Route::get('custom-rides', [CustomRideController::class, 'index'])->name('custom-rides.index');
         });
     });
 

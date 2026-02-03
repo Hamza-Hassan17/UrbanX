@@ -75,6 +75,9 @@ Route::middleware('auth:sanctum')->group(function () {
         //Driver Ride History
         Route::get('/ride-history', [DriverRideController::class, 'getRideHistory']);
 
+        //Status Update
+        Route::post('/update-status', [DriverDetailsController::class, 'updateDriverStatus']);
+
     });
 
     //Customer Routes

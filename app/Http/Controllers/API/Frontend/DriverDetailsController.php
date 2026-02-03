@@ -433,4 +433,34 @@ class DriverDetailsController extends Controller
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
+
+    public function updateDriverStatus(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'driver_status' => 'required|in:busy,available',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $user = $request->user();
+            $user->driver_status = $request->driver_status;
+            $user->save();
+
+            return response()->json([
+                'message' => 'Driver status updated successfully.',
+                'driver_status' => $user->driver_status,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Update Driver Status failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
 }
