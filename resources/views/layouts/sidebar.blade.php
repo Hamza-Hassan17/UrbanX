@@ -23,6 +23,12 @@
                 <div>{{__('Dashboard')}}</div>
             </a>
         </li>
+        <li class="menu-item {{ request()->routeIs('dashboard.custom-rides.index') ? 'active' : '' }}">
+            <a href="{{ route('dashboard.custom-rides.index') }}" class="menu-link"  style="color: #fff !important;">
+                <i class="menu-icon tf-icons ti ti-bike"></i>
+                <div>{{__('Custom Rides')}}</div>
+            </a>
+        </li>
 
         <!-- Apps & Pages -->
         <li class="menu-header small">

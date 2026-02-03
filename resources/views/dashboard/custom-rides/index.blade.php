@@ -1756,6 +1756,7 @@
 
                     // Add new trip to the list
                     // addNewTrip(driverName, pickup, destination);
+                    showNotification('Assigning is in Progress by Developer Abdul Rauf', 'success');
 
                     // Reset after 2 seconds
                     setTimeout(() => {
