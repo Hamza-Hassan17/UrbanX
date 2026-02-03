@@ -893,12 +893,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <!-- Leaflet Routing Machine -->
     <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
-    @foreach($rides as $ride)
-    <script>
-        reverseGeocode({{ $ride->pickup_latitude }}, {{ $ride->pickup_longitude }}, 'pickup-{{ $ride->id }}');
-        reverseGeocode({{ $ride->dropoff_latitude }}, {{ $ride->dropoff_longitude }}, 'dropoff-{{ $ride->id }}');
-    </script>
-    @endforeach
+
     <script>
         // Global variables
         let map, pickupMarker, destinationMarker, routingControl;
@@ -1767,4 +1762,11 @@
                 });
         }
     </script>
+
+    @foreach($rides as $ride)
+        <script>
+            reverseGeocode({{ $ride->pickup_latitude }}, {{ $ride->pickup_longitude }}, 'pickup-{{ $ride->id }}');
+            reverseGeocode({{ $ride->dropoff_latitude }}, {{ $ride->dropoff_longitude }}, 'dropoff-{{ $ride->id }}');
+        </script>
+    @endforeach
 @endsection
