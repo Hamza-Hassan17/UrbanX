@@ -777,6 +777,7 @@
                 </div>
                 <div class="trip-stats">
                     <div class="stat-item">
+                        <input type="text" hidden name="ride_distance" id="ride_distance">
                         <div class="stat-value" id="distance">0 km</div>
                         <div class="stat-label">Distance</div>
                     </div>
@@ -1600,6 +1601,8 @@
                 const distance = (route.summary.totalDistance / 1000).toFixed(1);
                 const time = Math.round(route.summary.totalTime / 60);
 
+                document.getElementById('ride_distance').value = distance;
+
                 const vehicleTypeId = document.querySelector('#vehicle_type_id')?.value || null;
 
                 // Call fare API
@@ -1796,6 +1799,39 @@
                     `<i class="fas fa-id-badge"></i> ID: ${driver.id}`;
 
                 showNotification(`Assigned ${driver.name} from ${driver.city} to the current trip!`, 'success');
+
+                const distance = document.getElementById('ride_distance').value
+                const vehicleTypeId = driver.vehicle_type_id || null;
+
+                // Call fare API
+                const fareData = await fetchFare(vehicleTypeId, distance);
+
+                if (fareData) {
+                    const originalFareEl = document.getElementById('original-fare');
+                    const finalFareEl = document.getElementById('final-fare');
+                    const boostEl = document.getElementById('boost-multiplier');
+
+                    // Only show boost if boost is active
+                    if (fareData.is_boost && fareData.boost_multiplier > 1) {
+                        // Show original fare crossed out
+                        originalFareEl.style.display = 'inline';
+                        originalFareEl.textContent = `Rs ${fareData.total_fare}`;
+
+                        // Show boosted fare
+                        finalFareEl.textContent = `Rs ${fareData.boosted_fare}`;
+                        finalFareEl.style.color = '#ef4444';
+
+                        // Show multiplier in sup
+                        boostEl.style.display = 'inline';
+                        boostEl.textContent = `x${fareData.boost_multiplier}`;
+                    } else {
+                        // No boost
+                        originalFareEl.style.display = 'none';
+                        finalFareEl.textContent = `Rs ${fareData.total_fare}`;
+                        finalFareEl.style.color = ''; // default
+                        boostEl.style.display = 'none';
+                    }
+                }
             }
         };
 
