@@ -784,10 +784,10 @@
         <div class="stat-value" id="fare-container">
             <span id="original-fare"
                 style="text-decoration: line-through; color: gray; display: none; margin-right: 5px;"></span>
-            <span id="final-fare" style="position: relative; font-weight: bold; color: #ef4444;">
+            <span id="final-fare" style="font-weight: bold; color: #ef4444;">
                 Rs 0
                 <sup id="boost-multiplier"
-                    style="font-size: 0.6em; color: #2563eb; display: none;">x1.0</sup>
+                    style="font-size: 0.6em; color: #2563eb;"></sup>
             </span>
         </div>
         <div class="stat-label">Est. Fare</div>
