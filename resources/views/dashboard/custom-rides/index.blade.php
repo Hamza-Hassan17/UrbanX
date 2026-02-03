@@ -1741,20 +1741,26 @@
         }
 
         function reverseGeocode(lat, lng, elementId) {
-            const geocoder = new google.maps.Geocoder();
+            if (!lat || !lng) {
+                document.getElementById(elementId).innerText = 'Location unavailable';
+                return;
+            }
 
-            geocoder.geocode(
-                { location: { lat: lat, lng: lng } },
-                (results, status) => {
-                    if (status === 'OK' && results[0]) {
-                        document.getElementById(elementId).innerText =
-                            results[0].formatted_address;
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.display_name) {
+                        document.getElementById(elementId).innerText = data.display_name;
                     } else {
                         document.getElementById(elementId).innerText = 'Location unavailable';
                     }
-                }
-            );
+                })
+                .catch(err => {
+                    console.error('Reverse geocoding error:', err);
+                    document.getElementById(elementId).innerText = 'Location unavailable';
+                });
         }
+
 
         reverseGeocode({{ $ride->pickup_latitude }}, {{ $ride->pickup_longitude }}, 'pickup-{{ $ride->id }}');
         reverseGeocode({{ $ride->dropoff_latitude }}, {{ $ride->dropoff_longitude }}, 'dropoff-{{ $ride->id }}');
