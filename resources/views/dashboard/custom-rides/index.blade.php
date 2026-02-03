@@ -767,9 +767,12 @@
                     <div class="autocomplete-dropdown" id="destination-autocomplete"></div>
                 </div>
                 <div class="form-group">
-                    <label for="passenger-details"><i class="fas fa-user"></i> Passenger Details</label>
-                    <input type="text" id="passenger-details" class="form-control" placeholder="Passenger name & phone"
-                        value="Mohammad Khan • +92 300 1234567">
+                    <label><i class="fas fa-user"></i> Passenger Details</label>
+                    <div class="d-flex gap-2">
+                        <input type="text" id="passenger-name" name="passenger-name" class="form-control" placeholder="Passenger name">
+                        <input type="text" id="passenger-phone" name="passenger-phone" class="form-control" placeholder="Passenger phone">
+                        <input type="text" id="passenger-email" name="passenger-email" class="form-control" placeholder="Passenger email">
+                    </div>
                 </div>
                 <div class="trip-stats">
                     <div class="stat-item">
