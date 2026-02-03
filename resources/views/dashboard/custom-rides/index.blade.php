@@ -22,10 +22,10 @@
 
         .dashboard-container {
             /* display: grid;
-            grid-template-columns: 380px 1fr;
-            grid-template-rows: 80px 1fr;
-            min-height: 100vh;
-            gap: 0; */
+                grid-template-columns: 380px 1fr;
+                grid-template-rows: 80px 1fr;
+                min-height: 100vh;
+                gap: 0; */
             display: flex;
             flex-direction: column
         }
@@ -789,7 +789,7 @@
             <!-- Map Container -->
             <div class="map-container">
                 <div id="map"></div>
-                <div class="map-overlay">
+                {{-- <div class="map-overlay">
                     <div class="map-header">
                         <h3><i class="fas fa-map"></i> Live Fleet Map</h3>
                     </div>
@@ -804,92 +804,83 @@
                             <i class="fas fa-clock"></i> On Trip
                         </button>
                     </div>
-                </div>
+                </div> --}}
             </div>
 
             <!-- Active Trips -->
             <div class="trips-container">
                 <div class="trips-header">
                     <h3><i class="fas fa-list-check"></i> Active Trips</h3>
-                    <span class="trip-count">3 Trips</span>
+                    <span class="trip-count">{{ $activeRidesCount }} Trips</span>
                 </div>
                 <div class="trip-list">
-                    <!-- Trip 1 -->
-                    <div class="trip-card">
-                        <div class="trip-card-header">
-                            <span class="trip-id">TRIP-4892</span>
-                            <span class="trip-status status-active">Active</span>
-                        </div>
-                        <div class="trip-route">
-                            <div class="route-point">
-                                <div class="point-icon pickup-icon">
-                                    <i class="fas fa-location-dot"></i>
-                                </div>
-                                <div class="point-details">
-                                    <h4>Pickup: Jinnah Airport</h4>
-                                    <p>Karachi • Terminal 1</p>
-                                </div>
-                            </div>
-                            <div class="route-point">
-                                <div class="point-icon dropoff-icon">
-                                    <i class="fas fa-flag-checkered"></i>
-                                </div>
-                                <div class="point-details">
-                                    <h4>Dropoff: Clifton Beach</h4>
-                                    <p>Karachi • Block 5</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="trip-footer">
-                            <div class="trip-driver">
-                                <div class="driver-small">AA</div>
-                                <div>
-                                    <div class="driver-name">Ali Ahmed</div>
-                                    <div style="font-size: 12px; color: var(--gray);">ETA: 25 min</div>
-                                </div>
-                            </div>
-                            <div class="trip-fare">Rs 850</div>
-                        </div>
-                    </div>
 
-                    <!-- Trip 2 -->
-                    <div class="trip-card">
-                        <div class="trip-card-header">
-                            <span class="trip-id">TRIP-4891</span>
-                            <span class="trip-status status-pending">To Pickup</span>
-                        </div>
-                        <div class="trip-route">
-                            <div class="route-point">
-                                <div class="point-icon pickup-icon">
-                                    <i class="fas fa-location-dot"></i>
+                    @forelse($rides as $ride)
+                        <div class="trip-card">
+                            <div class="trip-card-header">
+                                <span class="trip-id">TRIP-{{ $ride->id }}</span>
+
+                                @php
+                                    $activeStatuses = ['requested', 'accepted', 'en_route', 'arrived', 'started'];
+                                @endphp
+
+                                <span class="trip-status
+                                    {{ in_array($ride->status, $activeStatuses) ? 'status-active' : 'status-pending' }}">
+                                    {{ ucwords(str_replace('_', ' ', $ride->status)) }}
+                                </span>
+                            </div>
+
+                            <div class="trip-route">
+                                <div class="route-point">
+                                    <div class="point-icon pickup-icon">
+                                        <i class="fas fa-location-dot"></i>
+                                    </div>
+                                    <div class="point-details">
+                                        <h4>Pickup Location</h4>
+                                        <p>{{ $ride->pickup_latitude }}, {{ $ride->pickup_longitude }}</p>
+                                    </div>
                                 </div>
-                                <div class="point-details">
-                                    <h4>Pickup: Faisal Mosque</h4>
-                                    <p>Islamabad • Shah Faisal Ave</p>
+
+                                <div class="route-point">
+                                    <div class="point-icon dropoff-icon">
+                                        <i class="fas fa-flag-checkered"></i>
+                                    </div>
+                                    <div class="point-details">
+                                        <h4>Dropoff Location</h4>
+                                        <p>{{ $ride->dropoff_latitude }}, {{ $ride->dropoff_longitude }}</p>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="route-point">
-                                <div class="point-icon dropoff-icon">
-                                    <i class="fas fa-flag-checkered"></i>
+
+                            <div class="trip-footer">
+                                <div class="trip-driver">
+                                    <div class="driver-small">
+                                        {{ strtoupper(substr($ride->driver->name ?? 'N/A', 0, 2)) }}
+                                    </div>
+                                    <div>
+                                        <div class="driver-name">
+                                            {{ $ride->driver->name ?? 'Not Assigned' }}
+                                        </div>
+                                        <div style="font-size: 12px; color: var(--gray);">
+                                            ETA: {{ $ride->duration_minutes ?? '--' }} min
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="point-details">
-                                    <h4>Dropoff: Centaurus Mall</h4>
-                                    <p>Islamabad • Jinnah Ave</p>
+
+                                <div class="trip-fare">
+                                    Rs {{ number_format($ride->total_fare ?? 0) }}
                                 </div>
                             </div>
                         </div>
-                        <div class="trip-footer">
-                            <div class="trip-driver">
-                                <div class="driver-small">SK</div>
-                                <div>
-                                    <div class="driver-name">Saad Khan</div>
-                                    <div style="font-size: 12px; color: var(--gray);">ETA to pickup: 8 min</div>
-                                </div>
-                            </div>
-                            <div class="trip-fare">Rs 450</div>
+
+                    @empty
+                        <div style="padding: 20px; text-align: center; color: var(--gray);">
+                            No active trips
                         </div>
-                    </div>
+                    @endforelse
+
                 </div>
+
             </div>
         </main>
     </div>
@@ -936,7 +927,339 @@
             iconAnchor: [22, 22]
         });
 
-        const drivers = @json($drivers);
+        // const drivers = @json($drivers);
+
+        const drivers = [
+            // DHA
+            {
+                id: 1,
+                name: "Ali Ahmed",
+                lat: 24.8135,
+                lng: 67.0458,
+                status: "available",
+                icon: taxiIcon,
+                plate: "KHI-2001",
+                city: "Karachi"
+            },
+            {
+                id: 2,
+                name: "Saad Khan",
+                lat: 24.8019,
+                lng: 67.0362,
+                status: "busy",
+                icon: taxiIconBusy,
+                plate: "KHI-2002",
+                city: "Karachi"
+            },
+
+            // Clifton
+            {
+                id: 3,
+                name: "Bilal Raza",
+                lat: 24.8246,
+                lng: 67.0329,
+                status: "available",
+                icon: taxiIcon,
+                plate: "KHI-2003",
+                city: "Karachi"
+            },
+            {
+                id: 4,
+                name: "Usman Tariq",
+                lat: 24.8191,
+                lng: 67.0284,
+                status: "busy",
+                icon: taxiIconBusy,
+                plate: "KHI-2004",
+                city: "Karachi"
+            },
+
+            // PECHS
+            {
+                id: 5,
+                name: "Hassan Ali",
+                lat: 24.8662,
+                lng: 67.0701,
+                status: "available",
+                icon: taxiIcon,
+                plate: "KHI-2005",
+                city: "Karachi"
+            },
+            {
+                id: 6,
+                name: "Fahad Iqbal",
+                lat: 24.8604,
+                lng: 67.0678,
+                status: "busy",
+                icon: taxiIconBusy,
+                plate: "KHI-2006",
+                city: "Karachi"
+            },
+
+            // Saddar
+            {
+                id: 7,
+                name: "Adeel Sheikh",
+                lat: 24.8541,
+                lng: 67.0219,
+                status: "available",
+                icon: taxiIcon,
+                plate: "KHI-2007",
+                city: "Karachi"
+            },
+            {
+                id: 8,
+                name: "Shahzaib Noor",
+                lat: 24.8576,
+                lng: 67.0255,
+                status: "busy",
+                icon: taxiIconBusy,
+                plate: "KHI-2008",
+                city: "Karachi"
+            },
+
+            // Gulshan-e-Iqbal
+            {
+                id: 9,
+                name: "Imran Siddiqui",
+                lat: 24.9184,
+                lng: 67.0921,
+                status: "available",
+                icon: taxiIcon,
+                plate: "KHI-2009",
+                city: "Karachi"
+            },
+            {
+                id: 10,
+                name: "Zeeshan Malik",
+                lat: 24.9127,
+                lng: 67.0993,
+                status: "busy",
+                icon: taxiIconBusy,
+                plate: "KHI-2010",
+                city: "Karachi"
+            },
+
+            // Gulistan-e-Johar
+            {
+                id: 11,
+                name: "Noman Aslam",
+                lat: 24.9321,
+                lng: 67.1286,
+                status: "available",
+                icon: taxiIcon,
+                plate: "KHI-2011",
+                city: "Karachi"
+            },
+            {
+                id: 12,
+                name: "Salman Farooq",
+                lat: 24.9254,
+                lng: 67.1349,
+                status: "busy",
+                icon: taxiIconBusy,
+                plate: "KHI-2012",
+                city: "Karachi"
+            },
+
+            // North Nazimabad
+            {
+                id: 13,
+                name: "Rizwan Qureshi",
+                lat: 24.9389,
+                lng: 67.0442,
+                status: "available",
+                icon: taxiIcon,
+                plate: "KHI-2013",
+                city: "Karachi"
+            },
+            {
+                id: 14,
+                name: "Kamran Akhtar",
+                lat: 24.9453,
+                lng: 67.0497,
+                status: "busy",
+                icon: taxiIconBusy,
+                plate: "KHI-2014",
+                city: "Karachi"
+            },
+
+            // Nazimabad
+            {
+                id: 15,
+                name: "Waqas Mehmood",
+                lat: 24.9102,
+                lng: 67.0326,
+                status: "available",
+                icon: taxiIcon,
+                plate: "KHI-2015",
+                city: "Karachi"
+            },
+            {
+                id: 16,
+                name: "Arslan Baig",
+                lat: 24.9047,
+                lng: 67.0289,
+                status: "busy",
+                icon: taxiIconBusy,
+                plate: "KHI-2016",
+                city: "Karachi"
+            },
+
+            // Korangi
+            {
+                id: 17,
+                name: "Taimoor Latif",
+                lat: 24.8426,
+                lng: 67.1579,
+                status: "available",
+                icon: taxiIcon,
+                plate: "KHI-2017",
+                city: "Karachi"
+            },
+            {
+                id: 18,
+                name: "Danish Rehman",
+                lat: 24.8483,
+                lng: 67.1512,
+                status: "busy",
+                icon: taxiIconBusy,
+                plate: "KHI-2018",
+                city: "Karachi"
+            },
+
+            // Landhi
+            {
+                id: 19,
+                name: "Shahbaz Khan",
+                lat: 24.8361,
+                lng: 67.1934,
+                status: "available",
+                icon: taxiIcon,
+                plate: "KHI-2019",
+                city: "Karachi"
+            },
+            {
+                id: 20,
+                name: "Mubashir Ali",
+                lat: 24.8298,
+                lng: 67.1886,
+                status: "busy",
+                icon: taxiIconBusy,
+                plate: "KHI-2020",
+                city: "Karachi"
+            },
+
+            // North Karachi
+            {
+                id: 21,
+                name: "Asad Hussain",
+                lat: 24.9754,
+                lng: 67.0628,
+                status: "available",
+                icon: taxiIcon,
+                plate: "KHI-2021",
+                city: "Karachi"
+            },
+            {
+                id: 22,
+                name: "Farhan Rafiq",
+                lat: 24.9812,
+                lng: 67.0704,
+                status: "busy",
+                icon: taxiIconBusy,
+                plate: "KHI-2022",
+                city: "Karachi"
+            },
+
+            // Orangi Town
+            {
+                id: 23,
+                name: "Adnan Yousuf",
+                lat: 24.9526,
+                lng: 67.0019,
+                status: "available",
+                icon: taxiIcon,
+                plate: "KHI-2023",
+                city: "Karachi"
+            },
+            {
+                id: 24,
+                name: "Sohail Abbas",
+                lat: 24.9478,
+                lng: 66.9963,
+                status: "busy",
+                icon: taxiIconBusy,
+                plate: "KHI-2024",
+                city: "Karachi"
+            },
+
+            // Malir
+            {
+                id: 25,
+                name: "Hamza Nadeem",
+                lat: 24.8937,
+                lng: 67.1881,
+                status: "available",
+                icon: taxiIcon,
+                plate: "KHI-2025",
+                city: "Karachi"
+            },
+            {
+                id: 26,
+                name: "Owais Anwar",
+                lat: 24.8874,
+                lng: 67.1956,
+                status: "busy",
+                icon: taxiIconBusy,
+                plate: "KHI-2026",
+                city: "Karachi"
+            },
+
+            // SITE Area
+            {
+                id: 27,
+                name: "Yasir Mahmood",
+                lat: 24.8996,
+                lng: 67.0124,
+                status: "available",
+                icon: taxiIcon,
+                plate: "KHI-2027",
+                city: "Karachi"
+            },
+            {
+                id: 28,
+                name: "Ahsan Raza",
+                lat: 24.9051,
+                lng: 67.0189,
+                status: "busy",
+                icon: taxiIconBusy,
+                plate: "KHI-2028",
+                city: "Karachi"
+            },
+
+            // Shah Faisal
+            {
+                id: 29,
+                name: "Zubair Ahmed",
+                lat: 24.8728,
+                lng: 67.1453,
+                status: "available",
+                icon: taxiIcon,
+                plate: "KHI-2029",
+                city: "Karachi"
+            },
+            {
+                id: 30,
+                name: "Mohsin Javed",
+                lat: 24.8674,
+                lng: 67.1518,
+                status: "busy",
+                icon: taxiIconBusy,
+                plate: "KHI-2030",
+                city: "Karachi"
+            },
+        ];
 
 
         // Add driver markers to map
@@ -944,14 +1267,13 @@
             drivers.forEach(driver => {
 
                 const marker = L.marker(
-                    [parseFloat(driver.lat), parseFloat(driver.lng)],
-                    {
-                        icon: driver.status === 'available'
-                            ? taxiIcon
-                            : taxiIconBusy
-                    }
-                )
-                .bindPopup(`
+                        [parseFloat(driver.lat), parseFloat(driver.lng)], {
+                            icon: driver.status === 'available' ?
+                                taxiIcon :
+                                taxiIconBusy
+                        }
+                    )
+                    .bindPopup(`
                     <div style="padding: 10px; min-width: 200px;">
                         <h3 style="margin: 0 0 10px 0; color: #1f2937;">${driver.name}</h3>
                         <p style="margin: 5px 0; font-size: 14px;"><strong>City:</strong> ${driver.city}</p>
@@ -968,7 +1290,7 @@
                         </button>
                     </div>
                 `)
-                .addTo(map);
+                    .addTo(map);
             });
         }
 

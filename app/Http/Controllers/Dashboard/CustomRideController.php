@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Models\Ride;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -31,7 +32,14 @@ class CustomRideController extends Controller
                     'city'   => 'Karachi',
                 ];
             });
-            return view('dashboard.custom-rides.index', compact('drivers'));
+
+            $rides = Ride::with(['driver'])
+                ->latest()
+                ->take(4)
+                ->get();
+
+            $activeRidesCount = Ride::whereIn('status', ['requested', 'accepted', 'en_route', 'arrived', 'started'])->count();
+            return view('dashboard.custom-rides.index', compact('drivers', 'rides', 'activeRidesCount'));
         } catch (\Throwable $th) {
             Log::error('Custom Rides Index Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
