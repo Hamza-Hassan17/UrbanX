@@ -726,6 +726,8 @@
                             <span><i class="fas fa-car"></i> {{ $driver->driverVehicle ? $driver->driverVehicle->vehicle_name.' '.$driver->driverVehicle->vehicle_make : 'N/A' }}</span>
                             <span><i class="fas fa-star"></i> Rating: 4.8/5.0</span>
                         </div>
+
+                        <input type="text" hidden value="{{ $driver->driverVehicle->vehicle_type_id }}" name="vehicle_type_id" id="vehicle_type_id">
                     </div>
                 </div>
                 <div class="driver-actions">
@@ -742,7 +744,7 @@
             <div class="trip-form">
                 <div class="section-title">
                     <i class="fas fa-route"></i>
-                    <span>Trip Details</span>
+                    <span>Ride Details</span>
                 </div>
                 <div class="form-group">
                     <label for="pickup-location"><i class="fas fa-map-marker-alt"></i> Pickup Location</label>
@@ -779,6 +781,10 @@
                     <div class="stat-item">
                         <div class="stat-value" id="fare">Rs 0</div>
                         <div class="stat-label">Est. Fare</div>
+                    </div>
+                    <div class="stat-item" id="boost-container" style="display: none;">
+                        <div class="stat-value" id="boost-multiplier"></div>
+                        <div class="stat-label">Boost Multiplier</div>
                     </div>
                 </div>
             </div>
@@ -1264,6 +1270,32 @@
         //     },
         // ];
 
+        async function fetchFare(vehicle_type_id, distance_km) {
+            try {
+                const response = await fetch('/api/calculate-distance-fare', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({ vehicle_type_id, distance_km })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Fare calculation failed');
+                }
+
+                const data = await response.json();
+                return data;
+
+            } catch (error) {
+                console.error('Fare API error:', error);
+                showNotification('Could not calculate fare', 'error');
+                return null;
+            }
+        }
+
+
 
         // Add driver markers to map
         function addDriverMarkers() {
@@ -1455,33 +1487,6 @@
             return nearestDriver;
         }
 
-        // Update pickup location on map
-        // function updatePickupLocation(lat, lng, address) {
-        //     pickupCoordinates = [lat, lng];
-
-        //     // Remove existing pickup marker
-        //     if (pickupMarker) {
-        //         map.removeLayer(pickupMarker);
-        //     }
-
-        //     // Add new pickup marker
-        //     pickupMarker = L.marker([lat, lng], {
-        //         icon: L.divIcon({
-        //             className: 'custom-div-icon',
-        //             html: '<div style="background-color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 3px solid #2563eb; box-shadow: 0 2px 5px rgba(0,0,0,0.2);"><i class="fas fa-location-dot" style="color: #2563eb; font-size: 18px;"></i></div>',
-        //             iconSize: [40, 40],
-        //             iconAnchor: [20, 20]
-        //         })
-        //     }).bindPopup(`<b>Pickup Location</b><br>${address}`).addTo(map);
-
-        //     // Update route if destination exists
-        //     if (destinationCoordinates) {
-        //         updateRoute();
-        //     }
-
-        //     showNotification('Pickup location set', 'success');
-        // }
-
         function updatePickupLocation(lat, lng, address) {
             pickupCoordinates = [lat, lng];
 
@@ -1577,20 +1582,74 @@
             }).addTo(map);
 
             // Listen for route found event
-            routingControl.on('routesfound', function(e) {
+            // routingControl.on('routesfound', function(e) {
+            //     const routes = e.routes;
+            //     if (routes && routes.length > 0) {
+            //         const route = routes[0];
+            //         const distance = (route.summary.totalDistance / 1000).toFixed(1);
+            //         const time = Math.round(route.summary.totalTime / 60);
+            //         const fare = Math.round(100 + distance * 25);
+
+            //         // Get selected driver
+            //         const driverName = document.querySelector('.driver-info h3').textContent;
+            //         const vehicleTypeId = document.querySelector('#vehicle_type_id')?.value || null;
+
+            //         // Call API
+            //         const fareData = await fetchFare(vehicleTypeId, distance);
+
+            //         if (fareData) {
+            //             document.getElementById('distance').textContent = `${distance} km`;
+            //             document.getElementById('time').textContent = `${time} min`;
+            //             document.getElementById('fare').textContent = `Rs ${fareData.boosted_fare}`;
+
+            //             // Show boost multiplier if applicable
+            //             if (fareData.is_boost) {
+            //                 document.getElementById('boost-multiplier').textContent = `x${fareData.boost_multiplier}`;
+            //                 document.getElementById('boost-container').style.display = 'block';
+            //             } else {
+            //                 document.getElementById('boost-container').style.display = 'none';
+            //             }
+            //         }
+
+            //         // // Update UI
+            //         // document.getElementById('distance').textContent = `${distance} km`;
+            //         // document.getElementById('time').textContent = `${time} min`;
+            //         // document.getElementById('fare').textContent = `Rs ${fare}`;
+
+            //         // Fit map to show route
+            //         const bounds = L.latLngBounds([
+            //             [pickupCoordinates[0], pickupCoordinates[1]],
+            //             [destinationCoordinates[0], destinationCoordinates[1]]
+            //         ]);
+            //         map.fitBounds(bounds.pad(0.1));
+            //     }
+            // });
+
+            routingControl.on('routesfound', async function(e) {
                 const routes = e.routes;
                 if (routes && routes.length > 0) {
                     const route = routes[0];
-                    const distance = (route.summary.totalDistance / 1000).toFixed(1); // Convert to km
-                    const time = Math.round(route.summary.totalTime / 60); // Convert to minutes
-                    const fare = Math.round(100 + distance * 25); // Calculate fare
+                    const distance = (route.summary.totalDistance / 1000).toFixed(1);
+                    const time = Math.round(route.summary.totalTime / 60);
 
-                    // Update UI
-                    document.getElementById('distance').textContent = `${distance} km`;
-                    document.getElementById('time').textContent = `${time} min`;
-                    document.getElementById('fare').textContent = `Rs ${fare}`;
+                    const vehicleTypeId = document.querySelector('#vehicle_type_id')?.value || null;
 
-                    // Fit map to show route
+                    // Call fare API
+                    const fareData = await fetchFare(vehicleTypeId, distance);
+
+                    if (fareData) {
+                        document.getElementById('distance').textContent = `${distance} km`;
+                        document.getElementById('time').textContent = `${time} min`;
+                        document.getElementById('fare').textContent = `Rs ${fareData.boosted_fare}`;
+
+                        if (fareData.is_boost) {
+                            document.getElementById('boost-multiplier').textContent = `x${fareData.boost_multiplier}`;
+                            document.getElementById('boost-container').style.display = 'block';
+                        } else {
+                            document.getElementById('boost-container').style.display = 'none';
+                        }
+                    }
+
                     const bounds = L.latLngBounds([
                         [pickupCoordinates[0], pickupCoordinates[1]],
                         [destinationCoordinates[0], destinationCoordinates[1]]
@@ -1598,6 +1657,7 @@
                     map.fitBounds(bounds.pad(0.1));
                 }
             });
+
 
             routingControl.on('routingerror', function(e) {
                 showNotification('Could not calculate route. Using straight line distance.', 'warning');
@@ -1615,6 +1675,7 @@
             driverCard.querySelector('.driver-info h3').textContent = driver.name;
             driverCard.querySelector('.driver-info .driver-meta span:nth-child(1)').innerHTML = `<i class="fas fa-id-badge"></i> ID: ${driver.id}`;
             driverCard.querySelector('.driver-info .driver-meta span:nth-child(2)').innerHTML = `<i class="fas fa-car"></i> ${driver.vehicle}`;
+            driverCard.querySelector('#vehicle_type_id').value = driver.vehicle_type_id;
         }
 
 
@@ -1703,7 +1764,7 @@
                     this.style.backgroundColor = '#10b981';
 
                     // Add new trip to the list
-                    addNewTrip(driverName, pickup, destination);
+                    // addNewTrip(driverName, pickup, destination);
 
                     // Reset after 2 seconds
                     setTimeout(() => {
@@ -1736,59 +1797,59 @@
         };
 
         // Add new trip to the list
-        function addNewTrip(driverName, pickup, destination) {
-            const tripList = document.querySelector('.trip-list');
-            const tripCount = document.querySelector('.trip-count');
+        // function addNewTrip(driverName, pickup, destination) {
+        //     const tripList = document.querySelector('.trip-list');
+        //     const tripCount = document.querySelector('.trip-count');
 
-            // Create new trip card
-            const newTrip = document.createElement('div');
-            newTrip.className = 'trip-card';
-            newTrip.innerHTML = `
-                <div class="trip-card-header">
-                    <span class="trip-id">TRIP-4893</span>
-                    <span class="trip-status status-active">Active</span>
-                </div>
-                <div class="trip-route">
-                    <div class="route-point">
-                        <div class="point-icon pickup-icon">
-                            <i class="fas fa-location-dot"></i>
-                        </div>
-                        <div class="point-details">
-                            <h4>Pickup: ${pickup.split(',')[0]}</h4>
-                            <p>Just now • ${pickup.substring(0, 50)}...</p>
-                        </div>
-                    </div>
-                    <div class="route-point">
-                        <div class="point-icon dropoff-icon">
-                            <i class="fas fa-flag-checkered"></i>
-                        </div>
-                        <div class="point-details">
-                            <h4>Dropoff: ${destination.split(',')[0]}</h4>
-                            <p>${destination.substring(0, 50)}...</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="trip-footer">
-                    <div class="trip-driver">
-                        <div class="driver-small">${driverName.split(' ').map(n => n[0]).join('')}</div>
-                        <div>
-                            <div class="driver-name">${driverName}</div>
-                            <div style="font-size: 12px; color: var(--gray);">ETA: ${document.getElementById('time').textContent}</div>
-                        </div>
-                    </div>
-                    <div class="trip-fare">${document.getElementById('fare').textContent}</div>
-                </div>
-            `;
+        //     // Create new trip card
+        //     const newTrip = document.createElement('div');
+        //     newTrip.className = 'trip-card';
+        //     newTrip.innerHTML = `
+        //         <div class="trip-card-header">
+        //             <span class="trip-id">TRIP-4893</span>
+        //             <span class="trip-status status-active">Active</span>
+        //         </div>
+        //         <div class="trip-route">
+        //             <div class="route-point">
+        //                 <div class="point-icon pickup-icon">
+        //                     <i class="fas fa-location-dot"></i>
+        //                 </div>
+        //                 <div class="point-details">
+        //                     <h4>Pickup: ${pickup.split(',')[0]}</h4>
+        //                     <p>Just now • ${pickup.substring(0, 50)}...</p>
+        //                 </div>
+        //             </div>
+        //             <div class="route-point">
+        //                 <div class="point-icon dropoff-icon">
+        //                     <i class="fas fa-flag-checkered"></i>
+        //                 </div>
+        //                 <div class="point-details">
+        //                     <h4>Dropoff: ${destination.split(',')[0]}</h4>
+        //                     <p>${destination.substring(0, 50)}...</p>
+        //                 </div>
+        //             </div>
+        //         </div>
+        //         <div class="trip-footer">
+        //             <div class="trip-driver">
+        //                 <div class="driver-small">${driverName.split(' ').map(n => n[0]).join('')}</div>
+        //                 <div>
+        //                     <div class="driver-name">${driverName}</div>
+        //                     <div style="font-size: 12px; color: var(--gray);">ETA: ${document.getElementById('time').textContent}</div>
+        //                 </div>
+        //             </div>
+        //             <div class="trip-fare">${document.getElementById('fare').textContent}</div>
+        //         </div>
+        //     `;
 
-            // Insert at the beginning
-            tripList.insertBefore(newTrip, tripList.firstChild);
+        //     // Insert at the beginning
+        //     tripList.insertBefore(newTrip, tripList.firstChild);
 
-            // Update trip count
-            const currentCount = parseInt(tripCount.textContent);
-            tripCount.textContent = `${currentCount + 1} Trips`;
+        //     // Update trip count
+        //     const currentCount = parseInt(tripCount.textContent);
+        //     tripCount.textContent = `${currentCount + 1} Trips`;
 
-            showNotification('Trip assigned successfully!', 'success');
-        }
+        //     showNotification('Trip assigned successfully!', 'success');
+        // }
 
         function reverseGeocode(lat, lng, elementId) {
             if (!lat || !lng) {

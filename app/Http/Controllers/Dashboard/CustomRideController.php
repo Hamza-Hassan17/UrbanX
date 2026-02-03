@@ -29,6 +29,7 @@ class CustomRideController extends Controller
                                     ? 'taxiIcon'
                                     : 'taxiIconBusy',
                     'vehicle'  => $driver->driverVehicle ? $driver->driverVehicle->vehicle_name.' '.$driver->driverVehicle->vehicle_make.' '.$driver->driverVehicle->vehicle_year : 'N/A',
+                    'vehicle_type_id' => $driver->driverVehicle ? $driver->driverVehicle->vehicle_type_id : null,
                     'city'   => 'Karachi',
                 ];
             });
