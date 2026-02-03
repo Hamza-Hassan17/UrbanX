@@ -788,7 +788,7 @@
                                 Rs 0
                             </span>
                             <sup id="boost-multiplier"
-                                style="font-size: 0.6em; color: #2563eb; display: none; position: absolute; top: -10px; right: -5px;">x1.0</sup>
+                                style="background-image: linear-gradient(to right, #fa709a 0%, #fee140 100%); font-size: 0.6em; color: #2563eb; display: none; top: -10px; right: -5px; padding: 6px; border-radius: 50px;">x1.0</sup>
                         </div>
                         <div class="stat-label">Est. Fare</div>
                     </div>
