@@ -1621,7 +1621,7 @@
                         finalFareEl.style.color = '#ef4444';
 
                         // Show multiplier in sup
-                        boostEl.style.display = 'inline';
+                        // boostEl.style.display = 'inline';
                         boostEl.textContent = `x${fareData.boost_multiplier}`;
                     } else {
                         // No boost
