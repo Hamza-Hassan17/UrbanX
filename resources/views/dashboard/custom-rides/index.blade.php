@@ -1804,7 +1804,10 @@
                 const vehicleTypeId = driver.vehicle_type_id || null;
 
                 // Call fare API
-                const fareData = await fetchFare(vehicleTypeId, distance);
+                if(distance != 0){
+
+                    const fareData = fetchFare(vehicleTypeId, distance);
+                }
 
                 if (fareData) {
                     const originalFareEl = document.getElementById('original-fare');
