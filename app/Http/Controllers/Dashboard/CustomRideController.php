@@ -22,6 +22,7 @@ class CustomRideController extends Controller
                 return [
                     'id'     => $driver->id,
                     'name'   => $driver->name,
+                    'phone'   => $driver->phone,
                     'lat'    => $driver->lat ? (float) $driver->lat : null,
                     'lng'    => $driver->lang ? (float) $driver->lang : null,
                     'status' => $driver->driver_status, // busy | available

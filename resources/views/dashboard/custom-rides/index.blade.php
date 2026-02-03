@@ -736,6 +736,7 @@
                     <button class="btn btn-primary" id="assign-trip">
                         <i class="fas fa-paper-plane"></i> Assign Trip
                     </button>
+                    <input type="text" hidden value="{{ $driver->phone }}" name="driver_phone" id="driver_phone">
                     <button class="btn btn-outline" id="message-driver">
                         <i class="fas fa-comment"></i> Message
                     </button>
@@ -1665,6 +1666,7 @@
             driverCard.querySelector('.driver-info .driver-meta span:nth-child(2)').innerHTML =
                 `<i class="fas fa-car"></i> ${driver.vehicle}`;
             driverCard.querySelector('#vehicle_type_id').value = driver.vehicle_type_id;
+            driverCard.querySelector('#driver_phone').value = driver.phone;
         }
 
 
@@ -1767,8 +1769,19 @@
             // Message driver button
             document.getElementById('message-driver').addEventListener('click', function() {
                 const driverName = document.querySelector('.driver-info h3').textContent;
+                const driverPhone = document.querySelector('#driver_phone').value;
+
+                if (!driverPhone) {
+                    showNotification('Driver phone number not available!', 'error');
+                    return;
+                }
+
                 showNotification(`Opening WhatsApp chat with ${driverName}...`, 'info');
+
+                // Open WhatsApp in a new tab
+                window.open(`https://wa.me/92${driverPhone}`, '_blank');
             });
+
         });
 
         // Assign driver function
