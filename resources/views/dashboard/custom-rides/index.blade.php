@@ -937,7 +937,6 @@
         });
 
         const drivers = @json($drivers);
-        console.log(drivers);
 
 
         // Add driver markers to map
@@ -962,7 +961,7 @@
                                 ${driver.status === 'available' ? 'Available' : 'On Trip'}
                             </span>
                         </p>
-                        <p style="margin: 5px 0; font-size: 14px;"><strong>Vehicle ID:</strong> ${driver.plate ?? 'N/A'}</p>
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>Vehicle:</strong> ${driver.vehicle ?? 'N/A'}</p>
                         <button onclick="assignDriver(${driver.id})"
                                 style="margin-top: 10px; padding: 8px 16px; background-color: #2563eb; color: white; border: none; border-radius: 6px; cursor: pointer; width: 100%; font-weight: 600;">
                             <i class="fas fa-paper-plane"></i> Assign Trip
