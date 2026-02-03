@@ -779,12 +779,11 @@
                         <div class="stat-label">Est. Time</div>
                     </div>
                     <div class="stat-item">
-                        <div class="stat-value" id="fare">Rs 0</div>
+                        <div class="stat-value" id="fare-container">
+                            <span id="original-fare" style="text-decoration: line-through; color: gray; display: none;"></span>
+                            <span id="final-fare">Rs 0</span>
+                        </div>
                         <div class="stat-label">Est. Fare</div>
-                    </div>
-                    <div class="stat-item" id="boost-container" style="display: none;">
-                        <div class="stat-value" id="boost-multiplier"></div>
-                        <div class="stat-label">Boost Multiplier</div>
                     </div>
                 </div>
             </div>
@@ -1627,37 +1626,43 @@
             // });
 
             routingControl.on('routesfound', async function(e) {
-                const routes = e.routes;
-                if (routes && routes.length > 0) {
-                    const route = routes[0];
-                    const distance = (route.summary.totalDistance / 1000).toFixed(1);
-                    const time = Math.round(route.summary.totalTime / 60);
+    const routes = e.routes;
+    if (routes && routes.length > 0) {
+        const route = routes[0];
+        const distance = (route.summary.totalDistance / 1000).toFixed(1);
+        const time = Math.round(route.summary.totalTime / 60);
 
-                    const vehicleTypeId = document.querySelector('#vehicle_type_id')?.value || null;
+        const vehicleTypeId = document.querySelector('#vehicle_type_id')?.value || null;
 
-                    // Call fare API
-                    const fareData = await fetchFare(vehicleTypeId, distance);
+        // Call fare API
+        const fareData = await fetchFare(vehicleTypeId, distance);
 
-                    if (fareData) {
-                        document.getElementById('distance').textContent = `${distance} km`;
-                        document.getElementById('time').textContent = `${time} min`;
-                        document.getElementById('fare').textContent = `Rs ${fareData.boosted_fare}`;
+        if (fareData) {
+            document.getElementById('distance').textContent = `${distance} km`;
+            document.getElementById('time').textContent = `${time} min`;
 
-                        if (fareData.is_boost) {
-                            document.getElementById('boost-multiplier').textContent = `x${fareData.boost_multiplier}`;
-                            document.getElementById('boost-container').style.display = 'block';
-                        } else {
-                            document.getElementById('boost-container').style.display = 'none';
-                        }
-                    }
+            const originalFareEl = document.getElementById('original-fare');
+            const finalFareEl = document.getElementById('final-fare');
 
-                    const bounds = L.latLngBounds([
-                        [pickupCoordinates[0], pickupCoordinates[1]],
-                        [destinationCoordinates[0], destinationCoordinates[1]]
-                    ]);
-                    map.fitBounds(bounds.pad(0.1));
-                }
-            });
+            if (fareData.is_boost) {
+                originalFareEl.style.display = 'inline';
+                originalFareEl.textContent = `Rs ${fareData.total_fare}`;
+                finalFareEl.textContent = `Rs ${fareData.boosted_fare}`;
+                finalFareEl.style.color = '#ef4444'; // optional: highlight boosted fare
+            } else {
+                originalFareEl.style.display = 'none';
+                finalFareEl.textContent = `Rs ${fareData.total_fare}`;
+                finalFareEl.style.color = ''; // reset color
+            }
+        }
+
+        const bounds = L.latLngBounds([
+            [pickupCoordinates[0], pickupCoordinates[1]],
+            [destinationCoordinates[0], destinationCoordinates[1]]
+        ]);
+        map.fitBounds(bounds.pad(0.1));
+    }
+});
 
 
             routingControl.on('routingerror', function(e) {
