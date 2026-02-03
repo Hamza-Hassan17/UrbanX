@@ -1270,32 +1270,33 @@
         //     },
         // ];
 
-        async function fetchFare(vehicle_type_id, distance_km) {
+        async function fetchFare(vehicleTypeId, distanceKm) {
             try {
                 const response = await fetch('/api/customer/calculate-distance-fare', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                        'Accept': 'application/json'
                     },
-                    body: JSON.stringify({ vehicle_type_id, distance_km })
+                    body: JSON.stringify({
+                        vehicle_type_id: vehicleTypeId,
+                        distance_km: distanceKm
+                    })
                 });
 
                 if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    console.error('Fare API error:', errorData);
                     throw new Error('Fare calculation failed');
                 }
 
-                const data = await response.json();
-                return data;
-
+                return await response.json();
             } catch (error) {
                 console.error('Fare API error:', error);
-                showNotification('Could not calculate fare', 'error');
+                showNotification('Failed to calculate fare. Please try again.', 'error');
                 return null;
             }
         }
-
-
 
         // Add driver markers to map
         function addDriverMarkers() {
