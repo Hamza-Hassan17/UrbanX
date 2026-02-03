@@ -27,6 +27,8 @@ return new class extends Migration
             $table->string('phone_otp')->nullable();
             $table->timestamp('otp_expires_at')->nullable();
             $table->timestamp('phone_verified_at')->nullable();
+            $table->string('lat')->nullable();
+            $table->string('lang')->nullable();
             $table->timestamps();
             $table->softDeletes(); // This adds the 'deleted_at' column
         });

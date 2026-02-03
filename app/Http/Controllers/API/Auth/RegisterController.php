@@ -25,6 +25,8 @@ class RegisterController extends Controller
             'email' => 'required|string|unique:users,email',
             'phone' => 'required|string|unique:users,phone',
             'role' => 'required|in:user,driver',
+            'lat' => 'nullable|string|max:255',
+            'lang' => 'nullable|string|max:255',
         ];
 
         if (config('captcha.version') !== 'no_captcha') {
@@ -59,6 +61,8 @@ class RegisterController extends Controller
             $user->phone = $request->phone;
             $user->email_verified_at = Carbon::now();
             $user->password = Hash::make($dummyPassword);
+            $user->lat = $request->lat ?? null;
+            $user->lang = $request->lang ?? null;
 
             // ✅ Generate username from email name part
             $username = $this->generateUsername($namePart);
