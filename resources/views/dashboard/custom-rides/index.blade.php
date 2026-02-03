@@ -772,27 +772,28 @@
                         value="Mohammad Khan • +92 300 1234567">
                 </div>
                 <div class="trip-stats">
-                    <div class="stat-item">
-                        <div class="stat-value" id="distance">0 km</div>
-                        <div class="stat-label">Distance</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="time">0 min</div>
-                        <div class="stat-label">Est. Time</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="fare-container">
-                            <span id="original-fare"
-                                style="text-decoration: line-through; color: gray; display: none; margin-right: 5px;"></span>
-                            <span id="final-fare" style="position: relative; font-weight: bold; color: #ef4444;">
-                                Rs 0
-                                <sup id="boost-multiplier"
-                                    style="font-size: 0.6em; color: #2563eb; display: none; position: absolute; top: -10px; right: -5px;">x1.0</sup>
-                            </span>
-                        </div>
-                        <div class="stat-label">Est. Fare</div>
-                    </div>
-                </div>
+    <div class="stat-item">
+        <div class="stat-value" id="distance">0 km</div>
+        <div class="stat-label">Distance</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value" id="time">0 min</div>
+        <div class="stat-label">Est. Time</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value" id="fare-container">
+            <span id="original-fare"
+                style="text-decoration: line-through; color: gray; display: none; margin-right: 5px;"></span>
+            <span id="final-fare" style="position: relative; font-weight: bold; color: #ef4444;">
+                Rs 0
+                <sup id="boost-multiplier"
+                    style="font-size: 0.6em; color: #2563eb; display: none; position: absolute; top: -10px; right: -5px;">x1.0</sup>
+            </span>
+        </div>
+        <div class="stat-label">Est. Fare</div>
+    </div>
+</div>
+
             </div>
         </aside>
 
@@ -1590,48 +1591,55 @@
 
             routingControl.on('routesfound', async function(e) {
                 const routes = e.routes;
-                if (routes && routes.length > 0) {
-                    const route = routes[0];
-                    const distance = (route.summary.totalDistance / 1000).toFixed(1);
-                    const time = Math.round(route.summary.totalTime / 60);
+                if (!routes || routes.length === 0) return;
 
-                    const vehicleTypeId = document.querySelector('#vehicle_type_id')?.value || null;
+                const route = routes[0];
+                const distance = (route.summary.totalDistance / 1000).toFixed(1);
+                const time = Math.round(route.summary.totalTime / 60);
 
-                    // Call fare API
-                    const fareData = await fetchFare(vehicleTypeId, distance);
+                const vehicleTypeId = document.querySelector('#vehicle_type_id')?.value || null;
 
-                    if (fareData) {
-                        document.getElementById('distance').textContent = `${distance} km`;
-                        document.getElementById('time').textContent = `${time} min`;
+                // Call fare API
+                const fareData = await fetchFare(vehicleTypeId, distance);
 
-                        const originalFareEl = document.getElementById('original-fare');
-                        const finalFareEl = document.getElementById('final-fare');
-                        const boostEl = document.getElementById('boost-multiplier');
+                if (fareData) {
+                    document.getElementById('distance').textContent = `${distance} km`;
+                    document.getElementById('time').textContent = `${time} min`;
 
-                        if (fareData.is_boost) {
-                            originalFareEl.style.display = 'inline';
-                            originalFareEl.textContent = `Rs ${fareData.total_fare}`;
+                    const originalFareEl = document.getElementById('original-fare');
+                    const finalFareEl = document.getElementById('final-fare');
+                    const boostEl = document.getElementById('boost-multiplier');
 
-                            finalFareEl.textContent = `Rs ${fareData.boosted_fare}`;
-                            finalFareEl.style.color = '#ef4444';
+                    // Only show boost if boost is active
+                    if (fareData.is_boost && fareData.boost_multiplier > 1) {
+                        // Show original fare crossed out
+                        originalFareEl.style.display = 'inline';
+                        originalFareEl.textContent = `Rs ${fareData.total_fare}`;
 
-                            boostEl.style.display = 'block';
-                            boostEl.textContent = `x${fareData.boost_multiplier}`;
-                        } else {
-                            originalFareEl.style.display = 'none';
-                            finalFareEl.textContent = `Rs ${fareData.total_fare}`;
-                            finalFareEl.style.color = '';
-                            boostEl.style.display = 'none';
-                        }
+                        // Show boosted fare
+                        finalFareEl.textContent = `Rs ${fareData.boosted_fare}`;
+                        finalFareEl.style.color = '#ef4444';
+
+                        // Show multiplier in sup
+                        boostEl.style.display = 'inline';
+                        boostEl.textContent = `x${fareData.boost_multiplier}`;
+                    } else {
+                        // No boost
+                        originalFareEl.style.display = 'none';
+                        finalFareEl.textContent = `Rs ${fareData.total_fare}`;
+                        finalFareEl.style.color = ''; // default
+                        boostEl.style.display = 'none';
                     }
-
-                    const bounds = L.latLngBounds([
-                        [pickupCoordinates[0], pickupCoordinates[1]],
-                        [destinationCoordinates[0], destinationCoordinates[1]]
-                    ]);
-                    map.fitBounds(bounds.pad(0.1));
                 }
+
+                // Fit map bounds
+                const bounds = L.latLngBounds([
+                    [pickupCoordinates[0], pickupCoordinates[1]],
+                    [destinationCoordinates[0], destinationCoordinates[1]]
+                ]);
+                map.fitBounds(bounds.pad(0.1));
             });
+
 
 
 
