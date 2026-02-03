@@ -1779,7 +1779,7 @@
                 document.querySelector('.driver-avatar').textContent = driver.name.split(' ').map(n => n[0]).join('');
                 document.querySelector('.driver-info h3').textContent = driver.name;
                 document.querySelector('.driver-meta span:first-child').innerHTML =
-                    `<i class="fas fa-id-badge"></i> ID: ${driver.plate}`;
+                    `<i class="fas fa-id-badge"></i> ID: ${driver.id}`;
 
                 showNotification(`Assigned ${driver.name} from ${driver.city} to the current trip!`, 'success');
             }
