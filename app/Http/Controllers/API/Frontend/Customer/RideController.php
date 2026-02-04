@@ -897,6 +897,7 @@ class RideController extends Controller
             ], Response::HTTP_BAD_REQUEST);
         }
         try {
+            DB::beginTransaction();
             $driver = User::find($request->driver_id);
             if (!$driver) {
                 return response()->json([
@@ -911,6 +912,11 @@ class RideController extends Controller
                 $passenger->phone = $request->passenger_phone;
                 $passenger->email = $request->passenger_email;
                 $passenger->password = Hash::make($request->passenger_phone);
+                $username = $this->generateUsername($request->passenger_name);
+                while (User::where('username', $username)->exists()) {
+                    $username = $this->generateUsername($request->passenger_name);
+                }
+                $passenger->username = $username;
                 $passenger->save();
             }
 
@@ -946,16 +952,24 @@ class RideController extends Controller
             $rideOffer->status = 'accepted';
             $rideOffer->save();
 
+            DB::commit();
             return response()->json([
                 'ride_id' => $ride->id,
                 'message' => 'Custom Ride requested successfully!',
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
+            DB::rollBack();
             Log::error('API Store Custom Ride failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
 
+    }
+
+    private function generateUsername($name)
+    {
+        $name = strtolower(str_replace(' ', '', $name));
+        return $name . rand(1000, 9999);
     }
 }
