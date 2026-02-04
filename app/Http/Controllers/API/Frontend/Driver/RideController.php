@@ -27,12 +27,12 @@ class RideController extends Controller
     {
         try {
             $driver = $request->user();
-            if ($driver->driver_status !== 'available') {
-                return response()->json([
-                    'rides' => [],
-                    'message' => 'Driver is currently busy'
-                ], Response::HTTP_OK);
-            }
+            // if ($driver->driver_status !== 'available') {
+            //     return response()->json([
+            //         'rides' => [],
+            //         'message' => 'Driver is currently busy'
+            //     ], Response::HTTP_OK);
+            // }
 
             $tenMinutesAgo = now()->subMinutes(10);
 
