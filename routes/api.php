@@ -10,6 +10,7 @@ use App\Http\Controllers\API\Frontend\Driver\RideController as DriverRideControl
 use App\Http\Controllers\API\Frontend\DriverDetailsController;
 use App\Http\Controllers\API\Frontend\NotificationController;
 use App\Http\Controllers\API\Frontend\ProfileController;
+use App\Http\Controllers\Dashboard\CustomRideController;
 use App\Http\Controllers\Dashboard\HomeController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -114,7 +115,7 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 Route::post('/calculate-distance-fare', [RideController::class, 'calculateDistanceFare']);
-Route::post('/request-ride', [RideController::class, 'requestCustomRide']);
+Route::post('/request-ride', [CustomRideController::class, 'requestCustomRide']);
 // Authentication Routes (Login and Register) for guests
 Route::post('/login', [LoginController::class, 'login_attempt']);
 Route::post('/register', [RegisterController::class, 'register_attempt']);
