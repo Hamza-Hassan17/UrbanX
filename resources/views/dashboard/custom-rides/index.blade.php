@@ -1800,11 +1800,14 @@
 
                 showNotification(`Assigned ${driver.name} from ${driver.city} to the current trip!`, 'success');
 
-                // const distance = document.getElementById('ride_distance').value
-                // const vehicleTypeId = driver.vehicle_type_id || null;
+                const distance = document.getElementById('ride_distance').value || 0;
+                const vehicleTypeId = driver.vehicle_type_id || null;
+                console.log('Calculating fare for vehicle type ID:', vehicleTypeId, 'and distance:', distance);
 
-                // // Call fare API
-                // const fareData = await fetchFare(vehicleTypeId, distance);
+                // Call fare API
+                const fareData = fetchFare(vehicleTypeId, distance);
+
+                console.log('Fare data:', fareData);
 
                 // if (fareData) {
                 //     document.getElementById('distance').textContent = `${distance} km`;
