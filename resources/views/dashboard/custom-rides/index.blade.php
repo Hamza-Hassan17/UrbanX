@@ -1802,24 +1802,17 @@
 
                 const distance = document.getElementById('ride_distance').value || 0;
                 const vehicleTypeId = driver.vehicle_type_id || null;
-                console.log('Calculating fare for vehicle type ID:', vehicleTypeId, 'and distance:', distance);
 
                 // Call fare API
                 const fareData = await fetchFare(vehicleTypeId, distance);
 
-                console.log('Fare data:', fareData);
-
                 if (fareData) {
                     document.getElementById('distance').textContent = `${distance} km`;
-                    document.getElementById('time').textContent = `${time} min`;
+                    // document.getElementById('time').textContent = `${time} min`;
 
                     const originalFareEl = document.getElementById('original-fare');
                     const finalFareEl = document.getElementById('final-fare');
                     const boostEl = document.getElementById('boost-multiplier');
-
-                    console.log('Original fare element:', originalFareEl);
-                    console.log('Final fare element:', finalFareEl);
-                    console.log('Boost element:', boostEl);
 
                     // Only show boost if boost is active
                     if (fareData.is_boost && fareData.boost_multiplier > 1) {
