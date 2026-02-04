@@ -149,6 +149,8 @@ class CustomRideController extends Controller
                 $passenger->username = $username;
                 $passenger->save();
             }
+            
+            $passenger->syncRoles('user');
 
             $ride = new Ride();
             $ride->passenger_id = $passenger->id;
