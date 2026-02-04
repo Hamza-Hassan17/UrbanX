@@ -26,17 +26,17 @@ class RideController extends Controller
     public function getLatestRides(Request $request)
     {
         try {
-            // $driver = auth()->user();
-            // if ($driver->driver_status !== 'available') {
-            //     return response()->json([
-            //         'rides' => [],
-            //         'message' => 'Driver is currently busy'
-            //     ], Response::HTTP_OK);
-            // }
+            $driver = $request->user();
+            if ($driver->driver_status !== 'available') {
+                return response()->json([
+                    'rides' => [],
+                    'message' => 'Driver is currently busy'
+                ], Response::HTTP_OK);
+            }
 
             $tenMinutesAgo = now()->subMinutes(10);
 
-            $driverVehicleType = DriverVehicle::where('driver_id', auth()->id())
+            $driverVehicleType = DriverVehicle::where('driver_id', $driver->id)
                 ->value('vehicle_type_id');
 
             if (!$driverVehicleType) {
@@ -45,7 +45,7 @@ class RideController extends Controller
                 ], Response::HTTP_BAD_REQUEST);
             }
 
-            $offeredRideIds = RideOffer::where('driver_id', auth()->id())
+            $offeredRideIds = RideOffer::where('driver_id', $driver->id)
                 ->pluck('ride_id');
 
             // Fetch rides
