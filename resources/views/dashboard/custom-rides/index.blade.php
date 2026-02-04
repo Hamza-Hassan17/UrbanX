@@ -734,7 +734,7 @@
                 </div>
                 <div class="driver-actions">
                     <button class="btn btn-primary" id="assign-trip">
-                        <i class="fas fa-paper-plane"></i> Assign Trip
+                        <i class="fas fa-paper-plane"></i> Assign Ride
                     </button>
                     <input type="text" hidden value="{{ $driver->phone }}" name="driver_phone" id="driver_phone">
                     <button class="btn btn-outline" id="message-driver">
@@ -1799,6 +1799,7 @@
                 if (!vehicleTypeEl) return showNotification('Vehicle type not selected!', 'error');
                 if (!passengerNameEl) return showNotification('Passenger name field missing!', 'error');
                 if (!passengerPhoneEl) return showNotification('Passenger phone field missing!', 'error');
+                if (!passengerEmailEl) return showNotification('Passenger email field missing!', 'error');
                 if (!fareEl) return showNotification('Fare not calculated yet!', 'error');
                 if (!timeEl) return showNotification('Trip time not available!', 'error');
 

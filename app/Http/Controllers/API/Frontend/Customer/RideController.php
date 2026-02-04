@@ -7,11 +7,13 @@ use App\Models\DriverReview;
 use App\Models\PromoCode;
 use App\Models\RideExtraCharge;
 use App\Models\Ride;
+use App\Models\User;
 use App\Models\RideOffer;
 use App\Models\VehicleType;
 use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
@@ -870,5 +872,90 @@ class RideController extends Controller
     public function requestCustomRide(Request $request)
     {
         Log::info('Request Custom Ride', ['request' => $request->all()]);
+        $validator = Validator::make($request->all(), [
+            'vehicle_type_id' => 'required|exists:vehicle_types,id',
+            'driver_id' => 'required|exists:users,id',
+            'promo_code_id' => 'nullable|exists:promo_codes,id',
+            'pickup_latitude' => 'required|string',
+            'pickup_longitude' => 'required|string',
+            'dropoff_latitude' => 'required|string',
+            'dropoff_longitude' => 'required|string',
+            'distance_km' => 'required|string',
+            'duration_minutes' => 'nullable|string',
+            'subtotal' => 'required|string',
+            'discount_amount' => 'required|string',
+            'total_fare' => 'required|string',
+            'passenger_name' => 'required|string|max:255',
+            'passenger_phone' => 'required|string|max:255',
+            'passenger_email' => 'required|email|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+        try {
+            $driver = User::find($request->driver_id);
+            if (!$driver || $driver->role !== 'driver') {
+                return response()->json([
+                    'message' => 'Selected driver is not valid.'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $passenger = User::where('phone', $request->passenger_phone)->first();
+            if (!$passenger) {
+                $passenger = new User();
+                $passenger->name = $request->passenger_name;
+                $passenger->phone = $request->passenger_phone;
+                $passenger->email = $request->passenger_email;
+                $passenger->password = Hash::make($request->passenger_phone);
+                $passenger->save();
+            }
+
+            $passenger->syncRoles('user');
+
+            $ride = new Ride();
+            $ride->passenger_id = $passenger->id;
+            $ride->driver_id = $driver->id;
+            $ride->vehicle_type_id = $request->vehicle_type_id;
+            $ride->promo_code_id = $request->promo_code_id;
+            $ride->pickup_latitude = $request->pickup_latitude;
+            $ride->pickup_longitude = $request->pickup_longitude;
+            $ride->dropoff_latitude = $request->dropoff_latitude;
+            $ride->dropoff_longitude = $request->dropoff_longitude;
+            $ride->distance_km = $request->distance_km;
+            $ride->duration_minutes = $request->duration_minutes;
+            $ride->subtotal = $request->subtotal;
+            $ride->discount_amount = $request->discount_amount;
+            $ride->total_fare = $request->total_fare;
+            $ride->requested_at = now();
+            $ride->accepted_at = now();
+            $ride->status = 'accepted';
+            $ride->save();
+
+            $rideOffer = new RideOffer();
+            $rideOffer->ride_id = $ride->id;
+            $rideOffer->driver_id = $driver->id;
+            $rideOffer->proposed_price = $request->total_fare;
+            $rideOffer->eta_minutes = $request->duration_minutes;
+            $rideOffer->note = 'Auto Accepted by Admin';
+            $rideOffer->offered_at = now();
+            $rideOffer->accepted_at = now();
+            $rideOffer->status = 'accepted';
+            $rideOffer->save();
+
+            return response()->json([
+                'ride_id' => $ride->id,
+                'message' => 'Custom Ride requested successfully!',
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Store Custom Ride failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+
     }
 }
