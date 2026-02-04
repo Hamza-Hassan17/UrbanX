@@ -771,9 +771,9 @@
                 <div class="form-group">
                     <label><i class="fas fa-user"></i> Passenger Details</label>
                     <div class="d-flex gap-2">
-                        <input type="text" id="passenger-name" name="passenger-name" class="form-control" placeholder="Passenger name">
-                        <input type="text" id="passenger-phone" name="passenger-phone" class="form-control" placeholder="Passenger phone">
-                        <input type="text" id="passenger-email" name="passenger-email" class="form-control" placeholder="Passenger email">
+                        <input type="text" id="passenger_name" name="passenger_name" class="form-control" placeholder="Passenger name">
+                        <input type="text" id="passenger_phone" name="passenger_phone" class="form-control" placeholder="Passenger phone">
+                        <input type="text" id="passenger_email" name="passenger_email" class="form-control" placeholder="Passenger email">
                     </div>
                 </div>
                 <div class="trip-stats">
