@@ -1775,30 +1775,80 @@
 
                 const button = this;
 
-                const driverName = document.querySelector('.driver-info h3')?.textContent || '';
-                const driverId = document.getElementById('driver_id').value;
-                const pickup = document.getElementById('pickup-location').value;
-                const destination = document.getElementById('destination').value;
-                const vehicleTypeId = document.querySelector('#vehicle_type_id')?.value || null;
-                const passengerName = document.getElementById('passenger_name')?.value || '';
-                const passengerPhone = document.getElementById('passenger_phone')?.value || '';
-                const passengerEmail = document.getElementById('passenger_email')?.value || '';
+                /* ======================
+                GET ELEMENTS / VALUES
+                ====================== */
+                const driverNameEl = document.querySelector('.driver-info h3');
+                const driverIdEl = document.getElementById('driver_id');
+                const pickupEl = document.getElementById('pickup-location');
+                const destinationEl = document.getElementById('destination');
+                const vehicleTypeEl = document.getElementById('vehicle_type_id');
+                const passengerNameEl = document.getElementById('passenger_name');
+                const passengerPhoneEl = document.getElementById('passenger_phone');
+                const passengerEmailEl = document.getElementById('passenger_email');
+                const fareEl = document.getElementById('final-fare');
+                const timeEl = document.getElementById('time');
 
-                if (!pickup || !destination) {
-                    showNotification('Please select both pickup and destination locations first!', 'error');
-                    return;
-                }
+                /* ======================
+                VALIDATIONS (ELEMENT)
+                ====================== */
+                if (!driverNameEl) return showNotification('Driver info not found!', 'error');
+                if (!driverIdEl) return showNotification('Driver ID field missing!', 'error');
+                if (!pickupEl) return showNotification('Pickup field missing!', 'error');
+                if (!destinationEl) return showNotification('Destination field missing!', 'error');
+                if (!vehicleTypeEl) return showNotification('Vehicle type not selected!', 'error');
+                if (!passengerNameEl) return showNotification('Passenger name field missing!', 'error');
+                if (!passengerPhoneEl) return showNotification('Passenger phone field missing!', 'error');
+                if (!fareEl) return showNotification('Fare not calculated yet!', 'error');
+                if (!timeEl) return showNotification('Trip time not available!', 'error');
+
+                /* ======================
+                VALUES
+                ====================== */
+                const driverName = driverNameEl.textContent.trim();
+                const driverId = driverIdEl.value;
+                const pickup = pickupEl.value.trim();
+                const destination = destinationEl.value.trim();
+                const vehicleTypeId = vehicleTypeEl.value;
+                const passengerName = passengerNameEl.value.trim();
+                const passengerPhone = passengerPhoneEl.value.trim();
+                const passengerEmail = passengerEmailEl?.value.trim() || null;
+
+                /* ======================
+                VALIDATIONS (VALUES)
+                ====================== */
+                if (!driverId) return showNotification('Please select a driver!', 'error');
+                if (!vehicleTypeId) return showNotification('Please select a vehicle type!', 'error');
+                if (!pickup) return showNotification('Please select pickup location!', 'error');
+                if (!destination) return showNotification('Please select destination location!', 'error');
 
                 if (!pickupCoordinates || !destinationCoordinates) {
-                    showNotification('Please select valid locations from the suggestions', 'error');
-                    return;
+                    return showNotification('Please select valid locations from suggestions!', 'error');
                 }
 
-                // Loading state
+                if (!passengerName) return showNotification('Passenger name is required!', 'error');
+                if (!passengerPhone) return showNotification('Passenger phone is required!', 'error');
+
+                // Basic phone validation
+                if (!/^[0-9+\-\s]{7,15}$/.test(passengerPhone)) {
+                    return showNotification('Invalid passenger phone number!', 'error');
+                }
+
+                // Email validation (optional)
+                if (passengerEmail && !/^\S+@\S+\.\S+$/.test(passengerEmail)) {
+                    return showNotification('Invalid passenger email!', 'error');
+                }
+
+                /* ======================
+                LOADING STATE
+                ====================== */
                 const originalText = button.innerHTML;
                 button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Assigning...';
                 button.disabled = true;
 
+                /* ======================
+                API CALL
+                ====================== */
                 try {
                     const response = await fetch('/api/request-ride', {
                         method: 'POST',
@@ -1811,19 +1861,20 @@
                         },
                         body: JSON.stringify({
                             vehicle_type_id: vehicleTypeId,
+                            driver_id: driverId,
                             promo_code_id: null,
                             pickup_latitude: pickupCoordinates[0].toString(),
                             pickup_longitude: pickupCoordinates[1].toString(),
                             dropoff_latitude: destinationCoordinates[0].toString(),
                             dropoff_longitude: destinationCoordinates[1].toString(),
                             distance_km: document.getElementById('ride_distance')?.value || null,
-                            duration_minutes: document.getElementById('time')?.textContent.replace(' min', ''),
-                            subtotal: document.getElementById('final-fare')?.textContent.replace('Rs ', '').trim(),
+                            duration_minutes: timeEl.textContent.replace(' min', ''),
+                            subtotal: fareEl.textContent.replace('Rs ', '').trim(),
                             discount_amount: "0",
-                            total_fare: document.getElementById('final-fare')?.textContent.replace('Rs ', '').trim(),
+                            total_fare: fareEl.textContent.replace('Rs ', '').trim(),
                             passenger_name: passengerName,
                             passenger_phone: passengerPhone,
-                            passenger_email: passengerEmail || null
+                            passenger_email: passengerEmail
                         })
                     });
 
@@ -1838,10 +1889,7 @@
                             'success'
                         );
 
-                        setTimeout(() => {
-                            location.reload();
-                        }, 2000);
-
+                        setTimeout(() => location.reload(), 2000);
                     } else {
                         showNotification(result.message || 'Ride assignment failed!', 'error');
                     }
