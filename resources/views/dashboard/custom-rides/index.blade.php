@@ -1809,35 +1809,39 @@
 
                 console.log('Fare data:', fareData);
 
-                // if (fareData) {
-                //     document.getElementById('distance').textContent = `${distance} km`;
-                //     document.getElementById('time').textContent = `${time} min`;
+                if (fareData) {
+                    document.getElementById('distance').textContent = `${distance} km`;
+                    document.getElementById('time').textContent = `${time} min`;
 
-                //     const originalFareEl = document.getElementById('original-fare');
-                //     const finalFareEl = document.getElementById('final-fare');
-                //     const boostEl = document.getElementById('boost-multiplier');
+                    const originalFareEl = document.getElementById('original-fare');
+                    const finalFareEl = document.getElementById('final-fare');
+                    const boostEl = document.getElementById('boost-multiplier');
 
-                //     // Only show boost if boost is active
-                //     if (fareData.is_boost && fareData.boost_multiplier > 1) {
-                //         // Show original fare crossed out
-                //         originalFareEl.style.display = 'inline';
-                //         originalFareEl.textContent = `Rs ${fareData.total_fare}`;
+                    console.log('Original fare element:', originalFareEl);
+                    console.log('Final fare element:', finalFareEl);
+                    console.log('Boost element:', boostEl);
 
-                //         // Show boosted fare
-                //         finalFareEl.textContent = `Rs ${fareData.boosted_fare}`;
-                //         finalFareEl.style.color = '#ef4444';
+                    // Only show boost if boost is active
+                    if (fareData.is_boost && fareData.boost_multiplier > 1) {
+                        // Show original fare crossed out
+                        originalFareEl.style.display = 'inline';
+                        originalFareEl.textContent = `Rs ${fareData.total_fare}`;
 
-                //         // Show multiplier in sup
-                //         boostEl.style.display = 'inline';
-                //         boostEl.textContent = `x${fareData.boost_multiplier}`;
-                //     } else {
-                //         // No boost
-                //         originalFareEl.style.display = 'none';
-                //         finalFareEl.textContent = `Rs ${fareData.total_fare}`;
-                //         finalFareEl.style.color = ''; // default
-                //         boostEl.style.display = 'none';
-                //     }
-                // }
+                        // Show boosted fare
+                        finalFareEl.textContent = `Rs ${fareData.boosted_fare}`;
+                        finalFareEl.style.color = '#ef4444';
+
+                        // Show multiplier in sup
+                        boostEl.style.display = 'inline';
+                        boostEl.textContent = `x${fareData.boost_multiplier}`;
+                    } else {
+                        // No boost
+                        originalFareEl.style.display = 'none';
+                        finalFareEl.textContent = `Rs ${fareData.total_fare}`;
+                        finalFareEl.style.color = ''; // default
+                        boostEl.style.display = 'none';
+                    }
+                }
             }
         };
 
