@@ -898,7 +898,7 @@ class RideController extends Controller
         }
         try {
             $driver = User::find($request->driver_id);
-            if (!$driver || $driver->role !== 'driver') {
+            if (!$driver) {
                 return response()->json([
                     'message' => 'Selected driver is not valid.'
                 ], Response::HTTP_BAD_REQUEST);
