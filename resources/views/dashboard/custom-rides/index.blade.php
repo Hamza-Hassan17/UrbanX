@@ -1789,7 +1789,7 @@
         });
 
         // Assign driver function
-        window.assignDriver = function(driverId) {
+        window.assignDriver = async function(driverId) {
             const driver = drivers.find(d => d.id === driverId);
             if (driver) {
                 // Update driver card
@@ -1805,7 +1805,7 @@
                 console.log('Calculating fare for vehicle type ID:', vehicleTypeId, 'and distance:', distance);
 
                 // Call fare API
-                const fareData = fetchFare(vehicleTypeId, distance);
+                const fareData = await fetchFare(vehicleTypeId, distance);
 
                 console.log('Fare data:', fareData);
 
