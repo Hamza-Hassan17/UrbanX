@@ -866,4 +866,9 @@ class RideController extends Controller
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
+
+    public function requestCustomRide(Request $request)
+    {
+        Log::info('Request Custom Ride', ['request' => $request->all()]);
+    }
 }

@@ -114,6 +114,7 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 Route::post('/calculate-distance-fare', [RideController::class, 'calculateDistanceFare']);
+Route::post('/request-ride', [RideController::class, 'requestCustomRide']);
 // Authentication Routes (Login and Register) for guests
 Route::post('/login', [LoginController::class, 'login_attempt']);
 Route::post('/register', [RegisterController::class, 'register_attempt']);

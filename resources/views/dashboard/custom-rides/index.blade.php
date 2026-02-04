@@ -741,6 +741,7 @@
                         <i class="fas fa-comment"></i> Message
                     </button>
                 </div>
+                <input type="text" hidden value="{{ $driver->id }}" name="driver_id" id="driver_id">
             </div>
 
             <!-- Trip Details -->
@@ -1527,6 +1528,7 @@
             // --- AUTO-SELECT NEAREST DRIVER ---
             const nearestDriver = getNearestDriver(lat, lng);
             if (nearestDriver) {
+                document.getElementById('driver_id').value = nearestDriver.id;
                 updateDriverCard(nearestDriver);
                 showNotification(`Nearest driver selected: ${nearestDriver.name}`, 'info');
             }
@@ -1732,10 +1734,55 @@
             });
 
             // Assign trip button
-            document.getElementById('assign-trip').addEventListener('click', function() {
-                const driverName = document.querySelector('.driver-info h3').textContent;
+            // document.getElementById('assign-trip').addEventListener('click', function() {
+            //     const driverName = document.querySelector('.driver-info h3').textContent;
+            //     const pickup = document.getElementById('pickup-location').value;
+            //     const destination = document.getElementById('destination').value;
+
+            //     if (!pickup || !destination) {
+            //         showNotification('Please select both pickup and destination locations first!', 'error');
+            //         return;
+            //     }
+
+            //     if (!pickupCoordinates || !destinationCoordinates) {
+            //         showNotification('Please select valid locations from the suggestions', 'error');
+            //         return;
+            //     }
+
+            //     // Show loading state
+            //     const originalText = this.innerHTML;
+            //     this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Assigning...';
+            //     this.disabled = true;
+
+            //     // Simulate API call
+            //     setTimeout(() => {
+            //         this.innerHTML = '<i class="fas fa-check"></i> Assigned!';
+            //         this.style.backgroundColor = '#10b981';
+
+            //         // Add new trip to the list
+
+            //         showNotification('Assigning is in Progress by Developer Abdul Rauf', 'success');
+
+            //         // Reset after 2 seconds
+            //         setTimeout(() => {
+            //             this.innerHTML = originalText;
+            //             this.style.backgroundColor = '';
+            //             this.disabled = false;
+            //         }, 2000);
+            //     }, 1500);
+            // });
+            document.getElementById('assign-trip').addEventListener('click', async function () {
+
+                const button = this;
+
+                const driverName = document.querySelector('.driver-info h3')?.textContent || '';
+                const driverId = document.getElementById('driver_id').value;
                 const pickup = document.getElementById('pickup-location').value;
                 const destination = document.getElementById('destination').value;
+                const vehicleTypeId = document.querySelector('#vehicle_type_id')?.value || null;
+                const passengerName = document.getElementById('passenger_name')?.value || '';
+                const passengerPhone = document.getElementById('passenger_phone')?.value || '';
+                const passengerEmail = document.getElementById('passenger_email')?.value || '';
 
                 if (!pickup || !destination) {
                     showNotification('Please select both pickup and destination locations first!', 'error');
@@ -1747,27 +1794,68 @@
                     return;
                 }
 
-                // Show loading state
-                const originalText = this.innerHTML;
-                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Assigning...';
-                this.disabled = true;
+                // Loading state
+                const originalText = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Assigning...';
+                button.disabled = true;
 
-                // Simulate API call
-                setTimeout(() => {
-                    this.innerHTML = '<i class="fas fa-check"></i> Assigned!';
-                    this.style.backgroundColor = '#10b981';
+                try {
+                    const response = await fetch('/api/request-ride', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document
+                                .querySelector('meta[name="csrf-token"]')
+                                .getAttribute('content')
+                        },
+                        body: JSON.stringify({
+                            vehicle_type_id: vehicleTypeId,
+                            promo_code_id: null,
+                            pickup_latitude: pickupCoordinates[0].toString(),
+                            pickup_longitude: pickupCoordinates[1].toString(),
+                            dropoff_latitude: destinationCoordinates[0].toString(),
+                            dropoff_longitude: destinationCoordinates[1].toString(),
+                            distance_km: document.getElementById('ride_distance')?.value || null,
+                            duration_minutes: document.getElementById('time')?.textContent.replace(' min', ''),
+                            subtotal: document.getElementById('final-fare')?.textContent.replace('Rs ', '').trim(),
+                            discount_amount: "0",
+                            total_fare: document.getElementById('final-fare')?.textContent.replace('Rs ', '').trim(),
+                            passenger_name: passengerName,
+                            passenger_phone: passengerPhone,
+                            passenger_email: passengerEmail || null
+                        })
+                    });
 
-                    // Add new trip to the list
-                    // addNewTrip(driverName, pickup, destination);
-                    showNotification('Assigning is in Progress by Developer Abdul Rauf', 'success');
+                    const result = await response.json();
 
-                    // Reset after 2 seconds
+                    if (response.ok) {
+                        button.innerHTML = '<i class="fas fa-check"></i> Assigned!';
+                        button.style.backgroundColor = '#10b981';
+
+                        showNotification(
+                            `Ride assigned successfully! Ride ID: ${result.ride_id}`,
+                            'success'
+                        );
+
+                        setTimeout(() => {
+                            location.reload();
+                        }, 2000);
+
+                    } else {
+                        showNotification(result.message || 'Ride assignment failed!', 'error');
+                    }
+
+                } catch (error) {
+                    console.error('Assign Trip Error:', error);
+                    showNotification('Network error. Please try again.', 'error');
+                } finally {
                     setTimeout(() => {
-                        this.innerHTML = originalText;
-                        this.style.backgroundColor = '';
-                        this.disabled = false;
+                        button.innerHTML = originalText;
+                        button.style.backgroundColor = '';
+                        button.disabled = false;
                     }, 2000);
-                }, 1500);
+                }
             });
 
             // Message driver button
@@ -1792,6 +1880,7 @@
         window.assignDriver = async function(driverId) {
             const driver = drivers.find(d => d.id === driverId);
             if (driver) {
+                document.getElementById('driver_id').value = driver.id;
                 // Update driver card
                 document.querySelector('.driver-avatar').textContent = driver.name.split(' ').map(n => n[0]).join('');
                 document.querySelector('.driver-info h3').textContent = driver.name;
