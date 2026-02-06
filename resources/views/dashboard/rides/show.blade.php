@@ -58,7 +58,7 @@
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <div>
                             <h5 class="mb-0">Ride #{{ $ride->id }}</h5>
-                            <span class="text-muted">Requested: {{ $ride->requested_at->format('M d, Y h:i A') }}</span>
+                            <span class="text-muted">Requested: {{ \Carbon\Carbon::parse($ride->requested_at)->format('M d, Y h:i A') }}</span>
                         </div>
                         <span class="ride-status status-{{ $ride->status }}">
                             {{ ucfirst(str_replace('_', ' ', $ride->status)) }}
@@ -147,14 +147,14 @@
                                                 <small>{{ $offer->driver->phone ?? '' }}</small>
                                             </div>
                                         </td>
-                                        <td>${{ number_format($offer->proposed_price, 2) }}</td>
+                                        <td>{{ \App\Helpers\Helper::formatCurrency($offer->proposed_price) }}</td>
                                         <td>{{ $offer->eta_minutes }} minutes</td>
                                         <td>
                                             <span class="badge bg-{{ $offer->status == 'accepted' ? 'success' : ($offer->status == 'rejected' ? 'danger' : ($offer->status == 'expired' ? 'warning' : 'info')) }}">
                                                 {{ ucfirst($offer->status) }}
                                             </span>
                                         </td>
-                                        <td>{{ $offer->offered_at->format('M d, h:i A') }}</td>
+                                        <td>{{ \Carbon\Carbon::parse($offer->offered_at)->format('M d, Y h:i A') }}</td>
                                         <td>{{ $offer->note ?? '-' }}</td>
                                     </tr>
                                     @endforeach
@@ -239,7 +239,7 @@
                         @if($ride->vehicleType->base_fare)
                         <div class="mb-2">
                             <span class="info-label">Base Fare:</span>
-                            <span class="info-value">${{ number_format($ride->vehicleType->base_fare, 2) }}</span>
+                            <span class="info-value">{{ \App\Helpers\Helper::formatCurrency($ride->vehicleType->base_fare) }}</span>
                         </div>
                         @endif
                     </div>
@@ -254,27 +254,27 @@
                     <div class="card-body">
                         <div class="d-flex justify-content-between mb-2">
                             <span class="info-label">Subtotal:</span>
-                            <span class="info-value">${{ number_format($ride->subtotal, 2) }}</span>
+                            <span class="info-value">{{ \App\Helpers\Helper::formatCurrency($ride->subtotal) }}</span>
                         </div>
 
                         @if($ride->discount_amount > 0)
                         <div class="d-flex justify-content-between mb-2">
                             <span class="info-label">Discount:</span>
-                            <span class="info-value text-danger">-${{ number_format($ride->discount_amount, 2) }}</span>
+                            <span class="info-value text-danger">-{{ \App\Helpers\Helper::formatCurrency($ride->discount_amount) }}</span>
                         </div>
                         @endif
 
                         @if($ride->extra_charges > 0)
                         <div class="d-flex justify-content-between mb-2">
                             <span class="info-label">Extra Charges:</span>
-                            <span class="info-value text-success">+${{ number_format($ride->extra_charges, 2) }}</span>
+                            <span class="info-value text-success">+{{ \App\Helpers\Helper::formatCurrency($ride->extra_charges) }}</span>
                         </div>
                         @endif
 
                         <hr>
                         <div class="d-flex justify-content-between">
                             <span class="info-label fw-bold">Total Fare:</span>
-                            <span class="info-value fw-bold fs-5">${{ number_format($ride->total_fare, 2) }}</span>
+                            <span class="info-value fw-bold fs-5">{{ \App\Helpers\Helper::formatCurrency($ride->total_fare) }}</span>
                         </div>
 
                         @if($ride->promoCode)
@@ -299,7 +299,7 @@
                                 <div class="timeline-marker bg-primary"></div>
                                 <div class="timeline-content">
                                     <h6 class="mb-0">Requested</h6>
-                                    <small class="text-muted">{{ $ride->requested_at->format('M d, Y h:i A') }}</small>
+                                    <small class="text-muted">{{ \Carbon\Carbon::parse($ride->requested_at)->format('M d, Y h:i A') }}</small>
                                 </div>
                             </div>
 
@@ -308,7 +308,7 @@
                                 <div class="timeline-marker bg-success"></div>
                                 <div class="timeline-content">
                                     <h6 class="mb-0">Accepted</h6>
-                                    <small class="text-muted">{{ $ride->accepted_at->format('M d, Y h:i A') }}</small>
+                                    <small class="text-muted">{{ \Carbon\Carbon::parse($ride->accepted_at)->format('M d, Y h:i A') }}</small>
                                 </div>
                             </div>
                             @endif
@@ -318,7 +318,7 @@
                                 <div class="timeline-marker bg-info"></div>
                                 <div class="timeline-content">
                                     <h6 class="mb-0">Started</h6>
-                                    <small class="text-muted">{{ $ride->started_at->format('M d, Y h:i A') }}</small>
+                                    <small class="text-muted">{{ \Carbon\Carbon::parse($ride->started_at)->format('M d, Y h:i A') }}</small>
                                 </div>
                             </div>
                             @endif
@@ -328,7 +328,7 @@
                                 <div class="timeline-marker bg-success"></div>
                                 <div class="timeline-content">
                                     <h6 class="mb-0">Completed</h6>
-                                    <small class="text-muted">{{ $ride->completed_at->format('M d, Y h:i A') }}</small>
+                                    <small class="text-muted">{{ \Carbon\Carbon::parse($ride->completed_at)->format('M d, Y h:i A') }}</small>
                                 </div>
                             </div>
                             @endif
@@ -338,7 +338,7 @@
                                 <div class="timeline-marker bg-danger"></div>
                                 <div class="timeline-content">
                                     <h6 class="mb-0">Cancelled</h6>
-                                    <small class="text-muted">{{ $ride->cancelled_at->format('M d, Y h:i A') }}</small>
+                                    <small class="text-muted">{{ \Carbon\Carbon::parse($ride->cancelled_at)->format('M d, Y h:i A') }}</small>
                                     @if($ride->cancel_reason)
                                     <p class="mb-0"><small>Reason: {{ $ride->cancel_reason }}</small></p>
                                     @endif
