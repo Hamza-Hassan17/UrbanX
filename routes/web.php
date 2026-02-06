@@ -21,6 +21,7 @@ use App\Http\Controllers\Dashboard\User\ArchivedUserController;
 use App\Http\Controllers\Dashboard\User\UserController;
 use App\Http\Controllers\Dashboard\DriverController;
 use App\Http\Controllers\Dashboard\PromoCodeController;
+use App\Http\Controllers\Dashboard\RideController;
 use App\Http\Controllers\Dashboard\VehicleTypeController;
 use App\Http\Controllers\FirebaseController;
 use App\Http\Middleware\CheckAccountActivation;
@@ -191,6 +192,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
             //AnnouncementController Routes
             Route::resource('announcements', AnnoucementController::class);
             Route::get('announcements/status/{id}', [AnnoucementController::class, 'updateStatus'])->name('announcements.status.update');
+
+            //Rides
+            Route::resource('rides', RideController::class);
         });
     });
 
