@@ -8,7 +8,9 @@ use App\Models\Ride;
 use App\Models\RideExtraCharge;
 use App\Models\RideOffer;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class RideController extends Controller
 {
@@ -82,7 +84,45 @@ class RideController extends Controller
      */
     public function update(Request $request, string $id)
     {
-        //
+        $this->authorize('update ride');
+        $validator = Validator::make($request->all(), [
+            'ride_id' => 'required|exists:rides,id',
+            'status' => 'required|in:requested,accepted,en_route,arrived,started,completed,cancelled',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->withInput($request->all())->with('error', 'Validation Error!');
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $ride = Ride::findOrFail($id);
+            $ride->status = $request->status;
+            $ride->save();
+
+            if ($request->status == 'accepted') {
+                $ride->accepted_at = now();
+                $ride->save();
+            } elseif ($request->status == 'started') {
+                $ride->started_at = now();
+                $ride->save();
+            } elseif ($request->status == 'completed') {
+                $ride->completed_at = now();
+                $ride->save();
+            } elseif ($request->status == 'cancelled') {
+                $ride->cancelled_at = now();
+                $ride->save();
+            }
+
+            DB::commit();
+            return redirect()->route('dashboard.rides.index')->with('success', 'Ride status Updated successfully');
+        } catch (\Throwable $th) {
+            // throw $th;
+            DB::rollBack();
+            Log::error('Ride status update Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
+        }
     }
 
     /**
