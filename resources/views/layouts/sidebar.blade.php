@@ -34,6 +34,14 @@
         <li class="menu-header small">
             <span class="menu-header-text">{{__('Apps & Pages')}}</span>
         </li>
+        @can(['view ride'])
+            <li class="menu-item {{ request()->routeIs('dashboard.rides.*') ? 'active' : '' }}">
+                <a href="{{ route('dashboard.rides.index') }}" class="menu-link" style="color: #fff !important;">
+                    <i class="menu-icon tf-icons ti ti-steering-wheel"></i>
+                    <div>{{__('Rides')}}</div>
+                </a>
+            </li>
+        @endcan
         @can(['view driver'])
             <li class="menu-item {{ request()->routeIs('dashboard.drivers.*') ? 'active' : '' }}">
                 <a href="{{ route('dashboard.drivers.index') }}" class="menu-link" style="color: #fff !important;">

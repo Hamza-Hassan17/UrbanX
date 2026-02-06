@@ -25,7 +25,7 @@ class RideOffer extends Model
     {
         return $this->belongsTo(Ride::class, 'ride_id');
     }
-    
+
     public function driver()
     {
         return $this->belongsTo(User::class, 'driver_id');

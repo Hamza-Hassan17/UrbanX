@@ -54,4 +54,14 @@ class Ride extends Model
     {
         return $this->belongsTo(User::class, 'driver_id');
     }
+
+    public function promoCode()
+    {
+        return $this->belongsTo(PromoCode::class, 'promo_code_id');
+    }
+
+    public function vehicleType()
+    {
+        return $this->belongsTo(VehicleType::class, 'vehicle_type_id');
+    }
 }
