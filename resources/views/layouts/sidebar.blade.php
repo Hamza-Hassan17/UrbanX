@@ -82,7 +82,7 @@
                 </a>
             </li>
         @endcan
-        @canany(['view chauffeur vehicle', 'view chauffeur booking'])
+        @canany(['view chauffeur vehicle', 'view chauffeur booking', 'view announcement'])
             <li class="menu-item {{ request()->routeIs('dashboard.chauffeur-vehicles.*') || request()->routeIs('dashboard.chauffeur-bookings.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-steering-wheel"></i>
@@ -100,6 +100,13 @@
                         <li class="menu-item {{ request()->routeIs('dashboard.chauffeur-bookings.*') ? 'active' : '' }}">
                             <a href="{{route('dashboard.chauffeur-bookings.index')}}" class="menu-link" style="color: #fff !important;">
                                 <div>{{__('Booking')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['view announcement'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.announcements.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.announcements.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Announcements')}}</div>
                             </a>
                         </li>
                     @endcan

@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\GithubController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RegisterController;
+use App\Http\Controllers\Dashboard\AnnoucementController;
 use App\Http\Controllers\Dashboard\BoostPriceController;
 use App\Http\Controllers\Dashboard\ChauffeursBooking;
 use App\Http\Controllers\Dashboard\ChauffeursVehicle;
@@ -186,6 +187,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             //Dashboard Custom Rides Routes
             Route::get('custom-rides', [CustomRideController::class, 'index'])->name('custom-rides.index');
+
+            //AnnouncementController Routes
+            Route::resource('announcements', AnnoucementController::class);
+            Route::get('announcements/status/{id}', [AnnoucementController::class, 'updateStatus'])->name('announcements.status.update');
         });
     });
 

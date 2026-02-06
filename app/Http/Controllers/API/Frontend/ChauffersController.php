@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\API\Frontend;
 
 use App\Http\Controllers\Controller;
+use App\Models\Announcement;
 use App\Models\Booking;
 use App\Models\CarBrand;
 use App\Models\Transaction;
@@ -37,10 +38,13 @@ class ChauffersController extends Controller
                 return $item;
             });
 
+            $announcements = Announcement::where('is_active', 'active')->get();
+
 
             return response()->json([
                 'featured_car_brands' => $featuredCarBrands,
                 'featured_vehicles' => $featuredVehicles,
+                'announcements' => $announcements,
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Chauffeurs Home failed', ['error' => $th->getMessage()]);
