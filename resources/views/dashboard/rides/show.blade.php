@@ -49,6 +49,15 @@
         color: #6c757d;
         font-style: italic;
     }
+    .extra-charge-badge {
+        font-size: 0.75rem;
+        padding: 0.2rem 0.5rem;
+    }
+    .boost-hour-badge {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+    }
 </style>
 @endsection
 
@@ -68,9 +77,17 @@
                             <h5 class="mb-0">Ride #{{ $ride->id }}</h5>
                             <span class="text-muted">Requested: {{ \Carbon\Carbon::parse($ride->requested_at)->format('M d, Y h:i A') }}</span>
                         </div>
-                        <span class="ride-status status-{{ $ride->status }}">
-                            {{ ucfirst(str_replace('_', ' ', $ride->status)) }}
-                        </span>
+                        <div class="d-flex align-items-center gap-2">
+                            @if($boostHour)
+                            <span class="badge boost-hour-badge" data-bs-toggle="tooltip" data-bs-placement="top"
+                                  title="Boost Hour: {{ $boostHour->start }} - {{ $boostHour->end }} ({{ $boostHour->multiplier }}x)">
+                                <i class="bx bx-trending-up me-1"></i> {{ $boostHour->multiplier }}x Boost
+                            </span>
+                            @endif
+                            <span class="ride-status status-{{ $ride->status }}">
+                                {{ ucfirst(str_replace('_', ' ', $ride->status)) }}
+                            </span>
+                        </div>
                     </div>
                 </div>
 
@@ -107,22 +124,28 @@
                         <div id="map" class="mb-4"></div>
 
                         <div class="row">
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="text-center p-2">
                                     <h6 class="info-label">Distance</h6>
                                     <p class="info-value">{{ $ride->distance_km ?? '0.00' }} km</p>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="text-center p-2">
                                     <h6 class="info-label">Duration</h6>
                                     <p class="info-value">{{ $ride->duration_minutes ?? '0' }} minutes</p>
                                 </div>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <div class="text-center p-2">
                                     <h6 class="info-label">Vehicle Type</h6>
                                     <p class="info-value">{{ $ride->vehicleType->name ?? 'N/A' }}</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center p-2">
+                                    <h6 class="info-label">Request Time</h6>
+                                    <p class="info-value">{{ \Carbon\Carbon::parse($ride->requested_at)->format('h:i A') }}</p>
                                 </div>
                             </div>
                         </div>
@@ -169,6 +192,70 @@
                                     </tr>
                                     @endforeach
                                 </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
+                <!-- Extra Charges -->
+                @if($rideExtraCharges->count() > 0)
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Extra Charges ({{ $rideExtraCharges->count() }})</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>Charge Type</th>
+                                        <th>Description</th>
+                                        <th>Amount</th>
+                                        <th>Applied At</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach($rideExtraCharges as $extraCharge)
+                                    <tr>
+                                        <td>
+                                            <span class="badge extra-charge-badge bg-label-{{
+                                                $extraCharge->charge_type == 'toll' ? 'info' :
+                                                ($extraCharge->charge_type == 'waiting' ? 'warning' :
+                                                ($extraCharge->charge_type == 'cleaning' ? 'danger' :
+                                                ($extraCharge->charge_type == 'peak_hour' ? 'success' : 'secondary')))
+                                            }}">
+                                                {{ ucfirst(str_replace('_', ' ', $extraCharge->charge_type)) }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            @php
+                                                $descriptions = [
+                                                    'toll' => 'Toll road charges',
+                                                    'waiting' => 'Waiting time charges',
+                                                    'cleaning' => 'Cleaning fee',
+                                                    'peak_hour' => 'Peak hour surcharge',
+                                                    'night_charge' => 'Night time surcharge',
+                                                    'airport' => 'Airport pickup/dropoff fee'
+                                                ];
+                                            @endphp
+                                            {{ $descriptions[$extraCharge->charge_type] ?? 'Additional charge' }}
+                                        </td>
+                                        <td>{{ \App\Helpers\Helper::formatCurrency($extraCharge->amount) }}</td>
+                                        <td>{{ \Carbon\Carbon::parse($extraCharge->created_at)->format('M d, Y h:i A') }}</td>
+                                    </tr>
+                                    @endforeach
+                                </tbody>
+                                @if($rideExtraCharges->count() > 0)
+                                <tfoot>
+                                    <tr>
+                                        <td colspan="2" class="text-end"><strong>Total Extra Charges:</strong></td>
+                                        <td colspan="2">
+                                            <strong>{{ \App\Helpers\Helper::formatCurrency($rideExtraCharges->sum('amount')) }}</strong>
+                                        </td>
+                                    </tr>
+                                </tfoot>
+                                @endif
                             </table>
                         </div>
                     </div>
@@ -250,6 +337,18 @@
                             <span class="info-value">{{ \App\Helpers\Helper::formatCurrency($ride->vehicleType->base_fare) }}</span>
                         </div>
                         @endif
+                        @if($ride->vehicleType->first_km_price)
+                        <div class="mb-2">
+                            <span class="info-label">First KM Price:</span>
+                            <span class="info-value">{{ \App\Helpers\Helper::formatCurrency($ride->vehicleType->first_km_price) }}</span>
+                        </div>
+                        @endif
+                        @if($ride->vehicleType->other_km_price)
+                        <div class="mb-2">
+                            <span class="info-label">Other KM Price:</span>
+                            <span class="info-value">{{ \App\Helpers\Helper::formatCurrency($ride->vehicleType->other_km_price) }}</span>
+                        </div>
+                        @endif
                     </div>
                 </div>
                 @endif
@@ -260,10 +359,50 @@
                         <h5 class="mb-0">Fare Breakdown</h5>
                     </div>
                     <div class="card-body">
+                        <!-- Base Calculation -->
+                        @if($ride->distance_km && $ride->vehicleType)
+                        <div class="mb-2">
+                            <span class="info-label">Base Calculation:</span>
+                            <div class="ms-3">
+                                @if($ride->vehicleType->base_fare)
+                                <div class="d-flex justify-content-between">
+                                    <small>Base Fare:</small>
+                                    <small>{{ \App\Helpers\Helper::formatCurrency($ride->vehicleType->base_fare) }}</small>
+                                </div>
+                                @endif
+                                @if($ride->vehicleType->first_km_price)
+                                <div class="d-flex justify-content-between">
+                                    <small>First KM (1km):</small>
+                                    <small>{{ \App\Helpers\Helper::formatCurrency($ride->vehicleType->first_km_price) }}</small>
+                                </div>
+                                @endif
+                                @if($ride->distance_km > 1 && $ride->vehicleType->other_km_price)
+                                <div class="d-flex justify-content-between">
+                                    <small>Additional {{ number_format($ride->distance_km - 1, 2) }} km:</small>
+                                    <small>{{ \App\Helpers\Helper::formatCurrency(($ride->distance_km - 1) * $ride->vehicleType->other_km_price) }}</small>
+                                </div>
+                                @endif
+                            </div>
+                        </div>
+                        @endif
+
                         <div class="d-flex justify-content-between mb-2">
                             <span class="info-label">Subtotal:</span>
                             <span class="info-value">{{ \App\Helpers\Helper::formatCurrency($ride->subtotal) }}</span>
                         </div>
+
+                        <!-- Boost Hour Multiplier -->
+                        @if($boostHour)
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="info-label">
+                                Boost Hour ({{ $boostHour->multiplier }}x):
+                                <small class="text-muted d-block">{{ $boostHour->start }} - {{ $boostHour->end }}</small>
+                            </span>
+                            <span class="info-value text-warning">
+                                × {{ $boostHour->multiplier }}
+                            </span>
+                        </div>
+                        @endif
 
                         @if($ride->discount_amount > 0)
                         <div class="d-flex justify-content-between mb-2">
@@ -272,10 +411,22 @@
                         </div>
                         @endif
 
-                        @if($ride->extra_charges > 0)
-                        <div class="d-flex justify-content-between mb-2">
+                        <!-- Extra Charges Summary -->
+                        @if($rideExtraCharges->count() > 0)
+                        <div class="mb-2">
                             <span class="info-label">Extra Charges:</span>
-                            <span class="info-value text-success">+{{ \App\Helpers\Helper::formatCurrency($ride->extra_charges) }}</span>
+                            <div class="ms-3">
+                                @foreach($rideExtraCharges as $extraCharge)
+                                <div class="d-flex justify-content-between">
+                                    <small>{{ ucfirst(str_replace('_', ' ', $extraCharge->charge_type)) }}:</small>
+                                    <small>+{{ \App\Helpers\Helper::formatCurrency($extraCharge->amount) }}</small>
+                                </div>
+                                @endforeach
+                                <div class="d-flex justify-content-between">
+                                    <small><strong>Total Extra:</strong></small>
+                                    <small><strong>+{{ \App\Helpers\Helper::formatCurrency($rideExtraCharges->sum('amount')) }}</strong></small>
+                                </div>
+                            </div>
                         </div>
                         @endif
 
@@ -365,6 +516,12 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
     $(document).ready(function() {
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        });
+
         // Add timeline styling
         const style = document.createElement('style');
         style.textContent = `
@@ -445,14 +602,14 @@
 
             // Create custom icons
             const pickupIcon = L.divIcon({
-                html: '<div style="background-color: #4e54c8; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                html: '<div style="background-color: #4e54c8; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;"><i class="bx bx-flag" style="color: white; font-size: 12px;"></i></div>',
                 className: 'custom-pickup-icon',
                 iconSize: [24, 24],
                 iconAnchor: [12, 12]
             });
 
             const dropoffIcon = L.divIcon({
-                html: '<div style="background-color: #dc3545; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                html: '<div style="background-color: #dc3545; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;"><i class="bx bx-target-lock" style="color: white; font-size: 12px;"></i></div>',
                 className: 'custom-dropoff-icon',
                 iconSize: [24, 24],
                 iconAnchor: [12, 12]
@@ -461,13 +618,13 @@
             // Add pickup marker
             pickupMarker = L.marker([rideData.pickup.lat, rideData.pickup.lng], {
                 icon: pickupIcon
-            }).addTo(map).bindPopup('Pickup Location');
+            }).addTo(map).bindPopup('<strong>Pickup Location</strong>');
 
             // Add dropoff marker if exists
             if (rideData.dropoff) {
                 dropoffMarker = L.marker([rideData.dropoff.lat, rideData.dropoff.lng], {
                     icon: dropoffIcon
-                }).addTo(map).bindPopup('Dropoff Location');
+                }).addTo(map).bindPopup('<strong>Dropoff Location</strong>');
 
                 // Draw line between points
                 const polyline = L.polyline([

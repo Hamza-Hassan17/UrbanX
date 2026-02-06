@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Models\BoostHour;
 use App\Models\Ride;
+use App\Models\RideExtraCharge;
 use App\Models\RideOffer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -51,7 +53,15 @@ class RideController extends Controller
         try {
             $ride = Ride::with('passenger','driver','vehicleType','promoCode')->findOrFail($id);
             $rideOffers = RideOffer::where('ride_id', $id)->with('driver:id,name,phone')->get();
-            return view('dashboard.rides.show',compact('ride','rideOffers'));
+            $rideExtraCharges = RideExtraCharge::where('ride_id', $id)->get();
+
+            // Check for boost hour
+            $requestedTime = \Carbon\Carbon::parse($ride->requested_at)->format('H:i:s');
+            $boostHour = BoostHour::where('start', '<=', $requestedTime)
+                ->where('end', '>=', $requestedTime)
+                ->first();
+
+            return view('dashboard.rides.show',compact('ride','rideOffers','rideExtraCharges','boostHour'));
         } catch (\Throwable $th) {
             Log::error('Ride Show Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
