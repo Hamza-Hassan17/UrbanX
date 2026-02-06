@@ -3,6 +3,7 @@
 @section('title', __('Ride Details'))
 
 @section('css')
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
     .ride-status {
         font-size: 0.9rem;
@@ -31,15 +32,22 @@
         color: #212529;
         font-weight: 600;
     }
-    .map-placeholder {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        height: 200px;
+    #map {
+        height: 400px;
         border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    .map-loading {
         display: flex;
         align-items: center;
         justify-content: center;
-        color: white;
-        font-weight: 500;
+        height: 400px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+    .address-loading {
+        color: #6c757d;
+        font-style: italic;
     }
 </style>
 @endsection
@@ -76,7 +84,9 @@
                             <div class="col-md-6 mb-3">
                                 <div class="info-card p-3 bg-light">
                                     <h6 class="info-label">Pickup Location</h6>
-                                    <p class="info-value mb-1">{{ $ride->pickup_address ?? 'Lat: ' . $ride->pickup_latitude . ', Lng: ' . $ride->pickup_longitude }}</p>
+                                    <p class="info-value mb-1" id="pickup-address">
+                                        <span class="address-loading">Loading address...</span>
+                                    </p>
                                     <small class="text-muted">Coordinates: {{ $ride->pickup_latitude }}, {{ $ride->pickup_longitude }}</small>
                                 </div>
                             </div>
@@ -84,17 +94,17 @@
                                 @if($ride->dropoff_latitude)
                                 <div class="info-card p-3 bg-light">
                                     <h6 class="info-label">Dropoff Location</h6>
-                                    <p class="info-value mb-1">{{ $ride->dropoff_address ?? 'Lat: ' . $ride->dropoff_latitude . ', Lng: ' . $ride->dropoff_longitude }}</p>
+                                    <p class="info-value mb-1" id="dropoff-address">
+                                        <span class="address-loading">Loading address...</span>
+                                    </p>
                                     <small class="text-muted">Coordinates: {{ $ride->dropoff_latitude }}, {{ $ride->dropoff_longitude }}</small>
                                 </div>
                                 @endif
                             </div>
                         </div>
 
-                        <div class="map-placeholder mb-4">
-                            <i class="bx bx-map bx-lg me-2"></i>
-                            <span>Route Map Display</span>
-                        </div>
+                        <!-- Map Container -->
+                        <div id="map" class="mb-4"></div>
 
                         <div class="row">
                             <div class="col-md-4">
@@ -188,7 +198,6 @@
                             <span class="info-label">Email:</span>
                             <span class="info-value">{{ $ride->passenger->email ?? 'N/A' }}</span>
                         </div>
-                        <!-- Add more passenger details if available -->
                     </div>
                 </div>
 
@@ -214,7 +223,6 @@
                             <span class="info-label">Email:</span>
                             <span class="info-value">{{ $ride->driver->email ?? 'N/A' }}</span>
                         </div>
-                        <!-- Add more driver details if available -->
                     </div>
                 </div>
                 @endif
@@ -354,6 +362,7 @@
 @endsection
 
 @section('script')
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
     $(document).ready(function() {
         // Add timeline styling
@@ -395,6 +404,128 @@
             .timeline-marker.bg-danger { box-shadow: 0 0 0 3px var(--bs-danger); }
         `;
         document.head.appendChild(style);
+
+        // Ride coordinates
+        const rideData = {
+            pickup: {
+                lat: {{ $ride->pickup_latitude }},
+                lng: {{ $ride->pickup_longitude }}
+            },
+            @if($ride->dropoff_latitude)
+            dropoff: {
+                lat: {{ $ride->dropoff_latitude }},
+                lng: {{ $ride->dropoff_longitude }}
+            }
+            @endif
+        };
+
+        // Initialize map
+        let map;
+        let pickupMarker, dropoffMarker;
+
+        function initMap() {
+            // Calculate center point
+            let centerLat, centerLng;
+            if (rideData.dropoff) {
+                centerLat = (rideData.pickup.lat + rideData.dropoff.lat) / 2;
+                centerLng = (rideData.pickup.lng + rideData.dropoff.lng) / 2;
+            } else {
+                centerLat = rideData.pickup.lat;
+                centerLng = rideData.pickup.lng;
+            }
+
+            // Initialize map
+            map = L.map('map').setView([centerLat, centerLng], 13);
+
+            // Add OpenStreetMap tiles
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                maxZoom: 19
+            }).addTo(map);
+
+            // Create custom icons
+            const pickupIcon = L.divIcon({
+                html: '<div style="background-color: #4e54c8; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                className: 'custom-pickup-icon',
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+
+            const dropoffIcon = L.divIcon({
+                html: '<div style="background-color: #dc3545; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
+                className: 'custom-dropoff-icon',
+                iconSize: [24, 24],
+                iconAnchor: [12, 12]
+            });
+
+            // Add pickup marker
+            pickupMarker = L.marker([rideData.pickup.lat, rideData.pickup.lng], {
+                icon: pickupIcon
+            }).addTo(map).bindPopup('Pickup Location');
+
+            // Add dropoff marker if exists
+            if (rideData.dropoff) {
+                dropoffMarker = L.marker([rideData.dropoff.lat, rideData.dropoff.lng], {
+                    icon: dropoffIcon
+                }).addTo(map).bindPopup('Dropoff Location');
+
+                // Draw line between points
+                const polyline = L.polyline([
+                    [rideData.pickup.lat, rideData.pickup.lng],
+                    [rideData.dropoff.lat, rideData.dropoff.lng]
+                ], {
+                    color: '#4e54c8',
+                    weight: 3,
+                    opacity: 0.7,
+                    dashArray: '5, 10'
+                }).addTo(map);
+
+                // Fit bounds to show both markers
+                const bounds = L.latLngBounds(
+                    [rideData.pickup.lat, rideData.pickup.lng],
+                    [rideData.dropoff.lat, rideData.dropoff.lng]
+                );
+                map.fitBounds(bounds, { padding: [50, 50] });
+            } else {
+                // Zoom to pickup if no dropoff
+                map.setView([rideData.pickup.lat, rideData.pickup.lng], 15);
+            }
+        }
+
+        // Function to reverse geocode coordinates
+        async function reverseGeocode(lat, lng) {
+            try {
+                const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`);
+                const data = await response.json();
+
+                if (data && data.display_name) {
+                    return data.display_name;
+                }
+                return 'Address not found';
+            } catch (error) {
+                console.error('Geocoding error:', error);
+                return 'Unable to fetch address';
+            }
+        }
+
+        // Update addresses on page load
+        async function updateAddresses() {
+            // Get pickup address
+            const pickupAddress = await reverseGeocode(rideData.pickup.lat, rideData.pickup.lng);
+            document.getElementById('pickup-address').innerHTML = pickupAddress;
+
+            // Get dropoff address if exists
+            if (rideData.dropoff) {
+                const dropoffAddress = await reverseGeocode(rideData.dropoff.lat, rideData.dropoff.lng);
+                document.getElementById('dropoff-address').innerHTML = dropoffAddress;
+            } else {
+                document.getElementById('dropoff-address').innerHTML = 'No dropoff location specified';
+            }
+        }
+
+        // Initialize map and addresses
+        initMap();
+        updateAddresses();
     });
 </script>
 @endsection
