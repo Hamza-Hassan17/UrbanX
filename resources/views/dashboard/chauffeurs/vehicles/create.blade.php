@@ -122,7 +122,7 @@
                             @enderror
                         </div>
                         <div class="mb-4 col-md-6">
-                            <label for="price_per_month" class="form-label">{{ __('Price Per Hour') }}</label><span
+                            <label for="price_per_month" class="form-label">{{ __('Price Per Month') }}</label><span
                                 class="text-danger">*</span>
                             <input class="form-control @error('price_per_month') is-invalid @enderror" type="number" min="0" step="0.01"
                                 id="price_per_month" name="price_per_month" value="{{ old('price_per_month') }}" required
