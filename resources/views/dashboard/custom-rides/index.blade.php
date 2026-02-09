@@ -751,6 +751,13 @@
                     <span>Ride Details</span>
                 </div>
                 <div class="form-group">
+                    <label for="driverIdInput"><i class="fas fa-map-marker-alt"></i> Driver #ID</label>
+                    <div class="input-with-icon">
+                        <input type="text" id="driverIdInput" class="form-control"
+                            placeholder="Enter the driver id to assign the ride" value="{{ $driver->id }}">
+                    </div>
+                </div>
+                <div class="form-group">
                     <label for="pickup-location"><i class="fas fa-map-marker-alt"></i> Pickup Location</label>
                     <div class="input-with-icon">
                         <i class="fas fa-location-dot"></i>
@@ -951,337 +958,45 @@
 
         const drivers = @json($drivers);
 
-        // const drivers = [
-        //     // DHA
-        //     {
-        //         id: 1,
-        //         name: "Ali Ahmed",
-        //         lat: 24.8135,
-        //         lng: 67.0458,
-        //         status: "available",
-        //         icon: taxiIcon,
-        //         plate: "KHI-2001",
-        //         city: "Karachi"
-        //     },
-        //     {
-        //         id: 2,
-        //         name: "Saad Khan",
-        //         lat: 24.8019,
-        //         lng: 67.0362,
-        //         status: "busy",
-        //         icon: taxiIconBusy,
-        //         plate: "KHI-2002",
-        //         city: "Karachi"
-        //     },
+        // =============================================
+        // 1. Auto-assign driver when typing Driver ID
+        // =============================================
+        const driverIdInput = document.getElementById('driverIdInput');
+        const hiddenDriverId = document.getElementById('driver_id');
 
-        //     // Clifton
-        //     {
-        //         id: 3,
-        //         name: "Bilal Raza",
-        //         lat: 24.8246,
-        //         lng: 67.0329,
-        //         status: "available",
-        //         icon: taxiIcon,
-        //         plate: "KHI-2003",
-        //         city: "Karachi"
-        //     },
-        //     {
-        //         id: 4,
-        //         name: "Usman Tariq",
-        //         lat: 24.8191,
-        //         lng: 67.0284,
-        //         status: "busy",
-        //         icon: taxiIconBusy,
-        //         plate: "KHI-2004",
-        //         city: "Karachi"
-        //     },
+        if (driverIdInput) {
+            driverIdInput.addEventListener('input', function () {
+                const enteredId = this.value.trim();
 
-        //     // PECHS
-        //     {
-        //         id: 5,
-        //         name: "Hassan Ali",
-        //         lat: 24.8662,
-        //         lng: 67.0701,
-        //         status: "available",
-        //         icon: taxiIcon,
-        //         plate: "KHI-2005",
-        //         city: "Karachi"
-        //     },
-        //     {
-        //         id: 6,
-        //         name: "Fahad Iqbal",
-        //         lat: 24.8604,
-        //         lng: 67.0678,
-        //         status: "busy",
-        //         icon: taxiIconBusy,
-        //         plate: "KHI-2006",
-        //         city: "Karachi"
-        //     },
+                // Only proceed if it's a non-empty numeric value
+                if (!enteredId || isNaN(enteredId)) {
+                    return;
+                }
 
-        //     // Saddar
-        //     {
-        //         id: 7,
-        //         name: "Adeel Sheikh",
-        //         lat: 24.8541,
-        //         lng: 67.0219,
-        //         status: "available",
-        //         icon: taxiIcon,
-        //         plate: "KHI-2007",
-        //         city: "Karachi"
-        //     },
-        //     {
-        //         id: 8,
-        //         name: "Shahzaib Noor",
-        //         lat: 24.8576,
-        //         lng: 67.0255,
-        //         status: "busy",
-        //         icon: taxiIconBusy,
-        //         plate: "KHI-2008",
-        //         city: "Karachi"
-        //     },
+                // Find driver by ID
+                const driver = drivers.find(d => d.id == enteredId);
 
-        //     // Gulshan-e-Iqbal
-        //     {
-        //         id: 9,
-        //         name: "Imran Siddiqui",
-        //         lat: 24.9184,
-        //         lng: 67.0921,
-        //         status: "available",
-        //         icon: taxiIcon,
-        //         plate: "KHI-2009",
-        //         city: "Karachi"
-        //     },
-        //     {
-        //         id: 10,
-        //         name: "Zeeshan Malik",
-        //         lat: 24.9127,
-        //         lng: 67.0993,
-        //         status: "busy",
-        //         icon: taxiIconBusy,
-        //         plate: "KHI-2010",
-        //         city: "Karachi"
-        //     },
+                if (driver) {
+                    // Auto-assign
+                    hiddenDriverId.value = driver.id;
+                    updateDriverCard(driver);
+                    showNotification(`Driver ${driver.name} (ID: ${driver.id}) auto-assigned`, 'success');
+                } else {
+                    // Optional: clear previous selection if invalid ID
+                    // hiddenDriverId.value = '';
+                    // You can also clear the card here if you want
 
-        //     // Gulistan-e-Johar
-        //     {
-        //         id: 11,
-        //         name: "Noman Aslam",
-        //         lat: 24.9321,
-        //         lng: 67.1286,
-        //         status: "available",
-        //         icon: taxiIcon,
-        //         plate: "KHI-2011",
-        //         city: "Karachi"
-        //     },
-        //     {
-        //         id: 12,
-        //         name: "Salman Farooq",
-        //         lat: 24.9254,
-        //         lng: 67.1349,
-        //         status: "busy",
-        //         icon: taxiIconBusy,
-        //         plate: "KHI-2012",
-        //         city: "Karachi"
-        //     },
+                    showNotification(`No driver found with ID: ${enteredId}`, 'error');
+                }
+            });
 
-        //     // North Nazimabad
-        //     {
-        //         id: 13,
-        //         name: "Rizwan Qureshi",
-        //         lat: 24.9389,
-        //         lng: 67.0442,
-        //         status: "available",
-        //         icon: taxiIcon,
-        //         plate: "KHI-2013",
-        //         city: "Karachi"
-        //     },
-        //     {
-        //         id: 14,
-        //         name: "Kamran Akhtar",
-        //         lat: 24.9453,
-        //         lng: 67.0497,
-        //         status: "busy",
-        //         icon: taxiIconBusy,
-        //         plate: "KHI-2014",
-        //         city: "Karachi"
-        //     },
-
-        //     // Nazimabad
-        //     {
-        //         id: 15,
-        //         name: "Waqas Mehmood",
-        //         lat: 24.9102,
-        //         lng: 67.0326,
-        //         status: "available",
-        //         icon: taxiIcon,
-        //         plate: "KHI-2015",
-        //         city: "Karachi"
-        //     },
-        //     {
-        //         id: 16,
-        //         name: "Arslan Baig",
-        //         lat: 24.9047,
-        //         lng: 67.0289,
-        //         status: "busy",
-        //         icon: taxiIconBusy,
-        //         plate: "KHI-2016",
-        //         city: "Karachi"
-        //     },
-
-        //     // Korangi
-        //     {
-        //         id: 17,
-        //         name: "Taimoor Latif",
-        //         lat: 24.8426,
-        //         lng: 67.1579,
-        //         status: "available",
-        //         icon: taxiIcon,
-        //         plate: "KHI-2017",
-        //         city: "Karachi"
-        //     },
-        //     {
-        //         id: 18,
-        //         name: "Danish Rehman",
-        //         lat: 24.8483,
-        //         lng: 67.1512,
-        //         status: "busy",
-        //         icon: taxiIconBusy,
-        //         plate: "KHI-2018",
-        //         city: "Karachi"
-        //     },
-
-        //     // Landhi
-        //     {
-        //         id: 19,
-        //         name: "Shahbaz Khan",
-        //         lat: 24.8361,
-        //         lng: 67.1934,
-        //         status: "available",
-        //         icon: taxiIcon,
-        //         plate: "KHI-2019",
-        //         city: "Karachi"
-        //     },
-        //     {
-        //         id: 20,
-        //         name: "Mubashir Ali",
-        //         lat: 24.8298,
-        //         lng: 67.1886,
-        //         status: "busy",
-        //         icon: taxiIconBusy,
-        //         plate: "KHI-2020",
-        //         city: "Karachi"
-        //     },
-
-        //     // North Karachi
-        //     {
-        //         id: 21,
-        //         name: "Asad Hussain",
-        //         lat: 24.9754,
-        //         lng: 67.0628,
-        //         status: "available",
-        //         icon: taxiIcon,
-        //         plate: "KHI-2021",
-        //         city: "Karachi"
-        //     },
-        //     {
-        //         id: 22,
-        //         name: "Farhan Rafiq",
-        //         lat: 24.9812,
-        //         lng: 67.0704,
-        //         status: "busy",
-        //         icon: taxiIconBusy,
-        //         plate: "KHI-2022",
-        //         city: "Karachi"
-        //     },
-
-        //     // Orangi Town
-        //     {
-        //         id: 23,
-        //         name: "Adnan Yousuf",
-        //         lat: 24.9526,
-        //         lng: 67.0019,
-        //         status: "available",
-        //         icon: taxiIcon,
-        //         plate: "KHI-2023",
-        //         city: "Karachi"
-        //     },
-        //     {
-        //         id: 24,
-        //         name: "Sohail Abbas",
-        //         lat: 24.9478,
-        //         lng: 66.9963,
-        //         status: "busy",
-        //         icon: taxiIconBusy,
-        //         plate: "KHI-2024",
-        //         city: "Karachi"
-        //     },
-
-        //     // Malir
-        //     {
-        //         id: 25,
-        //         name: "Hamza Nadeem",
-        //         lat: 24.8937,
-        //         lng: 67.1881,
-        //         status: "available",
-        //         icon: taxiIcon,
-        //         plate: "KHI-2025",
-        //         city: "Karachi"
-        //     },
-        //     {
-        //         id: 26,
-        //         name: "Owais Anwar",
-        //         lat: 24.8874,
-        //         lng: 67.1956,
-        //         status: "busy",
-        //         icon: taxiIconBusy,
-        //         plate: "KHI-2026",
-        //         city: "Karachi"
-        //     },
-
-        //     // SITE Area
-        //     {
-        //         id: 27,
-        //         name: "Yasir Mahmood",
-        //         lat: 24.8996,
-        //         lng: 67.0124,
-        //         status: "available",
-        //         icon: taxiIcon,
-        //         plate: "KHI-2027",
-        //         city: "Karachi"
-        //     },
-        //     {
-        //         id: 28,
-        //         name: "Ahsan Raza",
-        //         lat: 24.9051,
-        //         lng: 67.0189,
-        //         status: "busy",
-        //         icon: taxiIconBusy,
-        //         plate: "KHI-2028",
-        //         city: "Karachi"
-        //     },
-
-        //     // Shah Faisal
-        //     {
-        //         id: 29,
-        //         name: "Zubair Ahmed",
-        //         lat: 24.8728,
-        //         lng: 67.1453,
-        //         status: "available",
-        //         icon: taxiIcon,
-        //         plate: "KHI-2029",
-        //         city: "Karachi"
-        //     },
-        //     {
-        //         id: 30,
-        //         name: "Mohsin Javed",
-        //         lat: 24.8674,
-        //         lng: 67.1518,
-        //         status: "busy",
-        //         icon: taxiIconBusy,
-        //         plate: "KHI-2030",
-        //         city: "Karachi"
-        //     },
-        // ];
+            // Optional: also trigger on blur / enter key
+            driverIdInput.addEventListener('blur', function () {
+                if (this.value.trim() && !hiddenDriverId.value) {
+                    showNotification('Please enter a valid driver ID', 'warning');
+                }
+            });
+        }
 
         async function fetchFare(vehicleTypeId, distanceKm) {
             try {
@@ -1733,44 +1448,6 @@
                 }
             });
 
-            // Assign trip button
-            // document.getElementById('assign-trip').addEventListener('click', function() {
-            //     const driverName = document.querySelector('.driver-info h3').textContent;
-            //     const pickup = document.getElementById('pickup-location').value;
-            //     const destination = document.getElementById('destination').value;
-
-            //     if (!pickup || !destination) {
-            //         showNotification('Please select both pickup and destination locations first!', 'error');
-            //         return;
-            //     }
-
-            //     if (!pickupCoordinates || !destinationCoordinates) {
-            //         showNotification('Please select valid locations from the suggestions', 'error');
-            //         return;
-            //     }
-
-            //     // Show loading state
-            //     const originalText = this.innerHTML;
-            //     this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Assigning...';
-            //     this.disabled = true;
-
-            //     // Simulate API call
-            //     setTimeout(() => {
-            //         this.innerHTML = '<i class="fas fa-check"></i> Assigned!';
-            //         this.style.backgroundColor = '#10b981';
-
-            //         // Add new trip to the list
-
-            //         showNotification('Assigning is in Progress by Developer Abdul Rauf', 'success');
-
-            //         // Reset after 2 seconds
-            //         setTimeout(() => {
-            //             this.innerHTML = originalText;
-            //             this.style.backgroundColor = '';
-            //             this.disabled = false;
-            //         }, 2000);
-            //     }, 1500);
-            // });
             document.getElementById('assign-trip').addEventListener('click', async function () {
 
                 const button = this;
@@ -1929,6 +1606,7 @@
         window.assignDriver = async function(driverId) {
             const driver = drivers.find(d => d.id === driverId);
             if (driver) {
+                document.getElementById('driverIdInput').value = driver.id;
                 document.getElementById('driver_id').value = driver.id;
                 // Update driver card
                 document.querySelector('.driver-avatar').textContent = driver.name.split(' ').map(n => n[0]).join('');
