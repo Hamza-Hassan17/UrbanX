@@ -5,7 +5,9 @@ namespace App\Http\Controllers\API\Frontend\Driver;
 use App\Http\Controllers\Controller;
 use App\Models\DriverVehicle;
 use App\Models\Ride;
+use App\Models\RideDriverLog;
 use App\Models\RideOffer;
+use App\Models\User;
 use App\Models\VehicleType;
 use App\Services\FirebaseService;
 use Illuminate\Http\Request;
@@ -23,73 +25,180 @@ class RideController extends Controller
         $this->firebase = $firebase->getDatabase();
     }
 
+    // public function getLatestRides(Request $request)
+    // {
+    //     try {
+    //         $driver = $request->user();
+    //         // if ($driver->driver_status !== 'available') {
+    //         //     return response()->json([
+    //         //         'rides' => [],
+    //         //         'message' => 'Driver is currently busy'
+    //         //     ], Response::HTTP_OK);
+    //         // }
+
+    //         $tenMinutesAgo = now()->subMinutes(10);
+
+    //         $driverVehicleType = DriverVehicle::where('driver_id', $driver->id)
+    //             ->value('vehicle_type_id');
+
+    //         if (!$driverVehicleType) {
+    //             return response()->json([
+    //                 'message' => 'Driver vehicle not found.'
+    //             ], Response::HTTP_BAD_REQUEST);
+    //         }
+
+    //         $offeredRideIds = RideOffer::where('driver_id', $driver->id)
+    //             ->pluck('ride_id');
+
+    //         // Fetch rides
+    //         $rides = Ride::where('status', 'requested')
+    //             ->where('requested_at', '>=', $tenMinutesAgo)
+    //             ->where('vehicle_type_id', $driverVehicleType)
+    //             ->whereNotIn('id', $offeredRideIds)
+    //             ->orderBy('requested_at', 'desc')
+    //             ->get();
+
+    //         // Get current busy hour multiplier
+    //         $now = now()->format('H:i');
+    //         $busyHour = DB::table('boost_hours')
+    //             ->where('start', '<=', $now)
+    //             ->where('end', '>=', $now)
+    //             ->first();
+
+    //         $multiplier = $busyHour ? (float) $busyHour->multiplier : 1.0;
+    //         $isBoost = $multiplier > 1 ? true : false;
+
+    //         // Append boost info to each ride
+    //         $rides->transform(function ($ride) use ($multiplier, $isBoost) {
+    //             $ride->boost_multiplier = $multiplier;
+    //             $ride->is_boost = $isBoost;
+
+    //             // Optional: calculate fare with multiplier if total_fare exists
+    //             if (isset($ride->total_fare)) {
+    //                 $ride->final_fare = $ride->total_fare * $multiplier;
+    //             }
+
+    //             return $ride;
+    //         });
+
+    //         return response()->json([
+    //             'rides' => $rides,
+    //         ], Response::HTTP_OK);
+    //     } catch (\Throwable $th) {
+    //         Log::error('API Get Rides failed', ['error' => $th->getMessage()]);
+    //         return response()->json([
+    //             'message' => 'Something went wrong!'
+    //         ], Response::HTTP_INTERNAL_SERVER_ERROR);
+    //     }
+    // }
+
     public function getLatestRides(Request $request)
     {
         try {
             $driver = $request->user();
-            // if ($driver->driver_status !== 'available') {
-            //     return response()->json([
-            //         'rides' => [],
-            //         'message' => 'Driver is currently busy'
-            //     ], Response::HTTP_OK);
-            // }
 
-            $tenMinutesAgo = now()->subMinutes(10);
+            // -------------------------
+            // Time windows
+            // -------------------------
+            $tenMinutesAgo   = now()->subMinutes(10);   // ride life
+            $logWindowStart  = now()->subHours(10);     // logs window
 
+            // -------------------------
+            // Driver vehicle type
+            // -------------------------
             $driverVehicleType = DriverVehicle::where('driver_id', $driver->id)
                 ->value('vehicle_type_id');
 
             if (!$driverVehicleType) {
-                return response()->json([
-                    'message' => 'Driver vehicle not found.'
-                ], Response::HTTP_BAD_REQUEST);
+                return response()->json(['rides' => []], 200);
             }
 
-            $offeredRideIds = RideOffer::where('driver_id', $driver->id)
+            // -------------------------
+            // Rides already sent / accepted (last 10 hours)
+            // -------------------------
+            $busyRideIds = DB::table('ride_driver_logs')
+                ->whereIn('action', ['sent', 'accepted'])
+                ->where('created_at', '>=', $logWindowStart)
                 ->pluck('ride_id');
 
-            // Fetch rides
-            $rides = Ride::where('status', 'requested')
+            // -------------------------
+            // Rides rejected by this driver (last 10 hours)
+            // -------------------------
+            $rejectedByMe = DB::table('ride_driver_logs')
+                ->where('driver_id', $driver->id)
+                ->where('action', 'rejected')
+                ->where('created_at', '>=', $logWindowStart)
+                ->pluck('ride_id');
+
+            // -------------------------
+            // Fetch nearest single ride
+            // -------------------------
+            $rides = Ride::selectRaw("
+                    rides.*,
+                    (6371 * acos(
+                        cos(radians(?)) *
+                        cos(radians(pickup_latitude)) *
+                        cos(radians(pickup_longitude) - radians(?)) +
+                        sin(radians(?)) *
+                        sin(radians(pickup_latitude))
+                    )) AS distance
+                ", [
+                    $driver->lat,
+                    $driver->lang,
+                    $driver->lat
+                ])
+                ->where('status', 'requested')
                 ->where('requested_at', '>=', $tenMinutesAgo)
                 ->where('vehicle_type_id', $driverVehicleType)
-                ->whereNotIn('id', $offeredRideIds)
-                ->orderBy('requested_at', 'desc')
+                ->whereNotIn('id', $busyRideIds)
+                ->whereNotIn('id', $rejectedByMe)
+                ->orderBy('distance')
+                ->limit(1)
                 ->get();
 
-            // Get current busy hour multiplier
+            // -------------------------
+            // Log ride as "sent"
+            // -------------------------
+            if ($rides->count()) {
+                RideDriverLog::create([
+                    'ride_id'   => $rides[0]->id,
+                    'driver_id' => $driver->id,
+                    'action'    => 'sent',
+                    'note'      => 'Ride sent to nearest driver'
+                ]);
+            }
+
+            // -------------------------
+            // Boost logic
+            // -------------------------
             $now = now()->format('H:i');
             $busyHour = DB::table('boost_hours')
                 ->where('start', '<=', $now)
                 ->where('end', '>=', $now)
                 ->first();
 
-            $multiplier = $busyHour ? (float) $busyHour->multiplier : 1.0;
-            $isBoost = $multiplier > 1 ? true : false;
+            $multiplier = $busyHour ? (float)$busyHour->multiplier : 1.0;
 
-            // Append boost info to each ride
-            $rides->transform(function ($ride) use ($multiplier, $isBoost) {
+            $rides->transform(function ($ride) use ($multiplier) {
                 $ride->boost_multiplier = $multiplier;
-                $ride->is_boost = $isBoost;
-
-                // Optional: calculate fare with multiplier if total_fare exists
-                if (isset($ride->total_fare)) {
-                    $ride->final_fare = $ride->total_fare * $multiplier;
-                }
-
+                $ride->is_boost = $multiplier > 1;
+                $ride->final_fare = isset($ride->total_fare)
+                    ? $ride->total_fare * $multiplier
+                    : null;
                 return $ride;
             });
 
             return response()->json([
-                'rides' => $rides,
-            ], Response::HTTP_OK);
-        } catch (\Throwable $th) {
-            Log::error('API Get Rides failed', ['error' => $th->getMessage()]);
+                'rides' => $rides
+            ], 200);
+
+        } catch (\Throwable $e) {
+            Log::error('getLatestRides failed', ['error' => $e->getMessage()]);
             return response()->json([
-                'message' => 'Something went wrong!'
-            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+                'message' => 'Something went wrong'
+            ], 500);
         }
     }
-
 
     public function getSingleRideDetails($ride_id)
     {
@@ -166,7 +275,6 @@ class RideController extends Controller
         }
     }
 
-
     public function OfferToRide(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -199,8 +307,19 @@ class RideController extends Controller
             $rideOffer->eta_minutes = $request->eta_minutes;
             $rideOffer->note = $request->note;
             $rideOffer->offered_at = now();
-            $rideOffer->status = 'pending';
+            $rideOffer->status = 'accepted';
             $rideOffer->save();
+
+            RideDriverLog::updateOrCreate(
+                [
+                    'ride_id' => $ride->id,
+                    'driver_id' => auth()->id(),
+                ],
+                [
+                    'action' => 'accepted',
+                    'note'   => $request->note ?? 'Ride offer accepted by driver',
+                ]
+            );
 
             $this->firebase
                 ->getReference(
@@ -218,7 +337,7 @@ class RideController extends Controller
                     'proposed_price' => $rideOffer->proposed_price,
                     'eta_minutes' => $rideOffer->eta_minutes,
                     'note' => $rideOffer->note,
-                    'status' => 'pending',
+                    'status' => 'accepted',
                     'offered_at' => now()->toDateTimeString(),
                 ]);
 

@@ -331,8 +331,6 @@ class RideController extends Controller
         }
     }
 
-
-
     public function requestRide(Request $request)
     {
         $validator = Validator::make($request->all(), [
