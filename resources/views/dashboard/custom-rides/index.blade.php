@@ -751,6 +751,13 @@
                     <span>Ride Details</span>
                 </div>
                 <div class="form-group">
+                    <label for="driverIdInput"><i class="fas fa-map-marker-alt"></i> Driver #ID</label>
+                    <div class="input-with-icon">
+                        <input type="text" id="driverIdInput" class="form-control"
+                            placeholder="Enter the driver id to assign the ride" value="{{ $driver->id }}">
+                    </div>
+                </div>
+                <div class="form-group">
                     <label for="pickup-location"><i class="fas fa-map-marker-alt"></i> Pickup Location</label>
                     <div class="input-with-icon">
                         <i class="fas fa-location-dot"></i>
@@ -1282,6 +1289,46 @@
         //         city: "Karachi"
         //     },
         // ];
+
+        // =============================================
+        // 1. Auto-assign driver when typing Driver ID
+        // =============================================
+        const driverIdInput = document.getElementById('driverIdInput');
+        const hiddenDriverId = document.getElementById('driver_id');
+
+        if (driverIdInput) {
+            driverIdInput.addEventListener('input', function () {
+                const enteredId = this.value.trim();
+
+                // Only proceed if it's a non-empty numeric value
+                if (!enteredId || isNaN(enteredId)) {
+                    return;
+                }
+
+                // Find driver by ID
+                const driver = drivers.find(d => d.id == enteredId);
+
+                if (driver) {
+                    // Auto-assign
+                    hiddenDriverId.value = driver.id;
+                    updateDriverCard(driver);
+                    showNotification(`Driver ${driver.name} (ID: ${driver.id}) auto-assigned`, 'success');
+                } else {
+                    // Optional: clear previous selection if invalid ID
+                    // hiddenDriverId.value = '';
+                    // You can also clear the card here if you want
+
+                    showNotification(`No driver found with ID: ${enteredId}`, 'error');
+                }
+            });
+
+            // Optional: also trigger on blur / enter key
+            driverIdInput.addEventListener('blur', function () {
+                if (this.value.trim() && !hiddenDriverId.value) {
+                    showNotification('Please enter a valid driver ID', 'warning');
+                }
+            });
+        }
 
         async function fetchFare(vehicleTypeId, distanceKm) {
             try {
@@ -1929,6 +1976,7 @@
         window.assignDriver = async function(driverId) {
             const driver = drivers.find(d => d.id === driverId);
             if (driver) {
+                document.getElementById('driverIdInput').value = driver.id;
                 document.getElementById('driver_id').value = driver.id;
                 // Update driver card
                 document.querySelector('.driver-avatar').textContent = driver.name.split(' ').map(n => n[0]).join('');
