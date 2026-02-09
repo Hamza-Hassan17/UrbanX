@@ -1474,6 +1474,7 @@
                 const passengerEmailEl = document.getElementById('passenger_email');
                 const fareEl = document.getElementById('final-fare');
                 const timeEl = document.getElementById('time');
+                const driver_id_input = document.getElementById('driverIdInput');
 
                 /* ======================
                 VALIDATIONS (ELEMENT)
@@ -1561,7 +1562,8 @@
                             total_fare: fareEl.textContent.replace('Rs ', '').trim(),
                             passenger_name: passengerName,
                             passenger_phone: passengerPhone,
-                            passenger_email: passengerEmail
+                            passenger_email: passengerEmail,
+                            driver_id_input: driver_id_input.value || null,
                         })
                     });
 
