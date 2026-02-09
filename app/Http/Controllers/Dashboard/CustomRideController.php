@@ -67,6 +67,7 @@ class CustomRideController extends Controller
     public function requestCustomRide(Request $request)
     {
         Log::info('Request Custom Ride', ['request' => $request->all()]);
+        dd($request->all());
         $validator = Validator::make($request->all(), [
             'vehicle_type_id' => 'required|exists:vehicle_types,id',
             'driver_id' => 'required|exists:users,id',
@@ -149,7 +150,7 @@ class CustomRideController extends Controller
                 $passenger->username = $username;
                 $passenger->save();
             }
-            
+
             $passenger->syncRoles('user');
 
             $ride = new Ride();

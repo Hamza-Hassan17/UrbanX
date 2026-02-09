@@ -753,7 +753,7 @@
                 <div class="form-group">
                     <label for="driverIdInput"><i class="fas fa-map-marker-alt"></i> Driver #ID</label>
                     <div class="input-with-icon">
-                        <input type="text" id="driverIdInput" class="form-control"
+                        <input type="text" id="driverIdInput" name="driver_id_input" class="form-control"
                             placeholder="Enter the driver id to assign the ride" value="{{ $driver->id }}">
                     </div>
                 </div>
