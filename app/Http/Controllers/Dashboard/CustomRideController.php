@@ -67,10 +67,10 @@ class CustomRideController extends Controller
     public function requestCustomRide(Request $request)
     {
         Log::info('Request Custom Ride', ['request' => $request->all()]);
-        dd($request->all());
         $validator = Validator::make($request->all(), [
             'vehicle_type_id' => 'required|exists:vehicle_types,id',
             'driver_id' => 'required|exists:users,id',
+            'driver_id_input' => 'nullable|exists:users,id',
             'promo_code_id' => 'nullable|exists:promo_codes,id',
             'pickup_latitude' => 'required|string',
             'pickup_longitude' => 'required|string',
