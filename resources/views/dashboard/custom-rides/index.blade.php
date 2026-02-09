@@ -1030,6 +1030,15 @@
         function addDriverMarkers() {
             drivers.forEach(driver => {
 
+                const lat = parseFloat(driver.lat);
+                const lng = parseFloat(driver.lng);
+
+                // Skip invalid coordinates – very important!
+                if (isNaN(lat) || isNaN(lng)) {
+                    console.warn(`Driver ${driver.id} (${driver.name}) has invalid coordinates: lat=${driver.lat}, lng=${driver.lng}`);
+                    return;
+                }
+
                 const marker = L.marker(
                         [parseFloat(driver.lat), parseFloat(driver.lng)], {
                             icon: driver.status === 'available' ?
@@ -1655,12 +1664,17 @@
         };
 
         function reverseGeocode(lat, lng, elementId) {
-            if (!lat || !lng) {
+            if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
                 document.getElementById(elementId).innerText = 'Location unavailable';
                 return;
             }
 
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
+                headers: {
+                    'User-Agent': 'Urban/1.0 (laravel.supersoft@gmail.com)',
+                    'Referer': window.location.origin
+                }
+            })
                 .then(response => response.json())
                 .then(data => {
                     if (data && data.display_name) {
