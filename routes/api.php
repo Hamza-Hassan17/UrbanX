@@ -79,6 +79,9 @@ Route::middleware('auth:sanctum')->group(function () {
         //Status Update
         Route::post('/update-status', [DriverDetailsController::class, 'updateDriverStatus']);
 
+        //Ride reject
+        Route::post('/reject-ride', [DriverRideController::class, 'rejectRide']);
+
     });
 
     //Customer Routes

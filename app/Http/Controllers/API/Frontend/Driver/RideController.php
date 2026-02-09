@@ -364,6 +364,28 @@ class RideController extends Controller
         }
     }
 
+    public function rejectRide(Request $request)
+    {
+        $rideDriverLog = RideDriverLog::where('ride_id', $request->ride_id)
+            ->where('driver_id', auth()->id())
+            ->first();
+
+        if (!$rideDriverLog) {
+            return response()->json([
+                'message' => 'Ride offer not found or not accessible.'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Mark offer rejected
+        $rideDriverLog->status = 'rejected';
+        $rideDriverLog->note = 'Driver rejected the ride offer';
+        $rideDriverLog->save();
+
+        return response()->json([
+            'message' => 'Offer rejected successfully'
+        ]);
+    }
+
     public function updateRideStatus(Request $request)
     {
         $validator = Validator::make($request->all(), [
