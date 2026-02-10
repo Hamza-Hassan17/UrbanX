@@ -377,7 +377,7 @@ class RideController extends Controller
         }
 
         // Mark offer rejected
-        $rideDriverLog->status = 'rejected';
+        $rideDriverLog->action = 'rejected';
         $rideDriverLog->note = 'Driver rejected the ride offer';
         $rideDriverLog->save();
 
