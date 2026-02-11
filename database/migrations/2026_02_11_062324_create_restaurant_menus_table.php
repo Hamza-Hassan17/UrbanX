@@ -11,10 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('restaurant_categories', function (Blueprint $table) {
+        Schema::create('restaurant_menus', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('restaurant_id')->constrained('restaurants')->cascadeOnDelete();
             $table->string('name');
-            $table->string('image')->nullable();
+            $table->text('description')->nullable();
             $table->enum('is_active', ['active', 'inactive'])->default('active');
             $table->timestamps();
         });
@@ -25,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('restaurant_categories');
+        Schema::dropIfExists('restaurant_menus');
     }
 };

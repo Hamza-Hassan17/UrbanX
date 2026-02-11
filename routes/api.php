@@ -10,6 +10,7 @@ use App\Http\Controllers\API\Frontend\Driver\RideController as DriverRideControl
 use App\Http\Controllers\API\Frontend\DriverDetailsController;
 use App\Http\Controllers\API\Frontend\NotificationController;
 use App\Http\Controllers\API\Frontend\ProfileController;
+use App\Http\Controllers\API\Frontend\Restaurant\RestaurantController;
 use App\Http\Controllers\Dashboard\CustomRideController;
 use App\Http\Controllers\Dashboard\HomeController;
 use Illuminate\Http\Request;
@@ -113,6 +114,25 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/get-booking-history', [ChauffersController::class, 'getBookingHistory']);
         Route::get('/favourite-vehicles', [ChauffersController::class, 'getFavouriteVehicles']);
         Route::get('/add-to-favourite/{vehicle_id}', [ChauffersController::class, 'addToFavourite']);
+    });
+
+    //Chauffeurs Routes
+    Route::group(['prefix' => 'restaurant'], function () {
+        Route::get('/home', [RestaurantController::class, 'getHomeData']);
+
+        Route::get('/shop', [RestaurantController::class, 'getShopDetails']);
+        Route::post('/shop/update', [RestaurantController::class, 'updateShopDetails']);
+
+        Route::get('/menus', [RestaurantController::class, 'getMenus']);
+        Route::post('/menu/add', [RestaurantController::class, 'addMenu']);
+        Route::post('/menu/update/{menu_id}', [RestaurantController::class, 'updateMenu']);
+
+        Route::get('/menu-items', [RestaurantController::class, 'getMenuItems']);
+        Route::post('/menu-item/add', [RestaurantController::class, 'addMenuItem']);
+        Route::post('/menu-item/update/{item_id}', [RestaurantController::class, 'updateMenuItem']);
+
+        Route::get('/orders', [RestaurantController::class, 'getOrders']);
+        Route::get('/order-details/{order_id}', [RestaurantController::class, 'getOrderDetails']);
     });
 
 });

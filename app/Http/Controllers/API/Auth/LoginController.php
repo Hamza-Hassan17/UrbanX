@@ -22,7 +22,9 @@ class LoginController extends Controller
         // Validate the input
         $rules = [
             'phone' => 'required|max:50',
-            'fcm_token' => 'nullable|string'
+            'fcm_token' => 'nullable|string',
+            'lat' => 'nullable|string|max:255',
+            'lang' => 'nullable|string|max:255',
         ];
 
         // If Captcha is enabled, validate captcha response
@@ -49,6 +51,8 @@ class LoginController extends Controller
                 $otp = '1234';
                 $userfind->phone_otp = $otp;
                 $userfind->otp_expires_at = Carbon::now()->addMinutes(10);
+                $userfind->lat = $request->lat ?? null;
+                $userfind->lang = $request->lang ?? null;
                 $userfind->save();
 
                 $token = $userfind->createToken($userfind->name, ['auth_token'])->plainTextToken;
