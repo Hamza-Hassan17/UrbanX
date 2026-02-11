@@ -270,6 +270,7 @@ class RestaurantController extends Controller
     public function addMenuItem(Request $request)
     {
         $validator = Validator::make($request->all(), [
+            'restaurant_menu_id' => 'required|exists:restaurant_menus,id',
             'name' => 'required|string',
             'description' => 'nullable|string',
             'price' => 'required|numeric',
@@ -293,6 +294,7 @@ class RestaurantController extends Controller
 
             $restaurantItem = new RestaurantItem();
             $restaurantItem->restaurant_id = $restaurant->id;
+            $restaurantItem->restaurant_menu_id = $request->input('restaurant_menu_id');
             $restaurantItem->name = $request->input('name');
             $restaurantItem->description = $request->input('description');
             $restaurantItem->price = $request->input('price');
@@ -331,6 +333,7 @@ class RestaurantController extends Controller
     public function updateMenuItem(Request $request, $item_id)
     {
         $validator = Validator::make($request->all(), [
+            'restaurant_menu_id' => 'required|exists:restaurant_menus,id',
             'name' => 'required|string',
             'description' => 'nullable|string',
             'price' => 'required|numeric',
@@ -359,6 +362,7 @@ class RestaurantController extends Controller
                 ], Response::HTTP_NOT_FOUND);
             }
 
+            $restaurantItem->restaurant_menu_id = $request->input('restaurant_menu_id');
             $restaurantItem->name = $request->input('name');
             $restaurantItem->description = $request->input('description');
             $restaurantItem->price = $request->input('price');
