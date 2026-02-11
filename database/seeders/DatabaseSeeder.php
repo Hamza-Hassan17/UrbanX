@@ -31,6 +31,7 @@ class DatabaseSeeder extends Seeder
             SettingSeeder::class,
             CarBrandSeeder::class,
             VehicleSeeder::class,
+            RestaurantCategorySeeder::class,
         ]);
     }
 }

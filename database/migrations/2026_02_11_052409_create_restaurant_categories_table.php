@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('image')->nullable();
+            $table->enum('is_popular', ['0', '1'])->default('0');
             $table->enum('is_active', ['active', 'inactive'])->default('active');
             $table->timestamps();
         });

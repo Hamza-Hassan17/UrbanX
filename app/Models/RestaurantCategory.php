@@ -12,6 +12,7 @@ class RestaurantCategory extends Model
     protected $fillable = [
         'name',
         'image',
+        'is_popular',
         'is_active',
     ];
 }
