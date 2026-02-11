@@ -24,7 +24,7 @@ class RegisterController extends Controller
         $rules = [
             'email' => 'required|string|unique:users,email',
             'phone' => 'required|string|unique:users,phone',
-            'role' => 'required|in:user,driver',
+            'role' => 'required|in:user,driver,restaurant',
             'lat' => 'nullable|string|max:255',
             'lang' => 'nullable|string|max:255',
         ];
