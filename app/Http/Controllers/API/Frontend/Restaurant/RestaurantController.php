@@ -46,6 +46,9 @@ class RestaurantController extends Controller
                 ->get();
 
             if($restaurant){
+                $restaurant->weekly_schedule = json_decode($restaurant->weekly_schedule);
+                $restaurant->special_opening_hours = json_decode($restaurant->special_opening_hours);
+
                 $restaurant->logo = url($restaurant->logo);
                 $restaurant->cover_image = url($restaurant->cover_image);
             }
@@ -101,7 +104,7 @@ class RestaurantController extends Controller
             $restaurant->latitude = $request->input('latitude');
             $restaurant->longitude = $request->input('longitude');
             $restaurant->weekly_schedule = json_encode($request->input('weekly_schedule'));
-            $restaurant->special_opening_hours = json_encode($request->input('special_opening_hours'));
+            $restaurant->special_opening_hours = $request->input('special_opening_hours') ? json_encode($request->input('special_opening_hours')) : null;
 
             // Handle logo upload
             if ($request->hasFile('logo')) {
