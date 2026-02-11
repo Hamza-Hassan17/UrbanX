@@ -45,8 +45,8 @@ class RestaurantController extends Controller
                 ->select('id', 'name')
                 ->get();
 
-            $restaurant->logo = url($restaurant->logo);
-            $restaurant->cover_image = url($restaurant->cover_image);
+            $restaurant->logo = $restaurant->logo ? url($restaurant->logo) : null;
+            $restaurant->cover_image = $restaurant->cover_image ? url($restaurant->cover_image) : null;
 
             return response()->json([
                 'restaurant' => $restaurant,
