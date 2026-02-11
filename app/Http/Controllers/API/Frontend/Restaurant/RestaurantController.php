@@ -314,6 +314,8 @@ class RestaurantController extends Controller
             }
 
             $restaurantItem->save();
+
+            $restaurantItem->image = url($restaurantItem->image);
             return response()->json([
                 'message' => 'Menu item added successfully',
                 'item' => $restaurantItem
@@ -381,6 +383,7 @@ class RestaurantController extends Controller
             }
 
             $restaurantItem->save();
+            $restaurantItem->image = url($restaurantItem->image);
             return response()->json([
                 'message' => 'Menu item updated successfully',
                 'item' => $restaurantItem
