@@ -956,6 +956,35 @@
             iconAnchor: [22, 22]
         });
 
+        function getDriverIcon(driver) {
+            const borderColor = driver.status === 'available' ? '#10b981' : '#f59e0b';
+
+            return L.divIcon({
+                className: 'custom-div-icon',
+                html: `
+                    <div style="
+                        background-color: white;
+                        border-radius: 50%;
+                        width: 44px;
+                        height: 44px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        border: 3px solid ${borderColor};
+                        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                        font-weight: bold;
+                        font-size: 14px;
+                        color: #111827;
+                    ">
+                        ${'D-' + driver.id}
+                    </div>
+                `,
+                iconSize: [44, 44],
+                iconAnchor: [22, 22]
+            });
+        }
+
+
         const drivers = @json($drivers);
 
         // =============================================
@@ -1041,13 +1070,13 @@
 
                 const marker = L.marker(
                         [parseFloat(driver.lat), parseFloat(driver.lng)], {
-                            icon: driver.status === 'available' ?
-                                taxiIcon : taxiIconBusy
+                            icon: getDriverIcon(driver)
                         }
                     )
                     .bindPopup(`
                     <div style="padding: 10px; min-width: 200px;">
                         <h3 style="margin: 0 0 10px 0; color: #1f2937;">${driver.name}</h3>
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>#ID:</strong> ${driver.id}</p>
                         <p style="margin: 5px 0; font-size: 14px;"><strong>City:</strong> ${driver.city}</p>
                         <p style="margin: 5px 0; font-size: 14px;">
                             <strong>Status:</strong>
