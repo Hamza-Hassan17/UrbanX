@@ -71,7 +71,6 @@ class RestaurantController extends Controller
             'address' => 'nullable|string',
             'latitude' => 'nullable|string',
             'longitude' => 'nullable|string',
-            'phone' => 'nullable|string',
             'weekly_schedule' => 'nullable|string',
             'special_opening_hours' => 'nullable|string',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max_size',
@@ -101,7 +100,6 @@ class RestaurantController extends Controller
             $restaurant->address = $request->input('address');
             $restaurant->latitude = $request->input('latitude');
             $restaurant->longitude = $request->input('longitude');
-            $restaurant->phone = $request->input('phone');
             $restaurant->weekly_schedule = json_encode($request->input('weekly_schedule'));
             $restaurant->special_opening_hours = json_encode($request->input('special_opening_hours'));
 
