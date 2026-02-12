@@ -1095,7 +1095,6 @@
             });
         }
 
-
         // Show notification
         function showNotification(message, type = 'info') {
             const notification = document.createElement('div');
@@ -1426,7 +1425,6 @@
             driverCard.querySelector('#vehicle_type_id').value = driver.vehicle_type_id;
             driverCard.querySelector('#driver_phone').value = driver.phone;
         }
-
 
         // Calculate fallback distance if routing fails
         function calculateFallbackDistance() {

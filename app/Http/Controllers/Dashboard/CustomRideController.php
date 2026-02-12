@@ -87,6 +87,7 @@ class CustomRideController extends Controller
         ]);
 
         if ($validator->fails()) {
+            Log::error('Request Custom Ride Validation Failed', ['errors' => $validator->errors()]);
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => $validator->errors()

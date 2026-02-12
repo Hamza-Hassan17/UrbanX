@@ -84,6 +84,7 @@ class CarBrandSeeder extends Seeder
             ['name' => 'Renault', 'slug' => Str::slug('Renault'), 'is_featured' => '0', 'logo' => null],
             ['name' => 'Rivian', 'slug' => Str::slug('Rivian'), 'is_featured' => '0', 'logo' => null],
             ['name' => 'Rolls-Royce', 'slug' => Str::slug('Rolls-Royce'), 'is_featured' => '0', 'logo' => null],
+            ['name' => 'Suzuki', 'slug' => Str::slug('Suzuki'), 'is_featured' => '0', 'logo' => null],
             ['name' => 'Saab', 'slug' => Str::slug('Saab'), 'is_featured' => '0', 'logo' => null],
             ['name' => 'Samsung', 'slug' => Str::slug('Samsung'), 'is_featured' => '0', 'logo' => null],
             ['name' => 'Saturn', 'slug' => Str::slug('Saturn'), 'is_featured' => '0', 'logo' => null],
