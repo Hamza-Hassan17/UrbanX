@@ -51,8 +51,8 @@ class LoginController extends Controller
                 $otp = '1234';
                 $userfind->phone_otp = $otp;
                 $userfind->otp_expires_at = Carbon::now()->addMinutes(10);
-                $userfind->lat = $request->lat ?? null;
-                $userfind->lang = $request->lang ?? null;
+                $userfind->lat = $request->lat ?? $userfind->lat;
+                $userfind->lang = $request->lang ?? $userfind->lang;
                 $userfind->save();
 
                 $token = $userfind->createToken($userfind->name, ['auth_token'])->plainTextToken;
