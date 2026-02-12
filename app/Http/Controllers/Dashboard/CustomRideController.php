@@ -154,35 +154,56 @@ class CustomRideController extends Controller
 
             $passenger->syncRoles('user');
 
-            $ride = new Ride();
-            $ride->passenger_id = $passenger->id;
-            $ride->driver_id = $driver->id;
-            $ride->vehicle_type_id = $request->vehicle_type_id;
-            $ride->promo_code_id = $request->promo_code_id;
-            $ride->pickup_latitude = $request->pickup_latitude;
-            $ride->pickup_longitude = $request->pickup_longitude;
-            $ride->dropoff_latitude = $request->dropoff_latitude;
-            $ride->dropoff_longitude = $request->dropoff_longitude;
-            $ride->distance_km = $request->distance_km;
-            $ride->duration_minutes = $request->duration_minutes;
-            $ride->subtotal = $request->subtotal;
-            $ride->discount_amount = $request->discount_amount;
-            $ride->total_fare = $request->total_fare;
-            $ride->requested_at = now();
-            $ride->accepted_at = now();
-            $ride->status = 'accepted';
-            $ride->save();
+            if($request->driver_id_input){
+                $ride = new Ride();
+                $ride->passenger_id = $passenger->id;
+                $ride->driver_id = $request->driver_id_input;
+                $ride->vehicle_type_id = $request->vehicle_type_id;
+                $ride->promo_code_id = $request->promo_code_id;
+                $ride->pickup_latitude = $request->pickup_latitude;
+                $ride->pickup_longitude = $request->pickup_longitude;
+                $ride->dropoff_latitude = $request->dropoff_latitude;
+                $ride->dropoff_longitude = $request->dropoff_longitude;
+                $ride->distance_km = $request->distance_km;
+                $ride->duration_minutes = $request->duration_minutes;
+                $ride->subtotal = $request->subtotal;
+                $ride->discount_amount = $request->discount_amount;
+                $ride->total_fare = $request->total_fare;
+                $ride->requested_at = now();
+                $ride->accepted_at = now();
+                $ride->status = 'accepted';
+                $ride->save();
 
-            $rideOffer = new RideOffer();
-            $rideOffer->ride_id = $ride->id;
-            $rideOffer->driver_id = $driver->id;
-            $rideOffer->proposed_price = $request->total_fare;
-            $rideOffer->eta_minutes = $request->duration_minutes;
-            $rideOffer->note = 'Auto Accepted by Admin';
-            $rideOffer->offered_at = now();
-            $rideOffer->accepted_at = now();
-            $rideOffer->status = 'accepted';
-            $rideOffer->save();
+                $rideOffer = new RideOffer();
+                $rideOffer->ride_id = $ride->id;
+                $rideOffer->driver_id = $request->driver_id_input;
+                $rideOffer->proposed_price = $request->total_fare;
+                $rideOffer->eta_minutes = $request->duration_minutes;
+                $rideOffer->note = 'Auto Accepted by Admin';
+                $rideOffer->offered_at = now();
+                $rideOffer->accepted_at = now();
+                $rideOffer->status = 'accepted';
+                $rideOffer->save();
+            }else {
+                $ride = new Ride();
+                $ride->passenger_id = $passenger->id;
+                $ride->driver_id = null; // No driver assigned yet
+                $ride->vehicle_type_id = $request->vehicle_type_id;
+                $ride->promo_code_id = $request->promo_code_id;
+                $ride->pickup_latitude = $request->pickup_latitude;
+                $ride->pickup_longitude = $request->pickup_longitude;
+                $ride->dropoff_latitude = $request->dropoff_latitude;
+                $ride->dropoff_longitude = $request->dropoff_longitude;
+                $ride->distance_km = $request->distance_km;
+                $ride->duration_minutes = $request->duration_minutes;
+                $ride->subtotal = $request->subtotal;
+                $ride->discount_amount = $request->discount_amount;
+                $ride->total_fare = $request->total_fare;
+                $ride->requested_at = now();
+                $ride->status = 'requested';
+                $ride->save();
+            }
+
 
             DB::commit();
             return response()->json([
