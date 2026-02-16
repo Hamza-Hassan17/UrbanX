@@ -154,6 +154,11 @@ class RestaurantController extends Controller
         try {
             $user = $request->user();
             $restaurant = Restaurant::where('user_id', $user->id)->first();
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
             $menus = RestaurantMenu::where('restaurant_id', $restaurant->id)->get();
             return response()->json([
                 'message' => 'Restaurant Menus',
@@ -184,6 +189,11 @@ class RestaurantController extends Controller
         try {
             $user = $request->user();
             $restaurant = Restaurant::where('user_id', $user->id)->first();
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
 
             $menu = new RestaurantMenu();
             $menu->restaurant_id = $restaurant->id;
@@ -220,6 +230,11 @@ class RestaurantController extends Controller
         try {
             $user = $request->user();
             $restaurant = Restaurant::where('user_id', $user->id)->first();
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
             $menu = RestaurantMenu::where('restaurant_id', $restaurant->id)->where('id', $menu_id)->first();
 
             if (!$menu) {
@@ -249,6 +264,11 @@ class RestaurantController extends Controller
         try {
             $user = $request->user();
             $restaurant = Restaurant::where('user_id', $user->id)->first();
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
             $restaurantItems = RestaurantItem::where('restaurant_id', $restaurant->id)->get();
             $restaurantItems = $restaurantItems->map(function ($item) {
                 $item->image = url($item->image);
@@ -291,7 +311,11 @@ class RestaurantController extends Controller
         try {
             $user = $request->user();
             $restaurant = Restaurant::where('user_id', $user->id)->first();
-
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
             $restaurantItem = new RestaurantItem();
             $restaurantItem->restaurant_id = $restaurant->id;
             $restaurantItem->restaurant_menu_id = $request->input('restaurant_menu_id');
@@ -354,6 +378,11 @@ class RestaurantController extends Controller
         try {
             $user = $request->user();
             $restaurant = Restaurant::where('user_id', $user->id)->first();
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
             $restaurantItem = RestaurantItem::where('restaurant_id', $restaurant->id)->where('id', $item_id)->first();
 
             if (!$restaurantItem) {
@@ -405,6 +434,11 @@ class RestaurantController extends Controller
         try {
             $user = $request->user();
             $restaurant = Restaurant::where('user_id', $user->id)->first();
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
             $orders = RestaurantOrder::with('customer', 'items', 'voucherCode')->where('restaurant_id', $restaurant->id)->get();
             return response()->json([
                 'message' => 'Restaurant Orders',
@@ -423,6 +457,11 @@ class RestaurantController extends Controller
         try {
             $user = $request->user();
             $restaurant = Restaurant::where('user_id', $user->id)->first();
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
             $order = RestaurantOrder::with('customer', 'items', 'voucherCode')->where('restaurant_id', $restaurant->id)->where('id', $order_id)->first();
 
             if (!$order) {
