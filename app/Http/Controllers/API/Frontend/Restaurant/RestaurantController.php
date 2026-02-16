@@ -271,7 +271,7 @@ class RestaurantController extends Controller
             }
             $restaurantItems = RestaurantItem::where('restaurant_id', $restaurant->id)->get();
             $restaurantItems = $restaurantItems->map(function ($item) {
-                $item->image = url($item->image);
+                $item->image = url('storage/'.$item->image);
                 return $item;
             });
             return response()->json([
@@ -341,7 +341,7 @@ class RestaurantController extends Controller
 
             $restaurantItem->save();
 
-            $restaurantItem->image = url($restaurantItem->image);
+            $restaurantItem->image = url('storage/'.$restaurantItem->image);
             return response()->json([
                 'message' => 'Menu item added successfully',
                 'item' => $restaurantItem
@@ -416,7 +416,7 @@ class RestaurantController extends Controller
             }
 
             $restaurantItem->save();
-            $restaurantItem->image = url($restaurantItem->image);
+            $restaurantItem->image = url('storage/'.$restaurantItem->image);
             return response()->json([
                 'message' => 'Menu item updated successfully',
                 'item' => $restaurantItem
