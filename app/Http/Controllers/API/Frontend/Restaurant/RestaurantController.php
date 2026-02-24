@@ -21,9 +21,12 @@ class RestaurantController extends Controller
         try {
             $user = $request->user();
 
+            $restaurant = Restaurant::where('user_id', $user->id)->first();
+
             return response()->json([
                 'message' => 'Restaurant Home Data',
                 'user' => $user,
+                'restaurant' => $restaurant,
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Restaurant Home failed', ['error' => $th->getMessage()]);
