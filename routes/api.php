@@ -133,6 +133,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/orders', [RestaurantController::class, 'getOrders']);
         Route::get('/order-details/{order_id}', [RestaurantController::class, 'getOrderDetails']);
+
+        Route::get('/toggle-status', [RestaurantController::class, 'toggleStatus']);
     });
 
 });

@@ -481,4 +481,34 @@ class RestaurantController extends Controller
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
+
+    public function toggleStatus(Request $request)
+    {
+        try {
+            $user = $request->user();
+            $restaurant = Restaurant::where('user_id', $user->id)->first();
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
+            $message = $restaurant->is_open == 'open' ? 'Restaurant Status Changed to Closed Successfully' : 'Restaurant Status Changed to Open Successfully';
+            if ($restaurant->is_open == 'open') {
+                $restaurant->is_open = 'closed';
+                $restaurant->save();
+            } else {
+                $restaurant->is_open = 'open';
+                $restaurant->save();
+            }
+            return response()->json([
+                'message' => $message,
+                'restaurant' => $restaurant,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Restaurant Toggle Status failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
 }
