@@ -548,6 +548,7 @@ class CustomerController extends Controller
             $order->restaurant_id = $cart->restaurant_id;
             $order->customer_id = $request->user()->id;
             $order->voucher_code_id = $cart->voucher_code_id;
+            $order->order_number = 'ORD-' . strtoupper(uniqid());
             $order->subtotal = $cart->subtotal;
             $order->discount = $cart->discount;
             $order->tax = $cart->tax;

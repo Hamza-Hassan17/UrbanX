@@ -10,6 +10,7 @@ class RestaurantOrder extends Model
     use HasFactory;
 
     protected $fillable = [
+        'order_number',
         'restaurant_id',
         'customer_id',
         'voucher_code_id',
@@ -20,6 +21,11 @@ class RestaurantOrder extends Model
         'delivery_fee',
         'total_price',
         'status',
+        'delivery_lat',
+        'delivery_lang',
+        'rider_note',
+        'payment_method',
+        'payment_status',
     ];
 
     public function restaurant()
