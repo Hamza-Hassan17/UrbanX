@@ -93,7 +93,7 @@ class CustomerController extends Controller
     public function searchRestaurants(Request $request)
     {
         try {
-            $searchTerm = $request->query;
+            $searchTerm = $request->search;
 
             $restaurants = Restaurant::where('is_active', 'active')
                 ->where(function ($query) use ($searchTerm) {
