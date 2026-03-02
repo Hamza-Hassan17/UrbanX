@@ -162,7 +162,7 @@ class RestaurantController extends Controller
                     'message' => 'Restaurant not found'
                 ], Response::HTTP_NOT_FOUND);
             }
-            $menus = RestaurantMenu::where('restaurant_id', $restaurant->id)->get();
+            $menus = RestaurantMenu::withCount('items')->where('restaurant_id', $restaurant->id)->get();
             return response()->json([
                 'message' => 'Restaurant Menus',
                 'menus' => $menus

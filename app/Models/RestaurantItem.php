@@ -11,14 +11,16 @@ class RestaurantItem extends Model
 
     protected $fillable = [
         'restaurant_id',
+        'restaurant_menu_id',
         'name',
         'description',
         'price',
+        'discount_percentage',
         'discount_price',
         'image',
         'is_available',
         'is_featured',
         'preparation_time',
-        'status',
+        'is_active',
     ];
 }

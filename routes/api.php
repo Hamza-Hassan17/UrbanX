@@ -10,6 +10,7 @@ use App\Http\Controllers\API\Frontend\Driver\RideController as DriverRideControl
 use App\Http\Controllers\API\Frontend\DriverDetailsController;
 use App\Http\Controllers\API\Frontend\NotificationController;
 use App\Http\Controllers\API\Frontend\ProfileController;
+use App\Http\Controllers\API\Frontend\Restaurant\CustomerController;
 use App\Http\Controllers\API\Frontend\Restaurant\RestaurantController;
 use App\Http\Controllers\Dashboard\CustomRideController;
 use App\Http\Controllers\Dashboard\HomeController;
@@ -26,6 +27,7 @@ use Illuminate\Support\Facades\Route;
 | be assigned to the "api" middleware group. Make something great!
 |
 */
+
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
@@ -82,7 +84,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
         //Ride reject
         Route::post('/reject-ride', [DriverRideController::class, 'rejectRide']);
-
     });
 
     //Customer Routes
@@ -135,8 +136,27 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/order-details/{order_id}', [RestaurantController::class, 'getOrderDetails']);
 
         Route::get('/toggle-status', [RestaurantController::class, 'toggleStatus']);
-    });
 
+        Route::group(['prefix' => 'customer'], function () {
+            Route::get('/home', [CustomerController::class, 'getHomeData']);
+            Route::get('/restaurants/{category?}', [CustomerController::class, 'getRestaurants']);
+            Route::get('/search', [CustomerController::class, 'searchRestaurants']);
+            Route::get('/restaurant-details/{restaurant_id}', [CustomerController::class, 'getRestaurantDetails']);
+            Route::get('/menu-items/{menu_id}', [CustomerController::class, 'getMenuItems']);
+            Route::get('/menu-item-details/{item_id}', [CustomerController::class, 'getMenuItemDetails']);
+            Route::post('/add-to-cart', [CustomerController::class, 'addToCart']);
+            Route::get('/carts', [CustomerController::class, 'getCarts']);
+            Route::post('/delete-cart-item', [CustomerController::class, 'deleteCartItem']);
+            Route::get('/cart-details/{cart_id}', [CustomerController::class, 'getCartDetails']);
+            Route::get('/get-vouchers', [CustomerController::class, 'getVouchers']);
+            Route::post('/apply-voucher', [CustomerController::class, 'applyVoucher']);
+            Route::post('/place-order', [CustomerController::class, 'placeOrder']);
+            Route::get('/orders', [CustomerController::class, 'getOrders']);
+            Route::get('/order-details/{order_id}', [CustomerController::class, 'getOrderDetails']);
+            Route::post('/post-review', [CustomerController::class, 'postReview']);
+            Route::get('/get-reviews/{restaurant_id}', [CustomerController::class, 'getReviews']);
+        });
+    });
 });
 
 Route::post('/calculate-distance-fare', [RideController::class, 'calculateDistanceFare']);
