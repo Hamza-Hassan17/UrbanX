@@ -21,4 +21,9 @@ class RestaurantCartItem extends Model
     {
         return $this->belongsTo(RestaurantItem::class, 'restaurant_item_id');
     }
+
+    public function cart()
+    {
+        return $this->belongsTo(RestaurantCart::class, 'cart_id');
+    }
 }
