@@ -17,4 +17,14 @@ class RestaurantOrderItem extends Model
         'total_price',
         'notes',
     ];
+
+    public function order()
+    {
+        return $this->belongsTo(RestaurantOrder::class, 'order_id');
+    }
+
+    public function restaurantItem()
+    {
+        return $this->belongsTo(RestaurantItem::class, 'restaurant_item_id');
+    }
 }
