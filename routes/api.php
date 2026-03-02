@@ -140,7 +140,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::group(['prefix' => 'customer'], function () {
             Route::get('/home', [CustomerController::class, 'getHomeData']);
             Route::get('/restaurants/{category?}', [CustomerController::class, 'getRestaurants']);
-            Route::get('/search', [CustomerController::class, 'searchRestaurants']);
+            Route::post('/search', [CustomerController::class, 'searchRestaurants']);
             Route::get('/restaurant-details/{restaurant_id}', [CustomerController::class, 'getRestaurantDetails']);
             Route::get('/menu-items/{menu_id}', [CustomerController::class, 'getMenuItems']);
             Route::get('/menu-item-details/{item_id}', [CustomerController::class, 'getMenuItemDetails']);
