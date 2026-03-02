@@ -153,14 +153,14 @@ class CustomerController extends Controller
         try {
             $menuItems = RestaurantItem::where('restaurant_menu_id', $menu_id)->where('is_active', 'active')->get();
 
-            $menuItems->items = $menuItems->items->map(function ($item) {
+            $menuItems = $menuItems->map(function ($item) {
                 $item->image = $item->image ? url('storage/' . $item->image) : null;
                 return $item;
             });
 
             return response()->json([
                 'message' => 'Menu Items',
-                'menu_items' => $menuItems->items,
+                'menu_items' => $menuItems,
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Get Menu Items failed', ['error' => $th->getMessage()]);
