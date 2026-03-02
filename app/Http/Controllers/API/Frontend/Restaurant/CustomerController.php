@@ -13,6 +13,7 @@ use App\Models\RestaurantOrder;
 use App\Models\VoucherCode;
 use App\Models\RestaurantReview;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -440,6 +441,8 @@ class CustomerController extends Controller
                 ], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 
+            DB::beginTransaction();
+
             $cart = RestaurantCart::find($request->cart_id);
 
             if (!$cart) {
@@ -507,11 +510,13 @@ class CustomerController extends Controller
 
             $cart->save();
 
+            DB::commit();
             return response()->json([
                 'message' => 'Voucher applied successfully!',
                 'new_total_price' => $cart->total_price,
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
+            DB::rollBack();
             Log::error('API Apply Voucher failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
@@ -543,6 +548,8 @@ class CustomerController extends Controller
                     'message' => 'Cart not found'
                 ], Response::HTTP_NOT_FOUND);
             }
+
+            DB::beginTransaction();
 
             $order = new RestaurantOrder();
             $order->restaurant_id = $cart->restaurant_id;
@@ -576,11 +583,14 @@ class CustomerController extends Controller
             // Clear the cart after placing the order
             $cart->delete();
 
+            DB::commit();
+
             return response()->json([
                 'message' => 'Order placed successfully!',
                 'order' => $order->load('items.restaurantItem'),
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
+            DB::rollBack();
             Log::error('API Place Order failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
