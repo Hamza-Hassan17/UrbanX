@@ -27,7 +27,7 @@ class CustomerController extends Controller
 
             $popularRestaurantCategories = RestaurantCategory::where('is_active', 'active')->where('is_popular', '1')->limit(5)->get();
             $popularRestaurantCategories = $popularRestaurantCategories->map(function ($item) {
-                $item->image = url('storage/' . $item->image);
+                $item->image = $item->image ? url('storage/' . $item->image) : null;
                 return $item;
             });
 
@@ -42,8 +42,8 @@ class CustomerController extends Controller
                 ->get();
 
             $popularRestaurants = $popularRestaurants->map(function ($item) {
-                $item->logo = url('storage/' . $item->logo);
-                $item->cover_image = url('storage/' . $item->cover_image);
+                $item->logo = $item->logo ? url('storage/' . $item->logo) : null;
+                $item->cover_image = $item->cover_image ? url('storage/' . $item->cover_image) : null;
                 return $item;
             });
 
@@ -73,8 +73,8 @@ class CustomerController extends Controller
             }
 
             $restaurants = $query->get()->map(function ($item) {
-                $item->logo = url('storage/' . $item->logo);
-                $item->cover_image = url('storage/' . $item->cover_image);
+                $item->logo = $item->logo ? url('storage/' . $item->logo) : null;
+                $item->cover_image = $item->cover_image ? url('storage/' . $item->cover_image) : null;
                 return $item;
             });
 
@@ -102,8 +102,8 @@ class CustomerController extends Controller
                 })
                 ->get()
                 ->map(function ($item) {
-                    $item->logo = url('storage/' . $item->logo);
-                    $item->cover_image = url('storage/' . $item->cover_image);
+                    $item->logo = $item->logo ? url('storage/' . $item->logo) : null;
+                    $item->cover_image = $item->cover_image ? url('storage/' . $item->cover_image) : null;
                     return $item;
                 });
 
@@ -130,8 +130,8 @@ class CustomerController extends Controller
                 ], Response::HTTP_NOT_FOUND);
             }
 
-            $restaurant->logo = url('storage/' . $restaurant->logo);
-            $restaurant->cover_image = url('storage/' . $restaurant->cover_image);
+            $restaurant->logo = $restaurant->logo ? url('storage/' . $restaurant->logo) : null;
+            $restaurant->cover_image = $restaurant->cover_image ? url('storage/' . $restaurant->cover_image) : null;
 
             $restaurantMenus = RestaurantMenu::where('restaurant_id', $restaurant_id)->where('is_active', 'active')->get();
 
@@ -154,7 +154,7 @@ class CustomerController extends Controller
             $menuItems = RestaurantItem::where('restaurant_menu_id', $menu_id)->where('is_active', 'active')->get();
 
             $menuItems->items = $menuItems->items->map(function ($item) {
-                $item->image = url('storage/' . $item->image);
+                $item->image = $item->image ? url('storage/' . $item->image) : null;
                 return $item;
             });
 
@@ -181,7 +181,7 @@ class CustomerController extends Controller
                 ], Response::HTTP_NOT_FOUND);
             }
 
-            $menuItem->image = url('storage/' . $menuItem->image);
+            $menuItem->image = $menuItem->image ? url('storage/' . $menuItem->image) : null;
 
             return response()->json([
                 'message' => 'Menu Item Details',
@@ -599,7 +599,7 @@ class CustomerController extends Controller
             foreach ($orders as $order) {
                 foreach ($order->items as $item) {
                     if ($item->restaurantItem && $item->restaurantItem->image) {
-                        $item->image = asset('storage/' . $item->restaurantItem->image);
+                        $item->image = url('storage/' . $item->restaurantItem->image);
                     }
                 }
             }
@@ -633,7 +633,7 @@ class CustomerController extends Controller
             // Format item images
             foreach ($order->items as $item) {
                 if ($item->restaurantItem && $item->restaurantItem->image) {
-                    $item->image = asset('storage/' . $item->restaurantItem->image);
+                    $item->image = url('storage/' . $item->restaurantItem->image);
                 }
             }
 
