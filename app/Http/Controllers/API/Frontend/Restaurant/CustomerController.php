@@ -67,7 +67,7 @@ class CustomerController extends Controller
             $query = Restaurant::where('is_active', 'active');
 
             if ($category) {
-                $query->whereHas('categories', function ($q) use ($category) {
+                $query->whereHas('category', function ($q) use ($category) {
                     $q->where('id', $category);
                 });
             }
