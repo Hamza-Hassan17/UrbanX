@@ -61,7 +61,7 @@
                                                 </a>
                                             </span>
                                         @endcan
-                                        @canany(['vuew restaurant'])
+                                        @canany(['view restaurant'])
                                             <span class="text-nowrap">
                                                 <a href="{{ route('dashboard.restaurants.show', $restaurant->id) }}"
                                                     class="btn btn-icon btn-text-warning waves-effect waves-light rounded-pill me-1 edit-order-btn"
