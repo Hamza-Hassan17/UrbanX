@@ -152,10 +152,10 @@
                 @php
                     $scheduleRaw = $restaurant->weekly_schedule;
 
-                    // First decode
+                    // Step 1: First decode
                     $schedule = json_decode($scheduleRaw, true);
 
-                    // Agar abhi bhi string hai → dubara decode karo
+                    // Step 2: Double encoded check
                     if (is_string($schedule)) {
                         $schedule = json_decode($schedule, true);
                     }
@@ -170,13 +170,23 @@
                     </thead>
                     <tbody>
 
-                        @if(is_array($schedule))
+                        {{-- CASE 1: Proper JSON array --}}
+                        @if(is_array($schedule) && count($schedule))
                             @foreach($schedule as $day => $time)
                                 <tr>
                                     <td>{{ ucfirst($day) }}</td>
-                                    <td>{{ $time }}</td>
+                                    <td>{{ $time ?? '-' }}</td>
                                 </tr>
                             @endforeach
+
+                        {{-- CASE 2: Direct string like "12:00 AM - 12:00 PM" --}}
+                        @elseif(is_string($scheduleRaw) && !empty($scheduleRaw))
+                            <tr>
+                                <td>All Days</td>
+                                <td>{{ $scheduleRaw }}</td>
+                            </tr>
+
+                        {{-- CASE 3: null --}}
                         @else
                             <tr>
                                 <td colspan="2" class="text-center">No schedule available</td>
