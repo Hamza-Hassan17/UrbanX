@@ -163,13 +163,19 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach($schedule as $day => $time)
+                        @if(is_array($schedule) && count($schedule))
+                            @foreach($schedule as $day => $time)
+                                <tr>
+                                    <td>{{ ucfirst($day) }}</td>
+                                    <td>{{ $time['open'] ?? '-' }}</td>
+                                    <td>{{ $time['close'] ?? '-' }}</td>
+                                </tr>
+                            @endforeach
+                        @else
                             <tr>
-                                <td>{{ ucfirst($day) }}</td>
-                                <td>{{ $time['open'] ?? '-' }}</td>
-                                <td>{{ $time['close'] ?? '-' }}</td>
+                                <td colspan="3" class="text-center">No schedule available</td>
                             </tr>
-                        @endforeach
+                        @endif
                     </tbody>
                 </table>
             @else
