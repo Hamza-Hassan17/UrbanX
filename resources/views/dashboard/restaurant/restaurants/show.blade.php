@@ -150,7 +150,20 @@
         </div>
         <div class="card-body">
             @php
-                $schedule = json_decode($restaurant->weekly_schedule, true);
+                $scheduleRaw = $restaurant->weekly_schedule;
+
+                // Try decode JSON
+                $schedule = json_decode($scheduleRaw, true);
+
+                // Case 1: If single string like "11:29 AM - 11:29 AM"
+                if (!$schedule && is_string($scheduleRaw)) {
+                    $schedule = ['default' => $scheduleRaw];
+                }
+
+                // Case 2: If still not array → make empty
+                if (!is_array($schedule)) {
+                    $schedule = [];
+                }
             @endphp
 
             @if($schedule)
@@ -163,12 +176,17 @@
                         </tr>
                     </thead>
                     <tbody>
-                        @if(is_array($schedule) && count($schedule))
+                        @if(count($schedule))
                             @foreach($schedule as $day => $time)
                                 <tr>
                                     <td>{{ ucfirst($day) }}</td>
-                                    <td>{{ $time['open'] ?? '-' }}</td>
-                                    <td>{{ $time['close'] ?? '-' }}</td>
+
+                                    @if(is_array($time))
+                                        <td>{{ $time['open'] ?? '-' }}</td>
+                                        <td>{{ $time['close'] ?? '-' }}</td>
+                                    @else
+                                        <td colspan="2">{{ $time }}</td>
+                                    @endif
                                 </tr>
                             @endforeach
                         @else
