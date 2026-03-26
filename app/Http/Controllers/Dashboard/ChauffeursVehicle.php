@@ -197,8 +197,8 @@ class ChauffeursVehicle extends Controller
             $vehicle->is_featured = $request->is_featured ? '1' : '0';
 
             if ($request->hasFile('main_image')) {
-                if (isset($vehicle->logo) && File::exists(public_path($vehicle->logo))) {
-                    File::delete(public_path($vehicle->logo));
+                if (isset($vehicle->main_image) && File::exists(public_path($vehicle->main_image))) {
+                    File::delete(public_path($vehicle->main_image));
                 }
                 $Image = $request->file('main_image');
                 $Image_ext = $Image->getClientOriginalExtension();

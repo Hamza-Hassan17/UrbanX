@@ -23,6 +23,8 @@ use App\Http\Controllers\Dashboard\DriverController;
 use App\Http\Controllers\Dashboard\PromoCodeController;
 use App\Http\Controllers\Dashboard\RideController;
 use App\Http\Controllers\Dashboard\VehicleTypeController;
+use App\Http\Controllers\Dashboard\Restaurant\CategoryController as RestaurantCategoryController;
+use App\Http\Controllers\Dashboard\Restaurant\RestaurantsController;
 use App\Http\Controllers\FirebaseController;
 use App\Http\Middleware\CheckAccountActivation;
 use Illuminate\Support\Facades\Route;
@@ -195,6 +197,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             //Rides
             Route::resource('rides', RideController::class);
+
+            //Restaurant Categories
+            Route::resource('restaurant-categories', RestaurantCategoryController::class);
+            Route::get('restaurant-categories/status/{id}', [RestaurantCategoryController::class, 'updateStatus'])->name('restaurant-categories.status.update');
+
+            //Restaurants
+            Route::resource('restaurants', RestaurantsController::class);
         });
     });
 

@@ -121,6 +121,30 @@
                 </ul>
             </li>
         @endcan
+        @canany(['view restaurant category'])
+            <li class="menu-item {{ request()->routeIs('dashboard.restaurant-categories.*') || request()->routeIs('dashboard.restaurants.*') ? 'open' : '' }}">
+                <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
+                    <i class="menu-icon tf-icons ti ti-chef-hat"></i>
+                    <div>{{__('Restaurants Setup')}}</div>
+                </a>
+                <ul class="menu-sub">
+                    @can(['view restaurant category'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.restaurant-categories.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.restaurant-categories.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Categories')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['view restaurant'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.restaurants.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.restaurants.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Restaurants')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                </ul>
+            </li>
+        @endcan
         @canany(['view user', 'view archived user'])
             <li class="menu-item {{ request()->routeIs('dashboard.user.*') || request()->routeIs('dashboard.archived-user.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
