@@ -204,6 +204,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             //Restaurants
             Route::resource('restaurants', RestaurantsController::class);
+            Route::get('restaurants/status/{id}', [RestaurantsController::class, 'updateStatus'])->name('restaurants.status.update');
         });
     });
 

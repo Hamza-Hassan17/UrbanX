@@ -20,7 +20,7 @@
                             <th>{{ __('Name') }}</th>
                             <th>{{ __('Logo') }}</th>
                             <th>{{ __('Status') }}</th>
-                            @canany(['delete restaurant', 'update restaurant'])<th>{{ __('Action') }}</th>@endcan
+                            @canany(['delete restaurant', 'update restaurant', 'view update'])<th>{{ __('Action') }}</th>@endcan
                         </tr>
                     </thead>
                     <tbody>
@@ -32,7 +32,7 @@
                                 <td>
                                     <span class="badge me-4 bg-label-{{ $restaurant->is_active == 'active' ? 'success' : 'danger' }}">{{ ucfirst($restaurant->is_active) }}</span>
                                 </td>
-                                @canany(['delete restaurant', 'update restaurant'])
+                                @canany(['delete restaurant', 'update restaurant', 'view update'])
                                     <td class="d-flex">
                                         @canany(['delete restaurant'])
                                             <form action="{{ route('dashboard.restaurants.destroy', $restaurant->id) }}"
@@ -58,6 +58,16 @@
                                                     @else
                                                         <i class="ti ti-toggle-left ti-md text-danger"></i>
                                                     @endif
+                                                </a>
+                                            </span>
+                                        @endcan
+                                        @canany(['vuew restaurant'])
+                                            <span class="text-nowrap">
+                                                <a href="{{ route('dashboard.restaurants.show', $restaurant->id) }}"
+                                                    class="btn btn-icon btn-text-warning waves-effect waves-light rounded-pill me-1 edit-order-btn"
+                                                    data-bs-toggle="tooltip" data-bs-placement="top"
+                                                    title="{{ __('View Restaurant') }}">
+                                                    <i class="ti ti-eye ti-md"></i>
                                                 </a>
                                             </span>
                                         @endcan

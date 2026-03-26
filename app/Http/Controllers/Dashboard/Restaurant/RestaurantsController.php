@@ -83,4 +83,25 @@ class RestaurantsController extends Controller
     {
         //
     }
+
+    public function updateStatus(string $id)
+    {
+        $this->authorize('update restaurant');
+        try {
+            $restaurant = Restaurant::findOrFail($id);
+            $message = $restaurant->is_active == 'active' ? 'Restaurant Deactivated Successfully' : 'Restaurant Activated Successfully';
+            if ($restaurant->is_active == 'active') {
+                $restaurant->is_active = 'inactive';
+                $restaurant->save();
+            } else {
+                $restaurant->is_active = 'active';
+                $restaurant->save();
+            }
+            return redirect()->back()->with('success', $message);
+        } catch (\Throwable $th) {
+            Log::error('Restaurant Status Updation Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
+            throw $th;
+        }
+    }
 }
