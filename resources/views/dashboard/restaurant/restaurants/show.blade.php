@@ -23,8 +23,8 @@
 
             <div class="row">
                 <div class="col-md-3">
-                    <img src="{{ asset($restaurant->logo) }}" class="img-fluid rounded mb-2">
-                    <img src="{{ asset($restaurant->cover_image) }}" class="img-fluid rounded">
+                    <img src="{{ asset('storage/'.$restaurant->logo) }}" class="img-fluid rounded mb-2">
+                    <img src="{{ asset('storage/'.$restaurant->cover_image) }}" class="img-fluid rounded">
                 </div>
 
                 <div class="col-md-9">

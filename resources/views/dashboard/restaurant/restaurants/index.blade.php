@@ -28,7 +28,7 @@
                             <tr>
                                 <td>{{ $index + 1 }}</td>
                                 <td>{{ $restaurant->name }}</td>
-                                <td><img src="{{ asset($restaurant->logo) }}" alt="Logo" style="height: 40px;"></td>
+                                <td><img src="{{ asset('storage/'.$restaurant->logo) }}" alt="Logo" style="height: 40px;"></td>
                                 <td>
                                     <span class="badge me-4 bg-label-{{ $restaurant->is_active == 'active' ? 'success' : 'danger' }}">{{ ucfirst($restaurant->is_active) }}</span>
                                 </td>
