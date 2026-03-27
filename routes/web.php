@@ -205,6 +205,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             //Restaurants
             Route::resource('restaurants', RestaurantsController::class);
             Route::get('restaurants/status/{id}', [RestaurantsController::class, 'updateStatus'])->name('restaurants.status.update');
+            Route::put('restaurants/menus/update/{id}', [RestaurantsController::class, 'updateRestaurantMenu'])->name('restaurants.menus.update');
+            Route::put('restaurants/items/update/{id}', [RestaurantsController::class, 'updateRestaurantItem'])->name('restaurants.items.update');
+            Route::put('restaurants/orders/update/{id}', [RestaurantsController::class, 'updateRestaurantOrder'])->name('restaurants.orders.update');
+            Route::put('restaurants/schedule/update/{id}', [RestaurantsController::class, 'updateRestaurantSchedule'])->name('restaurants.schedule.update');
         });
     });
 
