@@ -107,6 +107,11 @@ class UserRolePermissionSeeder extends Seeder
         Permission::create(['name' => 'update restaurant']);
         Permission::create(['name' => 'delete restaurant']);
 
+        Permission::create(['name' => 'view restaurant voucher']);
+        Permission::create(['name' => 'create restaurant voucher']);
+        Permission::create(['name' => 'update restaurant voucher']);
+        Permission::create(['name' => 'delete restaurant voucher']);
+
         // Create Roles
         $superAdminRole = Role::create(['name' => 'super-admin']); //as super-admin
         $adminRole = Role::create(['name' => 'admin']);

@@ -8,6 +8,7 @@ use App\Models\RestaurantCategory;
 use App\Models\RestaurantItem;
 use App\Models\RestaurantMenu;
 use App\Models\RestaurantOrder;
+use App\Models\RestaurantReview;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -304,6 +305,37 @@ class RestaurantsController extends Controller
             throw $th;
             DB::rollBack();
             Log::error('Restaurant Schedule Update Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
+        }
+    }
+
+    public function updateRestaurantReview(Request $request, $id)
+    {
+        $this->authorize('update restaurant');
+        $validator = Validator::make($request->all(), [
+            'rating' => 'required|number|min:0|max:5',
+            'comment' => 'required|string',
+            'is_active' => 'required|in:active,inactive',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->withInput($request->all())->with('error', 'Validation Error!');
+        }
+
+        try {
+            DB::beginTransaction();
+            $review = RestaurantReview::findOrFail($id);
+            $review->rating = $request->input('rating');
+            $review->comment = $request->input('comment');
+            $review->is_active = $request->input('is_active');
+            $review->save();
+
+            DB::commit();
+            return redirect()->route('dashboard.restaurants.show', $review->restaurant_id)->with('success', 'Review Updated Successfully');
+        } catch (\Throwable $th) {
+            throw $th;
+            DB::rollBack();
+            Log::error('Review Update Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
         }
     }

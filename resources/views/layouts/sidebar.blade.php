@@ -122,7 +122,7 @@
             </li>
         @endcan
         @canany(['view restaurant category'])
-            <li class="menu-item {{ request()->routeIs('dashboard.restaurant-categories.*') || request()->routeIs('dashboard.restaurants.*') ? 'open' : '' }}">
+            <li class="menu-item {{ request()->routeIs('dashboard.restaurant-categories.*') || request()->routeIs('dashboard.restaurants.*') || request()->routeIs('dashboard.restaurant-vouchers.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-chef-hat"></i>
                     <div>{{__('Restaurants Setup')}}</div>
@@ -139,6 +139,13 @@
                         <li class="menu-item {{ request()->routeIs('dashboard.restaurants.*') ? 'active' : '' }}">
                             <a href="{{route('dashboard.restaurants.index')}}" class="menu-link" style="color: #fff !important;">
                                 <div>{{__('Restaurants')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['view restaurant voucher'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.restaurant-vouchers.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.restaurant-vouchers.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Vouchers')}}</div>
                             </a>
                         </li>
                     @endcan

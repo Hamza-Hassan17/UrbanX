@@ -21,11 +21,7 @@
 
                 <button class="btn btn-primary btn-sm"
                     data-bs-toggle="modal"
-                    data-bs-target="#editRestaurantModal"
-                    data-id="{{ $restaurant->id }}"
-                    data-name="{{ $restaurant->name }}"
-                    data-address="{{ $restaurant->address }}"
-                    data-description="{{ $restaurant->description }}">
+                    data-bs-target="#editRestaurantModal">
                     <i class="ti ti-edit"></i> Edit
                 </button>
             </div>
@@ -168,7 +164,13 @@
 
                 @foreach ($restaurant->reviews as $review)
                     <div class="border p-3 mb-2 rounded">
-                        <strong>Rating:</strong> ⭐ {{ $review->rating }} <br>
+                        <strong>Rating:</strong> ⭐ {{ $review->rating }}
+
+                        <button class="btn btn-sm btn-outline-primary float-end editReviewBtn"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editReviewModal{{ $review->id }}">
+                            <i class="ti ti-edit"></i>
+                        </button> <br>
                         <strong>Comment:</strong> {{ $review->comment ?? 'No comment' }} <br>
                         <small>{{ $review->created_at->diffForHumans() }}</small>
                     </div>
@@ -552,6 +554,50 @@
             </form>
         </div>
     </div>
+
+    @foreach ($restaurant->reviews as $review)
+        <div class="modal fade" id="editReviewModal{{ $review->id }}" tabindex="-1">
+            <div class="modal-dialog">
+                <form method="POST" action="{{ route('dashboard.restaurants.reviews.update', $review->id) }}">
+                    @csrf
+                    @method('PUT')
+
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5>Edit Review</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+
+                        <div class="modal-body">
+
+                            <div class="mb-2">
+                                <label>Rating</label>
+                                <input type="number" name="rating" class="form-control" value="{{ $review->rating }}">
+                            </div>
+
+                            <div class="mb-2">
+                                <label>Comment</label>
+                                <textarea name="comment" class="form-control">{{ $review->comment }}</textarea>
+                            </div>
+
+                            <div class="mb-2">
+                                <label>Status</label>
+                                <select name="is_active" class="form-control select2">
+                                    <option value="active" {{ $review->is_active == 'active' ? 'selected' : '' }}>Active</option>
+                                    <option value="inactive" {{ $review->is_active == 'inactive' ? 'selected' : '' }}>Inactive</option>
+                                </select>
+                            </div>
+
+                        </div>
+
+                        <div class="modal-footer">
+                            <button class="btn btn-primary">Update</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endforeach
 
 
 @endsection

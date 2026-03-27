@@ -25,6 +25,7 @@ use App\Http\Controllers\Dashboard\RideController;
 use App\Http\Controllers\Dashboard\VehicleTypeController;
 use App\Http\Controllers\Dashboard\Restaurant\CategoryController as RestaurantCategoryController;
 use App\Http\Controllers\Dashboard\Restaurant\RestaurantsController;
+use App\Http\Controllers\Dashboard\Restaurant\RestaurantVoucherController;
 use App\Http\Controllers\FirebaseController;
 use App\Http\Middleware\CheckAccountActivation;
 use Illuminate\Support\Facades\Route;
@@ -209,6 +210,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('restaurants/items/update/{id}', [RestaurantsController::class, 'updateRestaurantItem'])->name('restaurants.items.update');
             Route::put('restaurants/orders/update/{id}', [RestaurantsController::class, 'updateRestaurantOrder'])->name('restaurants.orders.update');
             Route::put('restaurants/schedule/update/{id}', [RestaurantsController::class, 'updateRestaurantSchedule'])->name('restaurants.schedule.update');
+            Route::put('restaurants/review/update/{id}', [RestaurantsController::class, 'updateRestaurantReview'])->name('restaurants.reviews.update');
+
+            //Restaurant Voucher
+            Route::resource('restaurant-vouchers', RestaurantVoucherController::class);
+            Route::get('restaurant-vouchers/status/{id}', [RestaurantVoucherController::class, 'updateStatus'])->name('restaurant-vouchers.status.update');
         });
     });
 
