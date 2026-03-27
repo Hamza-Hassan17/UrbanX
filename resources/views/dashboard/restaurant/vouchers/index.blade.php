@@ -41,9 +41,9 @@
                             <tr>
                                 <td>{{ $index + 1 }}</td>
                                 <td>{{ $voucher->code }}</td>
-                                <td>{{ ucfirst($voucher->type) }}</td>
+                                <td>{{ ucfirst($voucher->discount_type) }}</td>
                                 <td>
-                                    @if ($voucher->type == 'fixed')
+                                    @if ($voucher->discount_type == 'fixed')
                                     {{ \App\Helpers\Helper::formatCurrency($voucher->discount_amount) }}
                                     @else
                                     {{ $voucher->discount_amount.'%' }}
