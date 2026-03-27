@@ -12,6 +12,9 @@
         .menu-vertical .menu-item .menu-toggle::after {
             color: #fff;
         }
+        .menu-inner-shadow{
+            display: none !important;
+        }
     </style>
 </head>
 
