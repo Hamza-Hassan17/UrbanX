@@ -313,7 +313,7 @@ class RestaurantsController extends Controller
     {
         $this->authorize('update restaurant');
         $validator = Validator::make($request->all(), [
-            'rating' => 'required|number|min:0|max:5',
+            'rating' => 'required|integer|between:0,5',
             'comment' => 'required|string',
             'is_active' => 'required|in:active,inactive',
         ]);
