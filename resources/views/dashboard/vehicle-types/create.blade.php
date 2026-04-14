@@ -112,6 +112,22 @@
                                 </span>
                             @enderror
                         </div>
+                        <div class="col-md-6 mb-4">
+                            <label class="switch switch-square">
+                                <label for="is_delivery" class="switch-label">{{ __('Delivery') }} <br> <small>Is this Vehicle Type is also for delivery?</small></label>
+                                <input type="checkbox" class="switch-input @error('is_delivery') is-invalid @enderror" id="is_delivery"
+                                    name="is_delivery" />
+                                <span class="switch-toggle-slider">
+                                    <span class="switch-on"></span>
+                                    <span class="switch-off"></span>
+                                </span>
+                            </label>
+                            @error('is_delivery')
+                                <span class="invalid-feedback" role="alert">
+                                    <strong>{{ $message }}</strong>
+                                </span>
+                            @enderror
+                        </div>
                     </div>
                     <div class="mt-2">
                         <button type="submit" class="btn btn-primary me-3">{{ __('Add Vehicle Type') }}</button>

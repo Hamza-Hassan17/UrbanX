@@ -12,15 +12,25 @@ use App\Models\RestaurantMenu;
 use App\Models\RestaurantOrder;
 use App\Models\VoucherCode;
 use App\Models\RestaurantReview;
+use App\Models\VehicleType;
+use App\Models\Ride;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
+use App\Services\FirebaseService;
 use Symfony\Component\HttpFoundation\Response;
 
 class CustomerController extends Controller
 {
+    protected $firebase;
+
+    public function __construct(FirebaseService $firebase)
+    {
+        $this->firebase = $firebase->getDatabase();
+    }
+
     public function getHomeData(Request $request)
     {
         try {
@@ -524,24 +534,84 @@ class CustomerController extends Controller
         }
     }
 
-    public function placeOrder(Request $request)
+    public function calculateDeliveryFare(Request $request)
     {
-        try {
-            $validator = Validator::make($request->all(), [
-                'cart_id' => 'required|exists:restaurant_carts,id',
-                'payment_method' => 'required|in:cod,card,cash,jazzcash,easypaisa',
-                'delivery_lat' => 'required',
-                'delivery_lang' => 'required',
-                'rider_note' => 'nullable|string|max:255',
-            ]);
+        $validator = Validator::make($request->all(), [
+            'distance_km' => 'required|numeric|min:1',
+        ]);
 
-            if ($validator->fails()) {
-                return response()->json([
-                    'message' => 'Validation failed',
-                    'errors' => $validator->errors()
-                ], Response::HTTP_BAD_REQUEST);
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $vehicleType = VehicleType::where('is_delivery', '1')->first();
+            $distance = $request->distance_km;
+
+            /* 🔥 Get current boost hour */
+            $now = now()->format('H:i');
+            $busyHour = DB::table('boost_hours')
+                ->where('start', '<=', $now)
+                ->where('end', '>=', $now)
+                ->first();
+
+            $multiplier = $busyHour ? (float) $busyHour->multiplier : 1.0;
+            $isBoost = $multiplier > 1;
+
+            // Default prices
+            $firstKmPrice = 150.00;
+            $otherKmPrice = 45.00;
+
+            if ($vehicleType) {
+                $firstKmPrice = $vehicleType->first_km_price ?? $firstKmPrice;
+                $otherKmPrice = $vehicleType->other_km_price ?? $otherKmPrice;
             }
 
+            // Fare calculation
+            $totalFare = $firstKmPrice;
+
+            if ($distance > 1) {
+                $totalFare += ($distance - 1) * $otherKmPrice;
+            }
+
+            $boostedFare = $totalFare * $multiplier;
+
+            return response()->json([
+                'total_fare'       => round($totalFare, 2),
+                'is_boost'         => $isBoost,
+                'boost_multiplier' => $multiplier,
+                'boosted_fare'     => round($boostedFare, 2),
+            ], Response::HTTP_OK);
+
+        } catch (\Throwable $th) {
+            Log::error('API Calculate Shipping Fare failed', ['error' => $th->getMessage()]);
+
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function placeOrder(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'cart_id' => 'required|exists:restaurant_carts,id',
+            'payment_method' => 'required|in:cod,card,cash,jazzcash,easypaisa',
+            'delivery_lat' => 'required',
+            'delivery_lang' => 'required',
+            'rider_note' => 'nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+        try {
             $cart = RestaurantCart::with('cartItems')->find($request->cart_id);
             if (!$cart) {
                 return response()->json([
@@ -550,6 +620,10 @@ class CustomerController extends Controller
             }
 
             DB::beginTransaction();
+
+            $vehicleType = VehicleType::where('is_delivery', '1')->first();
+
+            $restaurant = Restaurant::find($cart->restaurant_id);
 
             $order = new RestaurantOrder();
             $order->restaurant_id = $cart->restaurant_id;
@@ -580,8 +654,46 @@ class CustomerController extends Controller
                 ]);
             }
 
+            $ride = new Ride();
+            $ride->passenger_id = $request->user()->id;
+            $ride->vehicle_type_id = $vehicleType->id;
+            $ride->pickup_latitude = $restaurant->latitude;
+            $ride->pickup_longitude = $restaurant->longitude;
+            $ride->dropoff_latitude = $request->delivery_lat;
+            $ride->dropoff_longitude = $request->delivery_lang;
+            $ride->distance_km = $request->distance_km;
+            $ride->duration_minutes = $request->duration_minutes;
+            $ride->subtotal = $request->subtotal;
+            $ride->total_fare = $request->total_fare;
+            $ride->requested_at = now();
+            $ride->status = 'requested';
+            $ride->ride_type = 'delivery';
+            $ride->save();
+
+            $order->ride_id = $ride->id;
+            $order->save();
+
             // Clear the cart after placing the order
             $cart->delete();
+
+            $this->firebase->getReference('ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id)
+                ->set([
+                    'ride_id' => $ride->id,
+                    'passenger_id' => $ride->passenger_id,
+                    'vehicle_type_id' => $ride->vehicle_type_id,
+                    'pickup_latitude' => $ride->pickup_latitude,
+                    'pickup_longitude' => $ride->pickup_longitude,
+                    'dropoff_latitude' => $ride->dropoff_latitude,
+                    'dropoff_longitude' => $ride->dropoff_longitude,
+                    'distance_km' => $ride->distance_km,
+                    'duration_minutes' => $ride->duration_minutes,
+                    'subtotal' => $ride->subtotal,
+                    'discount_amount' => $ride->discount_amount,
+                    'total_fare' => $ride->total_fare,
+                    'status' => $ride->status,
+                    'ride_type' => $ride->ride_type,
+                    'requested_at' => $ride->requested_at->toDateTimeString(),
+                ]);
 
             DB::commit();
 

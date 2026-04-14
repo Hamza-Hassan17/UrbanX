@@ -155,6 +155,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/order-details/{order_id}', [CustomerController::class, 'getOrderDetails']);
             Route::post('/post-review', [CustomerController::class, 'postReview']);
             Route::get('/get-reviews/{restaurant_id}', [CustomerController::class, 'getReviews']);
+            Route::get('/calculate-delivery-fare', [CustomerController::class, 'calculateDeliveryFare']);
         });
     });
 });

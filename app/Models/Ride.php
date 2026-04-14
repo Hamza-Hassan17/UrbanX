@@ -32,6 +32,7 @@ class Ride extends Model
         'extra_charges',
         'total_fare',
         'status',
+        'ride_type',
         'requested_at',
         'accepted_at',
         'started_at',

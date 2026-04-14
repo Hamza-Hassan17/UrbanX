@@ -19,6 +19,7 @@ return new class extends Migration
             $table->decimal('first_km_price', 8, 2)->nullable();
             $table->decimal('other_km_price', 8, 2)->nullable();
             $table->integer('seats')->nullable();
+            $table->enum('is_delivery', ['0', '1'])->default('0');
             $table->enum('is_active', ['active', 'inactive'])->default('active');
             $table->timestamps();
         });

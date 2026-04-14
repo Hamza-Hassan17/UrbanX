@@ -56,6 +56,7 @@ class VehicleTypeController extends Controller
             'first_km_price' => 'nullable|numeric|min:0',
             'other_km_price' => 'nullable|numeric|min:0',
             'seats' => 'nullable|integer|min:1',
+            'is_delivery' => 'nullable|in:on',
         ]);
 
         if ($validator->fails()) {
@@ -71,6 +72,7 @@ class VehicleTypeController extends Controller
             $vehicleType->first_km_price = $request->first_km_price;
             $vehicleType->other_km_price = $request->other_km_price;
             $vehicleType->seats = $request->seats;
+            $vehicleType->is_delivery = $request->is_delivery ? '1' : '0';
             $vehicleType->save();
 
             DB::commit();
@@ -120,6 +122,7 @@ class VehicleTypeController extends Controller
             'first_km_price' => 'nullable|numeric|min:0',
             'other_km_price' => 'nullable|numeric|min:0',
             'seats' => 'nullable|integer|min:1',
+            'is_delivery' => 'nullable|in:on',
         ]);
 
         if ($validator->fails()) {
@@ -135,6 +138,7 @@ class VehicleTypeController extends Controller
             $vehicleType->first_km_price = $request->first_km_price;
             $vehicleType->other_km_price = $request->other_km_price;
             $vehicleType->seats = $request->seats;
+            $vehicleType->is_delivery = $request->is_delivery ? '1' : '0';
             $vehicleType->save();
 
             DB::commit();

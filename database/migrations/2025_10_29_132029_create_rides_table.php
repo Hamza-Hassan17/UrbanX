@@ -36,6 +36,7 @@ return new class extends Migration
                 'completed',
                 'cancelled'
             ])->default('requested');
+            $table->enum('ride_type', ['ride','delivery'])->default('ride');
             $table->timestamp('requested_at')->useCurrent();
             $table->timestamp('accepted_at')->nullable();
             $table->timestamp('started_at')->nullable();

@@ -16,6 +16,7 @@ class VehicleType extends Model
         'first_km_price',
         'other_km_price',
         'seats',
+        'is_delivery',
         'is_active',
     ];
 }

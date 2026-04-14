@@ -16,6 +16,7 @@ return new class extends Migration
             $table->foreignId('restaurant_id')->constrained('restaurants')->cascadeOnDelete();
             $table->foreignId('customer_id')->constrained('users')->cascadeOnDelete();
             $table->foreignId('voucher_code_id')->nullable()->constrained('voucher_codes')->nullOnDelete();
+            $table->foreignId('ride_id')->nullable()->constrained('rides')->nullOnDelete();
             $table->string('order_number')->unique();
             $table->decimal('subtotal', 8, 2);
             $table->decimal('discount', 8, 2)->default(0);

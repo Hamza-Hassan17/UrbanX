@@ -142,8 +142,6 @@ class RideController extends Controller
         }
     }
 
-
-
     public function promoCodeApply(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -372,6 +370,7 @@ class RideController extends Controller
             $ride->total_fare = $request->total_fare;
             $ride->requested_at = now();
             $ride->status = 'requested';
+            $ride->ride_type = 'ride';
             $ride->save();
 
             $this->firebase->getReference('ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id)
@@ -389,6 +388,7 @@ class RideController extends Controller
                     'discount_amount' => $ride->discount_amount,
                     'total_fare' => $ride->total_fare,
                     'status' => $ride->status,
+                    'ride_type' => $ride->ride_type,
                     'requested_at' => $ride->requested_at->toDateTimeString(),
                 ]);
 
