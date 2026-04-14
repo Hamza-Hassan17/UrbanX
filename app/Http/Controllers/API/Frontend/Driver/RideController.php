@@ -307,7 +307,7 @@ class RideController extends Controller
             $rideOffer->eta_minutes = $request->eta_minutes;
             $rideOffer->note = $request->note;
             $rideOffer->offered_at = now();
-            $rideOffer->status = 'accepted';
+            $rideOffer->status = 'pending';
             $rideOffer->save();
 
             RideDriverLog::updateOrCreate(
@@ -316,8 +316,8 @@ class RideController extends Controller
                     'driver_id' => auth()->id(),
                 ],
                 [
-                    'action' => 'accepted',
-                    'note'   => $request->note ?? 'Ride offer accepted by driver',
+                    'action' => 'pending',
+                    'note'   => $request->note ?? 'Ride offer Pending by driver',
                 ]
             );
 
@@ -337,7 +337,7 @@ class RideController extends Controller
                     'proposed_price' => $rideOffer->proposed_price,
                     'eta_minutes' => $rideOffer->eta_minutes,
                     'note' => $rideOffer->note,
-                    'status' => 'accepted',
+                    // 'status' => 'pending',
                     'offered_at' => now()->toDateTimeString(),
                 ]);
 
