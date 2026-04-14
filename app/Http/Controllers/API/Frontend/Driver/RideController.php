@@ -316,7 +316,7 @@ class RideController extends Controller
                     'driver_id' => auth()->id(),
                 ],
                 [
-                    'action' => 'pending',
+                    'action' => 'sent',
                     'note'   => $request->note ?? 'Ride offer Pending by driver',
                 ]
             );
