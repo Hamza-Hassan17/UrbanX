@@ -464,12 +464,38 @@ class RideController extends Controller
         }
     }
 
+    // public function getRideHistory(Request $request)
+    // {
+    //     try {
+    //         $driverId = $request->user()->id;
+
+    //         $rides = Ride::where('driver_id', $driverId)
+    //             ->whereIn('status', ['completed', 'cancelled'])
+    //             ->orderBy('created_at', 'desc')
+    //             ->get();
+
+    //         return response()->json([
+    //             'ride_history' => $rides,
+    //         ], Response::HTTP_OK);
+    //     } catch (\Throwable $th) {
+    //         Log::error('API Get Ride History failed', ['error' => $th->getMessage()]);
+    //         return response()->json([
+    //             'message' => 'Something went wrong!'
+    //         ], Response::HTTP_INTERNAL_SERVER_ERROR);
+    //     }
+    // }
+
     public function getRideHistory(Request $request)
     {
         try {
-            $driverId = $request->user()->id;
+            $user = $request->user();
+            $driverId = $user->id;
+
+            // 🔥 role check
+            $rideType = $user->hasRole('driver') ? 'ride' : 'delivery';
 
             $rides = Ride::where('driver_id', $driverId)
+                ->where('ride_type', $rideType)
                 ->whereIn('status', ['completed', 'cancelled'])
                 ->orderBy('created_at', 'desc')
                 ->get();
@@ -477,6 +503,7 @@ class RideController extends Controller
             return response()->json([
                 'ride_history' => $rides,
             ], Response::HTTP_OK);
+
         } catch (\Throwable $th) {
             Log::error('API Get Ride History failed', ['error' => $th->getMessage()]);
             return response()->json([
