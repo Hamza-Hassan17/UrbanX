@@ -11,6 +11,7 @@ use App\Http\Controllers\API\Frontend\DriverDetailsController;
 use App\Http\Controllers\API\Frontend\NotificationController;
 use App\Http\Controllers\API\Frontend\ProfileController;
 use App\Http\Controllers\API\Frontend\Restaurant\CustomerController;
+use App\Http\Controllers\API\Frontend\Restaurant\DeliveryController;
 use App\Http\Controllers\API\Frontend\Restaurant\RestaurantController;
 use App\Http\Controllers\Dashboard\CustomRideController;
 use App\Http\Controllers\Dashboard\HomeController;
@@ -117,7 +118,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/add-to-favourite/{vehicle_id}', [ChauffersController::class, 'addToFavourite']);
     });
 
-    //Chauffeurs Routes
+    //Restaurant Routes
     Route::group(['prefix' => 'restaurant'], function () {
         Route::get('/home', [RestaurantController::class, 'getHomeData']);
 
@@ -156,6 +157,10 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/post-review', [CustomerController::class, 'postReview']);
             Route::get('/get-reviews/{restaurant_id}', [CustomerController::class, 'getReviews']);
             Route::get('/calculate-delivery-fare', [CustomerController::class, 'calculateDeliveryFare']);
+        });
+
+        Route::group(['prefix' => 'delivery'], function () {
+            Route::get('/home', [DeliveryController::class, 'getHomeData']);
         });
     });
 });

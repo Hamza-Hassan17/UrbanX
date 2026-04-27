@@ -8,6 +8,7 @@ use App\Models\RestaurantCategory;
 use App\Models\RestaurantItem;
 use App\Models\RestaurantMenu;
 use App\Models\RestaurantOrder;
+use App\Models\RestaurantReview;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -23,11 +24,43 @@ class RestaurantController extends Controller
 
             $restaurant = Restaurant::where('user_id', $user->id)->first();
 
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            // Total Orders
+            $total_orders = RestaurantOrder::where('restaurant_id', $restaurant->id)->count();
+
+            // Pending Orders
+            $pending_orders = RestaurantOrder::where('restaurant_id', $restaurant->id)
+                                ->where('status', 'pending')
+                                ->count();
+
+            // Total Revenue (only completed/delivered)
+            $total_revenue = RestaurantOrder::where('restaurant_id', $restaurant->id)
+                                ->whereIn('status', ['completed', 'delivered'])
+                                ->sum('total_price');
+
+            // Average Rating
+            $rating = RestaurantReview::where('restaurant_id', $restaurant->id)
+                            ->where('is_active', 'active')
+                            ->avg('rating');
+
             return response()->json([
                 'message' => 'Restaurant Home Data',
                 'user' => $user,
                 'restaurant' => $restaurant,
+                'stats' => [
+                    'total_orders' => $total_orders,
+                    'pending_orders' => $pending_orders,
+                    'total_revenue' => (float) $total_revenue,
+                    'rating' => round($rating, 1),
+                ]
+
             ], Response::HTTP_OK);
+
         } catch (\Throwable $th) {
             Log::error('API Restaurant Home failed', ['error' => $th->getMessage()]);
             return response()->json([
