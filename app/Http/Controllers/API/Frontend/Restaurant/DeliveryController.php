@@ -67,4 +67,114 @@ class DeliveryController extends Controller
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
+
+    public function getLatestRides(Request $request)
+    {
+        try {
+            $driver = $request->user();
+
+            // -------------------------
+            // Time windows
+            // -------------------------
+            $tenMinutesAgo   = now()->subMinutes(10);   // ride life
+            $logWindowStart  = now()->subHours(10);     // logs window
+
+            // -------------------------
+            // Driver vehicle type
+            // -------------------------
+            $driverVehicleType = DriverVehicle::join('vehicle_types', 'driver_vehicles.vehicle_type_id', '=', 'vehicle_types.id')
+                ->where('driver_vehicles.driver_id', $driver->id)
+                ->where('vehicle_types.is_delivery', 1)
+                ->value('driver_vehicles.vehicle_type_id');
+
+            if (!$driverVehicleType) {
+                return response()->json(['rides' => []], 200);
+            }
+
+            // -------------------------
+            // Rides already sent / accepted (last 10 hours)
+            // -------------------------
+            $busyRideIds = DB::table('ride_driver_logs')
+                ->whereIn('action', ['sent', 'accepted'])
+                ->where('created_at', '>=', $logWindowStart)
+                ->pluck('ride_id');
+
+            // -------------------------
+            // Rides rejected by this driver (last 10 hours)
+            // -------------------------
+            $rejectedByMe = DB::table('ride_driver_logs')
+                ->where('driver_id', $driver->id)
+                ->where('action', 'rejected')
+                ->where('created_at', '>=', $logWindowStart)
+                ->pluck('ride_id');
+
+            // -------------------------
+            // Fetch nearest single ride
+            // -------------------------
+            $rides = Ride::selectRaw("
+                    rides.*,
+                    (6371 * acos(
+                        cos(radians(?)) *
+                        cos(radians(pickup_latitude)) *
+                        cos(radians(pickup_longitude) - radians(?)) +
+                        sin(radians(?)) *
+                        sin(radians(pickup_latitude))
+                    )) AS distance
+                ", [
+                    $driver->lat,
+                    $driver->lang,
+                    $driver->lat
+                ])
+                ->where('status', 'requested')
+                ->where('requested_at', '>=', $tenMinutesAgo)
+                ->where('vehicle_type_id', $driverVehicleType)
+                ->whereNotIn('id', $busyRideIds)
+                ->whereNotIn('id', $rejectedByMe)
+                ->orderBy('distance')
+                ->limit(1)
+                ->get();
+
+            // -------------------------
+            // Log ride as "sent"
+            // -------------------------
+            if ($rides->count()) {
+                RideDriverLog::create([
+                    'ride_id'   => $rides[0]->id,
+                    'driver_id' => $driver->id,
+                    'action'    => 'sent',
+                    'note'      => 'Ride sent to nearest driver'
+                ]);
+            }
+
+            // -------------------------
+            // Boost logic
+            // -------------------------
+            $now = now()->format('H:i');
+            $busyHour = DB::table('boost_hours')
+                ->where('start', '<=', $now)
+                ->where('end', '>=', $now)
+                ->first();
+
+            $multiplier = $busyHour ? (float)$busyHour->multiplier : 1.0;
+
+            $rides->transform(function ($ride) use ($multiplier) {
+                $ride->boost_multiplier = $multiplier;
+                $ride->is_boost = $multiplier > 1;
+                $ride->final_fare = isset($ride->total_fare)
+                    ? $ride->total_fare * $multiplier
+                    : null;
+                return $ride;
+            });
+
+            return response()->json([
+                'rides' => $rides
+            ], 200);
+
+        } catch (\Throwable $e) {
+            Log::error('getLatestRides failed', ['error' => $e->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong'
+            ], 500);
+        }
+    }
 }
