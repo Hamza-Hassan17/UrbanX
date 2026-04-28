@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\API\Frontend\Restaurant;
 
 use App\Http\Controllers\Controller;
+use App\Models\DriverVehicle;
 use App\Models\Ride;
+use App\Models\RideDriverLog;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\HttpFoundation\Response;
@@ -125,6 +128,7 @@ class DeliveryController extends Controller
                     $driver->lang,
                     $driver->lat
                 ])
+                ->where('ride_type', 'delivery')
                 ->where('status', 'requested')
                 ->where('requested_at', '>=', $tenMinutesAgo)
                 ->where('vehicle_type_id', $driverVehicleType)
