@@ -87,7 +87,7 @@ class DeliveryController extends Controller
             // -------------------------
             $driverVehicleType = DriverVehicle::join('vehicle_types', 'driver_vehicles.vehicle_type_id', '=', 'vehicle_types.id')
                 ->where('driver_vehicles.driver_id', $driver->id)
-                ->where('vehicle_types.is_delivery', 1)
+                ->where('vehicle_types.is_delivery', '1')
                 ->value('driver_vehicles.vehicle_type_id');
 
             Log::info('Driver Vehicle Type', ['driver_id' => $driver->id, 'vehicle_type_id' => $driverVehicleType]);
