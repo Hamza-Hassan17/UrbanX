@@ -90,7 +90,10 @@ class DeliveryController extends Controller
                 ->where('vehicle_types.is_delivery', 1)
                 ->value('driver_vehicles.vehicle_type_id');
 
+            Log::info('Driver Vehicle Type', ['driver_id' => $driver->id, 'vehicle_type_id' => $driverVehicleType]);
+
             if (!$driverVehicleType) {
+                Log::warning("Driver does not have a valid delivery vehicle type", ['driver_id' => $driver->id]);
                 return response()->json(['rides' => []], 200);
             }
 
@@ -102,6 +105,8 @@ class DeliveryController extends Controller
                 ->where('created_at', '>=', $logWindowStart)
                 ->pluck('ride_id');
 
+            Log::info('Busy Ride IDs', ['driver_id' => $driver->id, 'busy_ride_ids' => $busyRideIds]);
+
             // -------------------------
             // Rides rejected by this driver (last 10 hours)
             // -------------------------
@@ -110,6 +115,8 @@ class DeliveryController extends Controller
                 ->where('action', 'rejected')
                 ->where('created_at', '>=', $logWindowStart)
                 ->pluck('ride_id');
+
+            Log::info('Rides Rejected by Driver', ['driver_id' => $driver->id, 'rejected_ride_ids' => $rejectedByMe]);
 
             // -------------------------
             // Fetch nearest single ride
@@ -142,6 +149,7 @@ class DeliveryController extends Controller
             // Log ride as "sent"
             // -------------------------
             if ($rides->count()) {
+                Log::info('Ride Sent to Driver', ['driver_id' => $driver->id, 'ride_id' => $rides[0]->id]);
                 RideDriverLog::create([
                     'ride_id'   => $rides[0]->id,
                     'driver_id' => $driver->id,
@@ -159,6 +167,8 @@ class DeliveryController extends Controller
                 ->where('end', '>=', $now)
                 ->first();
 
+            Log::info('Boost Hour Check', ['current_time' => $now, 'busy_hour' => $busyHour]);
+
             $multiplier = $busyHour ? (float)$busyHour->multiplier : 1.0;
 
             $rides->transform(function ($ride) use ($multiplier) {
@@ -169,6 +179,8 @@ class DeliveryController extends Controller
                     : null;
                 return $ride;
             });
+
+            Log::info('Rides after Boost Calculation', ['driver_id' => $driver->id, 'rides' => $rides]);
 
             return response()->json([
                 'rides' => $rides
