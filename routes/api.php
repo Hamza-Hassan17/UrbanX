@@ -162,6 +162,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::group(['prefix' => 'delivery'], function () {
             Route::get('/home', [DeliveryController::class, 'getHomeData']);
             Route::get('/get-rides', [DeliveryController::class, 'getLatestRides']);
+            Route::post('/accept-ride', [DeliveryController::class, 'acceptRide']);
+            Route::post('/reject-ride', [DeliveryController::class, 'rejectRide']);
         });
     });
 });

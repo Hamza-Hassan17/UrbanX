@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\DriverVehicle;
 use App\Models\Ride;
 use App\Models\RideDriverLog;
+use App\Models\RideOffer;
 use Illuminate\Http\Request;
+use App\Services\FirebaseService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -14,6 +16,13 @@ use Symfony\Component\HttpFoundation\Response;
 
 class DeliveryController extends Controller
 {
+    protected $firebase;
+
+    public function __construct(FirebaseService $firebase)
+    {
+        $this->firebase = $firebase->getDatabase();
+    }
+
     public function getHomeData(Request $request)
     {
         try {
@@ -192,5 +201,135 @@ class DeliveryController extends Controller
                 'message' => 'Something went wrong'
             ], 500);
         }
+    }
+
+    public function acceptRide(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'ride_id' => 'required|exists:rides,id',
+            'eta_minutes' => 'required|integer|min:0',
+            'note' => 'nullable|string|max:1000',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $ride = Ride::find($request->ride_id);
+            if ($ride->status !== 'requested') {
+                return response()->json([
+                    'message' => 'Ride is no longer available for offer.'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Create a new ride offer
+            $rideOffer = new RideOffer();
+            $rideOffer->ride_id = $ride->id;
+            $rideOffer->driver_id = auth()->id();
+            $rideOffer->proposed_price = $ride->total_fare;
+            $rideOffer->eta_minutes = $request->eta_minutes;
+            $rideOffer->note = $request->note;
+            $rideOffer->offered_at = now();
+            $rideOffer->status = 'accepted';
+            $rideOffer->save();
+
+            RideDriverLog::updateOrCreate(
+                [
+                    'ride_id' => $ride->id,
+                    'driver_id' => auth()->id(),
+                ],
+                [
+                    'action' => 'sent',
+                    'note'   => $request->note ?? 'Delivery offer Accepted by driver',
+                ]
+            );
+
+            $this->firebase
+                ->getReference(
+                    'ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id
+                )
+                ->remove();
+
+            $this->firebase
+                ->getReference(
+                    'ride_offers/ride_' . $ride->id . '/offer_' . $rideOffer->id
+                )
+                ->set([
+                    'offer_id' => $rideOffer->id,
+                    'ride_id' => $ride->id,
+                    'driver_id' => $rideOffer->driver_id,
+                    'driver_name' => $rideOffer->driver->name,
+                    'driver_email' => $rideOffer->driver->email,
+                    'driver_phone' => $rideOffer->driver->phone,
+                    'driver_rating' => round($rideOffer->driver->driverReviews()->avg('rating'), 1),
+                    'vehicle_type' => $rideOffer->driver->vehicle->type ?? null,
+                    'proposed_price' => $rideOffer->proposed_price,
+                    'eta_minutes' => $rideOffer->eta_minutes,
+                    'note' => $rideOffer->note,
+                    'status' => $ride->status,
+                    'offered_at' => now()->toDateTimeString(),
+                ]);
+
+            $offersRef = $this->firebase
+                ->getReference("ride_offers/ride_{$ride->id}")
+                ->getValue();
+
+            if ($offersRef) {
+                foreach ($offersRef as $key => $offer) {
+                    if ($key !== 'offer_'.$rideOffer->id) {
+                        $this->firebase
+                            ->getReference("ride_offers/ride_{$ride->id}/{$key}")
+                            ->remove();
+                    }
+                }
+            }
+
+
+            $passenger = $ride->passenger;
+            app('notificationService')->notifyUsers(
+                [$passenger],
+                'New Delivery Ride Offer',
+                'A driver has offered a delivery ride for your request.',
+                'ride_offers',
+                $rideOffer->id,
+                'ride_offer_details'
+            );
+
+            return response()->json([
+                'message' => 'Ride offered successfully.',
+                'ride' => $ride,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Offer to Ride failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function rejectRide(Request $request)
+    {
+        $rideDriverLog = RideDriverLog::where('ride_id', $request->ride_id)
+            ->where('driver_id', auth()->id())
+            ->first();
+
+        if (!$rideDriverLog) {
+            return response()->json([
+                'message' => 'Ride offer not found or not accessible.'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        // Mark offer rejected
+        $rideDriverLog->action = 'rejected';
+        $rideDriverLog->note = 'Driver rejected the delivery ride offer';
+        $rideDriverLog->save();
+
+        return response()->json([
+            'message' => 'Offer rejected successfully'
+        ]);
     }
 }
