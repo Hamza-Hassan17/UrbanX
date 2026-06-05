@@ -26,6 +26,7 @@ class RestaurantOrder extends Model
         'rider_note',
         'payment_method',
         'payment_status',
+        'ride_id',
     ];
 
     public function restaurant()

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API\Frontend\Restaurant;
 
 use App\Http\Controllers\Controller;
 use App\Models\DriverVehicle;
+use App\Models\RestaurantOrder;
 use App\Models\Ride;
 use App\Models\RideDriverLog;
 use App\Models\RideOffer;
@@ -146,6 +147,12 @@ class DeliveryController extends Controller
                 ])
                 ->where('ride_type', 'delivery')
                 ->where('status', 'requested')
+                ->whereIn('id', function ($q) {
+                    $q->select('ride_id')
+                        ->from('restaurant_orders')
+                        ->where('status', 'accepted')
+                        ->whereNotNull('ride_id');
+                })
                 ->where('requested_at', '>=', $tenMinutesAgo)
                 ->where('vehicle_type_id', $driverVehicleType)
                 ->whereNotIn('id', $busyRideIds)
@@ -289,6 +296,25 @@ class DeliveryController extends Controller
             }
 
 
+            // Update RestaurantOrder status to rider_assigned
+            $restaurantOrder = RestaurantOrder::where('ride_id', $ride->id)->first();
+            if ($restaurantOrder) {
+                $restaurantOrder->status = 'rider_assigned';
+                $restaurantOrder->save();
+
+                $rider = $rideOffer->driver;
+                $this->firebase
+                    ->getReference('restaurant_orders/' . $restaurantOrder->id)
+                    ->update([
+                        'status'       => 'rider_assigned',
+                        'rider_id'     => $rider->id,
+                        'rider_name'   => $rider->name,
+                        'rider_phone'  => $rider->phone,
+                        'rider_rating' => round($rider->driverReviews()->avg('rating'), 1),
+                        'updated_at'   => now()->toDateTimeString(),
+                    ]);
+            }
+
             $passenger = $ride->passenger;
             app('notificationService')->notifyUsers(
                 [$passenger],
@@ -331,5 +357,105 @@ class DeliveryController extends Controller
         return response()->json([
             'message' => 'Offer rejected successfully'
         ]);
+    }
+
+    public function updateDeliveryStatus(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'order_id' => 'required|exists:restaurant_orders,id',
+            'status'   => 'required|in:picked_up,on_the_way,delivered',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors'  => $validator->errors(),
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $order = RestaurantOrder::find($request->order_id);
+
+            $hasOffer = RideOffer::where('ride_id', $order->ride_id)
+                ->where('driver_id', auth()->id())
+                ->where('status', 'accepted')
+                ->exists();
+
+            if (!$hasOffer) {
+                return response()->json([
+                    'message' => 'You are not assigned to this delivery.'
+                ], Response::HTTP_FORBIDDEN);
+            }
+
+            $order->status = $request->status;
+            $order->save();
+
+            $this->firebase
+                ->getReference('restaurant_orders/' . $order->id)
+                ->update([
+                    'status'     => $request->status,
+                    'updated_at' => now()->toDateTimeString(),
+                ]);
+
+            return response()->json([
+                'message' => 'Delivery status updated.',
+                'order'   => $order,
+            ], Response::HTTP_OK);
+
+        } catch (\Throwable $th) {
+            Log::error('updateDeliveryStatus failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function updateRiderLocation(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'order_id'  => 'required|exists:restaurant_orders,id',
+            'latitude'  => 'required|numeric',
+            'longitude' => 'required|numeric',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors'  => $validator->errors(),
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $order = RestaurantOrder::find($request->order_id);
+
+            $hasOffer = RideOffer::where('ride_id', $order->ride_id)
+                ->where('driver_id', auth()->id())
+                ->where('status', 'accepted')
+                ->exists();
+
+            if (!$hasOffer) {
+                return response()->json([
+                    'message' => 'You are not assigned to this delivery.'
+                ], Response::HTTP_FORBIDDEN);
+            }
+
+            $this->firebase
+                ->getReference('restaurant_orders/' . $request->order_id . '/rider_location')
+                ->set([
+                    'latitude'   => (float) $request->latitude,
+                    'longitude'  => (float) $request->longitude,
+                    'updated_at' => now()->toDateTimeString(),
+                ]);
+
+            return response()->json([
+                'message' => 'Location updated.'
+            ], Response::HTTP_OK);
+
+        } catch (\Throwable $th) {
+            Log::error('updateRiderLocation failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 }

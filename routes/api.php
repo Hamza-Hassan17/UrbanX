@@ -135,6 +135,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/orders', [RestaurantController::class, 'getOrders']);
         Route::get('/order-details/{order_id}', [RestaurantController::class, 'getOrderDetails']);
+        Route::post('/order/{order_id}/accept', [RestaurantController::class, 'acceptOrder']);
+        Route::post('/order/{order_id}/reject', [RestaurantController::class, 'rejectOrder']);
+        Route::post('/order/{order_id}/status', [RestaurantController::class, 'updateOrderStatus']);
 
         Route::get('/toggle-status', [RestaurantController::class, 'toggleStatus']);
 
@@ -164,6 +167,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::get('/get-rides', [DeliveryController::class, 'getLatestRides']);
             Route::post('/accept-ride', [DeliveryController::class, 'acceptRide']);
             Route::post('/reject-ride', [DeliveryController::class, 'rejectRide']);
+            Route::post('/update-order-status', [DeliveryController::class, 'updateDeliveryStatus']);
+            Route::post('/update-location', [DeliveryController::class, 'updateRiderLocation']);
         });
     });
 });

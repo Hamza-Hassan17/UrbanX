@@ -9,6 +9,8 @@ use App\Models\RestaurantItem;
 use App\Models\RestaurantMenu;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantReview;
+use App\Models\Ride;
+use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -17,6 +19,13 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RestaurantController extends Controller
 {
+    protected $firebase;
+
+    public function __construct(FirebaseService $firebase)
+    {
+        $this->firebase = $firebase->getDatabase();
+    }
+
     public function getHomeData(Request $request)
     {
         try {
@@ -512,6 +521,198 @@ class RestaurantController extends Controller
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Restaurant Order Details failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function acceptOrder(Request $request, $order_id)
+    {
+        try {
+            $user = $request->user();
+            $restaurant = Restaurant::where('user_id', $user->id)->first();
+
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            $order = RestaurantOrder::where('id', $order_id)
+                ->where('restaurant_id', $restaurant->id)
+                ->first();
+
+            if (!$order) {
+                return response()->json([
+                    'message' => 'Order not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($order->status !== 'pending') {
+                return response()->json([
+                    'message' => 'Only pending orders can be accepted'
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $order->status = 'accepted';
+            $order->save();
+
+            // Update customer-facing Firebase node
+            $this->firebase
+                ->getReference('restaurant_orders/' . $order->id)
+                ->update([
+                    'status'     => 'accepted',
+                    'updated_at' => now()->toDateTimeString(),
+                ]);
+
+            // Now make the delivery visible to riders via Firebase
+            $ride = Ride::find($order->ride_id);
+
+            if ($ride) {
+                $this->firebase
+                    ->getReference('ride_requests/vehicle_type_' . $ride->vehicle_type_id . '/ride_' . $ride->id)
+                    ->set([
+                        'ride_id'            => $ride->id,
+                        'passenger_id'       => $ride->passenger_id,
+                        'vehicle_type_id'    => $ride->vehicle_type_id,
+                        'pickup_latitude'    => $ride->pickup_latitude,
+                        'pickup_longitude'   => $ride->pickup_longitude,
+                        'dropoff_latitude'   => $ride->dropoff_latitude,
+                        'dropoff_longitude'  => $ride->dropoff_longitude,
+                        'distance_km'        => $ride->distance_km,
+                        'duration_minutes'   => $ride->duration_minutes,
+                        'subtotal'           => $ride->subtotal,
+                        'discount_amount'    => $ride->discount_amount,
+                        'total_fare'         => $ride->total_fare,
+                        'status'             => $ride->status,
+                        'ride_type'          => $ride->ride_type,
+                        'requested_at'       => $ride->requested_at
+                            ? \Carbon\Carbon::parse($ride->requested_at)->toDateTimeString()
+                            : now()->toDateTimeString(),
+                    ]);
+            }
+
+            return response()->json([
+                'message' => 'Order accepted successfully',
+                'order'   => $order,
+            ], Response::HTTP_OK);
+
+        } catch (\Throwable $th) {
+            Log::error('API Accept Order failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function rejectOrder(Request $request, $order_id)
+    {
+        try {
+            $user = $request->user();
+            $restaurant = Restaurant::where('user_id', $user->id)->first();
+
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            $order = RestaurantOrder::where('id', $order_id)
+                ->where('restaurant_id', $restaurant->id)
+                ->first();
+
+            if (!$order) {
+                return response()->json([
+                    'message' => 'Order not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($order->status !== 'pending') {
+                return response()->json([
+                    'message' => 'Only pending orders can be rejected'
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $order->status = 'rejected';
+            $order->save();
+
+            // Cancel the ride so it never surfaces to riders
+            if ($order->ride_id) {
+                Ride::where('id', $order->ride_id)->update(['status' => 'cancelled']);
+            }
+
+            // Update customer-facing Firebase node
+            $this->firebase
+                ->getReference('restaurant_orders/' . $order->id)
+                ->update([
+                    'status'     => 'rejected',
+                    'updated_at' => now()->toDateTimeString(),
+                ]);
+
+            return response()->json([
+                'message' => 'Order rejected successfully',
+                'order'   => $order,
+            ], Response::HTTP_OK);
+
+        } catch (\Throwable $th) {
+            Log::error('API Reject Order failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function updateOrderStatus(Request $request, $order_id)
+    {
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|in:preparing,ready_for_pickup',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors'  => $validator->errors(),
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $user = $request->user();
+            $restaurant = Restaurant::where('user_id', $user->id)->first();
+
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            $order = RestaurantOrder::where('id', $order_id)
+                ->where('restaurant_id', $restaurant->id)
+                ->first();
+
+            if (!$order) {
+                return response()->json([
+                    'message' => 'Order not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            $order->status = $request->status;
+            $order->save();
+
+            $this->firebase
+                ->getReference('restaurant_orders/' . $order->id)
+                ->update([
+                    'status'     => $request->status,
+                    'updated_at' => now()->toDateTimeString(),
+                ]);
+
+            return response()->json([
+                'message' => 'Order status updated.',
+                'order'   => $order,
+            ], Response::HTTP_OK);
+
+        } catch (\Throwable $th) {
+            Log::error('API Update Order Status failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);

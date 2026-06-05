@@ -676,26 +676,20 @@ class CustomerController extends Controller
             // Clear the cart after placing the order
             $cart->delete();
 
-            $this->firebase->getReference('ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id)
-                ->set([
-                    'ride_id' => $ride->id,
-                    'passenger_id' => $ride->passenger_id,
-                    'vehicle_type_id' => $ride->vehicle_type_id,
-                    'pickup_latitude' => $ride->pickup_latitude,
-                    'pickup_longitude' => $ride->pickup_longitude,
-                    'dropoff_latitude' => $ride->dropoff_latitude,
-                    'dropoff_longitude' => $ride->dropoff_longitude,
-                    'distance_km' => $ride->distance_km,
-                    'duration_minutes' => $ride->duration_minutes,
-                    'subtotal' => $ride->subtotal,
-                    'discount_amount' => $ride->discount_amount,
-                    'total_fare' => $ride->total_fare,
-                    'status' => $ride->status,
-                    'ride_type' => $ride->ride_type,
-                    'requested_at' => $ride->requested_at->toDateTimeString(),
-                ]);
-
             DB::commit();
+
+            // Notify restaurant app in real time
+            $this->firebase
+                ->getReference('restaurant_orders/' . $order->id)
+                ->set([
+                    'order_id'      => $order->id,
+                    'order_number'  => $order->order_number,
+                    'status'        => 'pending',
+                    'restaurant_id' => $order->restaurant_id,
+                    'customer_id'   => $order->customer_id,
+                    'total_price'   => (float) $order->total_price,
+                    'updated_at'    => now()->toDateTimeString(),
+                ]);
 
             return response()->json([
                 'message' => 'Order placed successfully!',
