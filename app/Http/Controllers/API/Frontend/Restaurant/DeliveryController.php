@@ -327,6 +327,7 @@ class DeliveryController extends Controller
 
             return response()->json([
                 'message' => 'Ride offered successfully.',
+                'order_id' => $restaurantOrder->id ?? null,
                 'ride' => $ride,
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
