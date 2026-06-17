@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API\Frontend\Restaurant;
 
 use App\Http\Controllers\Controller;
 use App\Models\DriverVehicle;
+use App\Models\Restaurant;
 use App\Models\RestaurantOrder;
 use App\Models\Ride;
 use App\Models\RideDriverLog;
@@ -325,10 +326,33 @@ class DeliveryController extends Controller
                 'ride_offer_details'
             );
 
+            // Build restaurant info for rider screen
+            $restaurant = $restaurantOrder
+                ? Restaurant::with('user')->find($restaurantOrder->restaurant_id)
+                : null;
+
+            $restaurantInfo = $restaurant ? [
+                'name'      => $restaurant->name,
+                'address'   => $restaurant->address,
+                'phone'     => $restaurant->user->phone ?? null,
+                'latitude'  => $ride->pickup_latitude,
+                'longitude' => $ride->pickup_longitude,
+            ] : null;
+
+            // Build customer info for rider screen
+            $customerInfo = $passenger ? [
+                'name'      => $passenger->name,
+                'phone'     => $passenger->phone,
+                'latitude'  => $ride->dropoff_latitude,
+                'longitude' => $ride->dropoff_longitude,
+            ] : null;
+
             return response()->json([
-                'message' => 'Ride offered successfully.',
-                'order_id' => $restaurantOrder->id ?? null,
-                'ride' => $ride,
+                'message'    => 'Ride offered successfully.',
+                'order_id'   => $restaurantOrder->id ?? null,
+                'ride'       => $ride,
+                'restaurant' => $restaurantInfo,
+                'customer'   => $customerInfo,
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Offer to Ride failed', ['error' => $th->getMessage()]);
