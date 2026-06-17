@@ -11,6 +11,7 @@ use App\Models\RestaurantItem;
 use App\Models\RestaurantMenu;
 use App\Models\RestaurantOrder;
 use App\Models\VoucherCode;
+use App\Models\RestaurantFavourite;
 use App\Models\RestaurantReview;
 use App\Models\VehicleType;
 use App\Models\Ride;
@@ -143,6 +144,9 @@ class CustomerController extends Controller
 
             $restaurant->logo = $restaurant->logo ? url('storage/' . $restaurant->logo) : null;
             $restaurant->cover_image = $restaurant->cover_image ? url('storage/' . $restaurant->cover_image) : null;
+            $restaurant->is_favourite = RestaurantFavourite::where('user_id', $request->user()->id)
+                ->where('restaurant_id', $restaurant_id)
+                ->exists();
 
             $restaurantMenus = RestaurantMenu::where('restaurant_id', $restaurant_id)->where('is_active', 'active')->get();
 
@@ -816,6 +820,80 @@ class CustomerController extends Controller
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Get Reviews failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function toggleFavourite(Request $request, $restaurant_id)
+    {
+        try {
+            $user = $request->user();
+
+            $restaurant = Restaurant::find($restaurant_id);
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant not found.'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            $existing = RestaurantFavourite::where('user_id', $user->id)
+                ->where('restaurant_id', $restaurant_id)
+                ->first();
+
+            if ($existing) {
+                $existing->delete();
+                return response()->json([
+                    'message'       => 'Removed from favourites.',
+                    'is_favourite'  => false,
+                ], Response::HTTP_OK);
+            }
+
+            RestaurantFavourite::create([
+                'user_id'       => $user->id,
+                'restaurant_id' => $restaurant_id,
+            ]);
+
+            return response()->json([
+                'message'       => 'Added to favourites.',
+                'is_favourite'  => true,
+            ], Response::HTTP_OK);
+
+        } catch (\Throwable $th) {
+            Log::error('toggleFavourite failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function getFavourites(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            $favourites = RestaurantFavourite::where('user_id', $user->id)
+                ->with('restaurant')
+                ->orderByDesc('created_at')
+                ->get()
+                ->map(function ($fav) {
+                    $r = $fav->restaurant;
+                    if (!$r) return null;
+                    $r->logo        = $r->logo        ? url('storage/' . $r->logo)        : null;
+                    $r->cover_image = $r->cover_image ? url('storage/' . $r->cover_image) : null;
+                    return $r;
+                })
+                ->filter()
+                ->values();
+
+            return response()->json([
+                'message'    => 'Favourite Restaurants',
+                'favourites' => $favourites,
+            ], Response::HTTP_OK);
+
+        } catch (\Throwable $th) {
+            Log::error('getFavourites failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);

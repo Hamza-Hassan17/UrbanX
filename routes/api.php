@@ -160,6 +160,8 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::post('/post-review', [CustomerController::class, 'postReview']);
             Route::get('/get-reviews/{restaurant_id}', [CustomerController::class, 'getReviews']);
             Route::get('/calculate-delivery-fare', [CustomerController::class, 'calculateDeliveryFare']);
+            Route::post('/favourite/{restaurant_id}', [CustomerController::class, 'toggleFavourite']);
+            Route::get('/favourites', [CustomerController::class, 'getFavourites']);
         });
 
         Route::group(['prefix' => 'delivery'], function () {
