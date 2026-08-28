@@ -31,10 +31,9 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
-    'vonage' => [
-        'api_key' => env('VONAGE_API_KEY'),
-        'api_secret' => env('VONAGE_API_SECRET'),
-        'from' => env('VONAGE_FROM_NUMBER'),
+    'veevotech' => [
+        'api_hash' => env('VEEVOTECH_API_HASH'),
+        'sender_id' => env('VEEVOTECH_SENDER_ID', 'Default'),
     ],
 
 ];

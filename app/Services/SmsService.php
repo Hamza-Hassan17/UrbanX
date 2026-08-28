@@ -2,24 +2,12 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Vonage\Client as VonageClient;
-use Vonage\Client\Credentials\Basic;
-use Vonage\SMS\Message\SMS;
 
 class SmsService
 {
-    protected ?VonageClient $client = null;
-
-    public function __construct()
-    {
-        $apiKey = config('services.vonage.api_key');
-        $apiSecret = config('services.vonage.api_secret');
-
-        if ($apiKey && $apiSecret) {
-            $this->client = new VonageClient(new Basic($apiKey, $apiSecret));
-        }
-    }
+    protected const ENDPOINT = 'https://api.veevotech.com/v3/sendsms';
 
     /**
      * Send a plain-text SMS to the given phone number (E.164 format, e.g. +923001234567).
@@ -28,29 +16,31 @@ class SmsService
      */
     public function send(string $to, string $message): bool
     {
-        $from = config('services.vonage.from');
+        $hash = config('services.veevotech.api_hash');
 
-        if (!$this->client || !$from) {
-            Log::warning('SMS not sent: Vonage is not configured.', ['to' => $to]);
+        if (!$hash) {
+            Log::warning('SMS not sent: Veevotech is not configured.', ['to' => $to]);
             return false;
         }
 
         try {
-            $response = $this->client->sms()->send(new SMS($to, $from, $message));
-            $sent = $response->current();
+            $response = Http::asJson()->post(self::ENDPOINT, [
+                'hash' => $hash,
+                'receivernum' => $to,
+                'textmessage' => $message,
+                'sendernum' => config('services.veevotech.sender_id', 'Default'),
+            ]);
 
-            if ($sent->getStatus() !== 0) {
-                Log::error('Vonage rejected SMS', [
-                    'to' => $to,
-                    'status' => $sent->getStatus(),
-                    'message_id' => $sent->getMessageId(),
-                ]);
+            $body = $response->json();
+
+            if (!$response->successful() || ($body['STATUS'] ?? null) !== 'SUCCESSFUL') {
+                Log::error('Veevotech rejected SMS', ['to' => $to, 'response' => $body]);
                 return false;
             }
 
             return true;
         } catch (\Throwable $th) {
-            Log::error('Failed to send SMS via Vonage', [
+            Log::error('Failed to send SMS via Veevotech', [
                 'to' => $to,
                 'error' => $th->getMessage(),
             ]);

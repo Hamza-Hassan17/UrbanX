@@ -56,9 +56,7 @@ class LoginController extends Controller
             $userfind = User::where('phone', $request->phone)->first();
 
             if ($userfind) {
-                // Temporarily hardcoded while Vonage SMS delivery is being set up.
-                // See SmsService::sendOtp() to re-enable real OTP sending.
-                $otp = '1234';
+                $otp = $this->sms->sendOtp($userfind->phone);
                 $userfind->phone_otp = $otp;
                 $userfind->otp_expires_at = Carbon::now()->addMinutes(10);
                 $userfind->lat = $request->lat ?? $userfind->lat;
@@ -150,9 +148,7 @@ class LoginController extends Controller
             ], 400);
         }
 
-        // Temporarily hardcoded while Vonage SMS delivery is being set up.
-        // See SmsService::sendOtp() to re-enable real OTP sending.
-        $otp = '1234';
+        $otp = $this->sms->sendOtp($user->phone);
 
         $user->phone_otp = $otp;
         $user->otp_expires_at = Carbon::now()->addMinutes(10);
