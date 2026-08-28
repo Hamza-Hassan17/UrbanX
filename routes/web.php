@@ -191,6 +191,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             //Dashboard Custom Rides Routes
             Route::get('custom-rides', [CustomRideController::class, 'index'])->name('custom-rides.index');
+            Route::get('custom-rides/stats', [CustomRideController::class, 'dispatchStats'])->name('custom-rides.stats');
 
             //AnnouncementController Routes
             Route::resource('announcements', AnnoucementController::class);

@@ -6,6 +6,7 @@ use App\Helpers\Helper;
 use App\Http\Controllers\Controller;
 use App\Models\Profile;
 use App\Models\User;
+use App\Services\SmsService;
 use Carbon\Carbon;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Http\Request;
@@ -19,6 +20,13 @@ use Symfony\Component\HttpFoundation\Response;
 
 class RegisterController extends Controller
 {
+    protected SmsService $sms;
+
+    public function __construct(SmsService $sms)
+    {
+        $this->sms = $sms;
+    }
+
     public function register_attempt(Request $request)
     {
         $rules = [
@@ -80,7 +88,7 @@ class RegisterController extends Controller
             $profile->phone_number = $request->phone;
             $profile->save();
 
-            $otp = '1234';
+            $otp = $this->sms->sendOtp($user->phone);
             $user->phone_otp = $otp;
             $user->otp_expires_at = Carbon::now()->addMinutes(10);
             $user->save();

@@ -114,6 +114,26 @@ class RideController extends Controller
             }
 
             // -------------------------
+            // Ride pre-assigned directly to this driver (e.g. admin "Assign Trip")
+            // bypasses proximity/vehicle-type/log filters below — it's already
+            // locked to this driver regardless of distance or vehicle match.
+            // -------------------------
+            $assignedRide = Ride::where('status', 'requested')
+                ->where('driver_id', $driver->id)
+                ->latest('requested_at')
+                ->first();
+
+            if ($assignedRide) {
+                $assignedRide->boost_multiplier = 1.0;
+                $assignedRide->is_boost = false;
+                $assignedRide->final_fare = $assignedRide->total_fare;
+
+                return response()->json([
+                    'rides' => collect([$assignedRide]),
+                ], 200);
+            }
+
+            // -------------------------
             // Rides already sent / accepted (last 10 hours)
             // -------------------------
             $busyRideIds = DB::table('ride_driver_logs')
@@ -243,6 +263,33 @@ class RideController extends Controller
         }
     }
 
+    public function getCurrentRide(Request $request)
+    {
+        try {
+            $driver = $request->user();
+
+            $ride = Ride::where('driver_id', $driver->id)
+                ->whereIn('status', ['accepted', 'en_route', 'arrived', 'started'])
+                ->latest()
+                ->first();
+
+            if (!$ride) {
+                return response()->json([
+                    'ride' => null,
+                ], Response::HTTP_OK);
+            }
+
+            return response()->json([
+                'ride' => $ride,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Get Current Ride failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public function getRideDetails($ride_id)
     {
         try {
@@ -297,6 +344,57 @@ class RideController extends Controller
                 return response()->json([
                     'message' => 'Ride is no longer available for offer.'
                 ], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Ride was pre-locked to this driver by the admin (Custom Ride "Assign Trip").
+            // There is no passenger on the other end to accept a counter-offer, so accepting
+            // here finalizes the ride immediately instead of creating a pending offer.
+            if ($ride->driver_id && (int) $ride->driver_id === (int) auth()->id()) {
+                DB::beginTransaction();
+
+                $rideOffer = new RideOffer();
+                $rideOffer->ride_id = $ride->id;
+                $rideOffer->driver_id = auth()->id();
+                $rideOffer->proposed_price = $request->proposed_price;
+                $rideOffer->eta_minutes = $request->eta_minutes;
+                $rideOffer->note = $request->note ?? 'Auto Accepted (Pre-Assigned by Admin)';
+                $rideOffer->offered_at = now();
+                $rideOffer->accepted_at = now();
+                $rideOffer->status = 'accepted';
+                $rideOffer->save();
+
+                $ride->total_fare = $rideOffer->proposed_price;
+                $ride->status = 'accepted';
+                $ride->accepted_at = now();
+                $ride->save();
+
+                $this->firebase
+                    ->getReference('ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id)
+                    ->remove();
+
+                $this->firebase
+                    ->getReference('ride_offers/ride_' . $ride->id . '/offer_' . $rideOffer->id)
+                    ->set([
+                        'offer_id' => $rideOffer->id,
+                        'ride_id' => $ride->id,
+                        'driver_id' => $rideOffer->driver_id,
+                        'driver_name' => $rideOffer->driver->name,
+                        'driver_email' => $rideOffer->driver->email,
+                        'driver_phone' => $rideOffer->driver->phone,
+                        'proposed_price' => $rideOffer->proposed_price,
+                        'eta_minutes' => $rideOffer->eta_minutes,
+                        'note' => $rideOffer->note,
+                        'status' => 'accepted',
+                        'offered_at' => now()->toDateTimeString(),
+                        'accepted_at' => now()->toDateTimeString(),
+                    ]);
+
+                DB::commit();
+
+                return response()->json([
+                    'message' => 'Ride accepted successfully.',
+                    'ride' => $ride,
+                ], Response::HTTP_OK);
             }
 
             // Create a new ride offer
@@ -416,6 +514,9 @@ class RideController extends Controller
             } elseif ($request->status === 'completed') {
                 $ride->completed_at = now();
             }
+
+            $ride->status_updated_by = auth()->id();
+            $ride->status_updated_by_role = 'driver';
 
             $ride->save();
             $passenger = $ride->passenger;

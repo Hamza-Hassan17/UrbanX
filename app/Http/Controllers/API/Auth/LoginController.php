@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\User;
 use App\Models\UserDevice;
+use App\Services\SmsService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -14,6 +15,13 @@ use Symfony\Component\HttpFoundation\Response;
 
 class LoginController extends Controller
 {
+    protected SmsService $sms;
+
+    public function __construct(SmsService $sms)
+    {
+        $this->sms = $sms;
+    }
+
     /**
      * User Login Attempt for API
      */
@@ -48,7 +56,7 @@ class LoginController extends Controller
             $userfind = User::where('phone', $request->phone)->first();
 
             if ($userfind) {
-                $otp = '1234';
+                $otp = $this->sms->sendOtp($userfind->phone);
                 $userfind->phone_otp = $otp;
                 $userfind->otp_expires_at = Carbon::now()->addMinutes(10);
                 $userfind->lat = $request->lat ?? $userfind->lat;
@@ -140,7 +148,7 @@ class LoginController extends Controller
             ], 400);
         }
 
-        $otp = '1234';
+        $otp = $this->sms->sendOtp($user->phone);
 
         $user->phone_otp = $otp;
         $user->otp_expires_at = Carbon::now()->addMinutes(10);

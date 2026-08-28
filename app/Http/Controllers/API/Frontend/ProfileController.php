@@ -19,6 +19,7 @@ class ProfileController extends Controller
             $user = $request->user();
             $profile = $user->profile;
             $profileData = [
+                'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
                 'phone' => $user->phone,

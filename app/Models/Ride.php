@@ -39,6 +39,8 @@ class Ride extends Model
         'completed_at',
         'cancelled_at',
         'cancel_reason',
+        'status_updated_by',
+        'status_updated_by_role',
     ];
 
     public function rideOffers()
@@ -54,6 +56,11 @@ class Ride extends Model
     public function driver()
     {
         return $this->belongsTo(User::class, 'driver_id');
+    }
+
+    public function statusUpdatedBy()
+    {
+        return $this->belongsTo(User::class, 'status_updated_by');
     }
 
     public function promoCode()

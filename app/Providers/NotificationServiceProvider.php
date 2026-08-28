@@ -2,12 +2,13 @@
 
 namespace App\Providers;
 
-use App\Events\NotificationEvent;
-use App\Helpers\FirebaseHelper;
 use App\Models\Notification;
 use App\Models\UserDevice;
+use App\Services\FirebaseService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\ServiceProvider;
+use Kreait\Firebase\Messaging\CloudMessage;
+use Kreait\Firebase\Messaging\Notification as FirebaseNotification;
 
 class NotificationServiceProvider extends ServiceProvider
 {
@@ -16,9 +17,13 @@ class NotificationServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton('notificationService', function () {
-            return new class {
-                public function notifyUsers($users, $title, $message, $tableName = null, $tableId = null, $page = null )
+        $this->app->singleton('notificationService', function ($app) {
+            return new class($app->make(FirebaseService::class)) {
+                public function __construct(protected FirebaseService $firebase)
+                {
+                }
+
+                public function notifyUsers($users, $title, $message, $tableName = null, $tableId = null, $page = null)
                 {
                     foreach ($users as $user) {
                         $notification = Notification::create([
@@ -29,26 +34,29 @@ class NotificationServiceProvider extends ServiceProvider
                             'table_id' => $tableId,
                             'page' => $page,
                         ]);
+
                         // Get FCM token
-                        // $userDevice = UserDevice::where('user_id', $user->id)->first();
-                        // if (!$userDevice || !$userDevice->fcm_token) {
-                        //     continue;
-                        // }
+                        $userDevice = UserDevice::where('user_id', $user->id)->first();
+                        if (!$userDevice || !$userDevice->fcm_token) {
+                            continue;
+                        }
 
-                        // $fcmToken = $userDevice->fcm_token;
+                        $data = array_filter([
+                            'notification_id' => (string) $notification->id,
+                            'table_name' => $tableName,
+                            'table_id' => $tableId !== null ? (string) $tableId : null,
+                            'page' => $page,
+                        ]);
 
-                        // // Send via Firebase
-                        // $data = [
-                        //     'notification_id' => (string) $notification->id,
-                        //     'table_name' => $tableName,
-                        //     'table_id' => (string) $tableId,
-                        // ];
+                        try {
+                            $cloudMessage = CloudMessage::withTarget('token', $userDevice->fcm_token)
+                                ->withNotification(FirebaseNotification::create($title, (string) $message))
+                                ->withData($data);
 
-                        // $response = FirebaseHelper::sendNotification($fcmToken, $title, $message, $data);
-
-                        // if (isset($response['error'])) {
-                        //     Log::warning("FCM send failed for user {$user->id}: " . json_encode($response));
-                        // }
+                            $this->firebase->getMessaging()->send($cloudMessage);
+                        } catch (\Throwable $th) {
+                            Log::warning("FCM send failed for user {$user->id}: " . $th->getMessage());
+                        }
                     }
                 }
             };

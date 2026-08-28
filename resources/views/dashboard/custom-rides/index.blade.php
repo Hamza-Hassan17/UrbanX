@@ -13,92 +13,114 @@
             --secondary: #10b981;
             --danger: #ef4444;
             --warning: #f59e0b;
+            --accent: #eab308;
+            --accent-dark: #a16207;
             --dark: #1f2937;
-            --light: #f9fafb;
             --gray: #6b7280;
-            --border: #e5e7eb;
-            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --border: #e3e1d3;
+            --surface: #ffffff;
+            --surface-alt: #f6f5ee;
+            --page-bg: #ebe9dd;
+            --card-shadow: 0 2px 6px -1px rgba(31, 41, 55, 0.08), 0 1px 3px -1px rgba(31, 41, 55, 0.06);
+        }
+
+        .dashboard-container,
+        .dashboard-container .content-wrapper {
+            color: var(--dark);
         }
 
         .dashboard-container {
-            /* display: grid;
-                    grid-template-columns: 380px 1fr;
-                    grid-template-rows: 80px 1fr;
-                    min-height: 100vh;
-                    gap: 0; */
-            display: flex;
-            flex-direction: column
-        }
-
-        /* Sidebar */
-        .custom-sidebar {
-            background: white;
-            border-right: 1px solid var(--border);
-            padding: 25px;
-            overflow-y: auto;
+            background: var(--page-bg);
+            padding: 6px 2px 2px;
+            border-radius: 14px;
             display: flex;
             flex-direction: column;
-            gap: 25px;
+            gap: 16px;
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            flex-direction: column;
         }
 
         .section-title {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--dark);
-            margin-bottom: 18px;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--gray);
+            margin-bottom: 10px;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
 
         .section-title i {
             color: var(--primary);
-            width: 20px;
+            width: 16px;
         }
 
-        /* Driver Card */
+        /* Top row: form | counts | map */
+        .dispatch-toprow {
+            display: grid;
+            grid-template-columns: 300px 190px 1fr;
+            gap: 14px;
+            align-items: stretch;
+            min-height: 480px;
+        }
+
+        .form-panel {
+            padding: 14px;
+            overflow-y: auto;
+        }
+
+        /* Compact driver strip */
         .driver-card {
-            background: var(--light);
-            border-radius: 16px;
-            padding: 22px;
+            background: var(--surface-alt);
+            border-radius: 10px;
+            padding: 10px 12px;
             border: 1px solid var(--border);
-            transition: all 0.3s;
-        }
-
-        .driver-card:hover {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 14px;
         }
 
         .driver-header {
             display: flex;
             align-items: center;
-            gap: 16px;
-            margin-bottom: 20px;
+            gap: 10px;
+            flex: 1;
+            min-width: 0;
         }
 
         .driver-avatar {
-            width: 70px;
-            height: 70px;
-            border-radius: 16px;
+            width: 38px;
+            height: 38px;
+            border-radius: 9px;
             background: linear-gradient(135deg, #fbbf24, #f59e0b);
             color: white;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 28px;
+            font-size: 13px;
             font-weight: 700;
             position: relative;
+            flex-shrink: 0;
         }
 
         .driver-status {
             position: absolute;
-            bottom: -5px;
-            right: -5px;
-            width: 22px;
-            height: 22px;
+            bottom: -3px;
+            right: -3px;
+            width: 12px;
+            height: 12px;
             border-radius: 50%;
-            border: 3px solid white;
+            border: 2px solid white;
         }
 
         .status-online {
@@ -114,50 +136,59 @@
         }
 
         .driver-info h3 {
-            font-size: 20px;
+            font-size: 13px;
             font-weight: 700;
             color: var(--dark);
-            margin-bottom: 5px;
+            margin: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .driver-meta {
             display: flex;
             flex-direction: column;
-            gap: 4px;
+            gap: 1px;
         }
 
         .driver-meta span {
-            font-size: 14px;
+            font-size: 11px;
             color: var(--gray);
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         .driver-meta i {
-            width: 16px;
+            width: 12px;
             color: var(--primary);
+            font-size: 10px;
         }
 
         .driver-actions {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
         }
 
         .btn {
-            padding: 12px;
-            border-radius: 10px;
+            padding: 7px 10px;
+            border-radius: 7px;
             border: none;
-            font-weight: 600;
-            font-size: 14px;
+            font-weight: 700;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 8px;
+            gap: 6px;
             transition: all 0.2s;
+            white-space: nowrap;
         }
 
         .btn-primary {
@@ -167,72 +198,88 @@
 
         .btn-primary:hover {
             background: var(--primary-dark);
-            transform: translateY(-2px);
         }
 
         .btn-outline {
-            background: white;
+            background: var(--surface);
             color: var(--primary);
             border: 1.5px solid var(--border);
         }
 
         .btn-outline:hover {
             border-color: var(--primary);
-            background: #f0f9ff;
+            background: var(--surface-alt);
         }
 
-        /* Trip Form */
-        .trip-form {
-            margin-top: 10px;
-            background: white;
-            border-radius: 16px;
-            padding: 22px;
-            border: 1px solid var(--border);
+        .shortcut-hint {
+            display: inline-block;
+            font-size: 9px;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            color: var(--accent-dark);
+            background: #fef3c7;
+            border: 1px solid var(--accent);
+            border-radius: 4px;
+            padding: 1px 5px;
+            margin-left: 5px;
+            vertical-align: middle;
         }
 
-        .form-group {
-            margin-bottom: 20px;
+        /* Dense field grid */
+        .field-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
             position: relative;
         }
 
-        .form-group label {
-            display: block;
-            font-size: 14px;
-            font-weight: 600;
-            margin-bottom: 8px;
-            color: var(--dark);
+        .field-full {
+            grid-column: 1 / -1;
+        }
+
+        .field label {
+            display: flex;
+            align-items: center;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--gray);
+        }
+
+        .field label i {
+            color: var(--primary);
+            margin-right: 4px;
+            width: 12px;
+            font-size: 10px;
         }
 
         .form-control {
             width: 100%;
-            padding: 14px 16px;
+            padding: 8px 10px;
             border: 1.5px solid var(--border);
-            border-radius: 10px;
-            font-size: 15px;
-            transition: all 0.3s;
-            background: white;
+            border-radius: 7px;
+            font-size: 13px;
+            transition: all 0.2s;
+            background: var(--surface-alt);
+            color: var(--dark);
+        }
+
+        .form-control::placeholder {
+            color: #a8a596;
         }
 
         .form-control:focus {
             outline: none;
             border-color: var(--primary);
-            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-        }
-
-        .input-with-icon {
-            position: relative;
-        }
-
-        .input-with-icon i {
-            position: absolute;
-            left: 16px;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--gray);
-        }
-
-        .input-with-icon input {
-            padding-left: 46px;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+            background: var(--surface);
         }
 
         /* Autocomplete Dropdown */
@@ -241,29 +288,29 @@
             top: 100%;
             left: 0;
             right: 0;
-            background: white;
+            background: var(--surface);
             border: 1.5px solid var(--border);
             border-top: none;
-            border-radius: 0 0 10px 10px;
-            max-height: 250px;
+            border-radius: 0 0 8px 8px;
+            max-height: 220px;
             overflow-y: auto;
             z-index: 1000;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            box-shadow: var(--card-shadow);
             display: none;
         }
 
         .autocomplete-item {
-            padding: 12px 16px;
+            padding: 9px 12px;
             cursor: pointer;
-            border-bottom: 1px solid #f1f1f1;
+            border-bottom: 1px solid var(--border);
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             transition: all 0.2s;
         }
 
         .autocomplete-item:hover {
-            background-color: #f0f9ff;
+            background-color: var(--surface-alt);
         }
 
         .autocomplete-item:last-child {
@@ -272,50 +319,29 @@
 
         .location-icon {
             color: var(--primary);
-            font-size: 16px;
-            width: 20px;
+            font-size: 14px;
+            width: 18px;
             text-align: center;
         }
 
         .location-details {
             flex: 1;
+            min-width: 0;
         }
 
         .location-name {
             font-weight: 600;
-            font-size: 14px;
+            font-size: 13px;
             color: var(--dark);
-            margin-bottom: 2px;
+            margin-bottom: 1px;
         }
 
         .location-address {
-            font-size: 12px;
+            font-size: 11px;
             color: var(--gray);
-        }
-
-        .trip-stats {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 15px;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px dashed var(--border);
-        }
-
-        .stat-item {
-            text-align: center;
-        }
-
-        .stat-value {
-            font-size: 20px;
-            font-weight: 700;
-            color: var(--dark);
-        }
-
-        .stat-label {
-            font-size: 12px;
-            color: var(--gray);
-            margin-top: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         /* Loading spinner */
@@ -323,6 +349,7 @@
             text-align: center;
             padding: 10px;
             color: var(--gray);
+            font-size: 12px;
         }
 
         .loading-spinner i {
@@ -339,110 +366,117 @@
             }
         }
 
-        /* Main Content */
-        .main-content {
-            margin-top: 10px;
-            /* padding: 25px; */
-            background: #f8fafc;
-            display: flex;
-            flex-direction: column;
-            gap: 25px;
-            /* overflow: hidden; */
+        .save-job-btn {
+            width: 100%;
+            margin-top: 4px;
+            padding: 11px;
+            font-size: 12px;
         }
 
-        /* Map Container */
-        .map-container {
-            flex: 1;
-            background: white;
-            border-radius: 20px;
+        /* Counts panel */
+        .counts-panel {
+            padding: 14px;
+        }
+
+        .count-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            padding: 7px 2px;
+            border-bottom: 1px dashed var(--border);
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            color: var(--gray);
+        }
+
+        .count-row:last-of-type {
+            border-bottom: none;
+        }
+
+        .count-row strong {
+            font-size: 16px;
+            font-weight: 800;
+            color: var(--dark);
+        }
+
+        .count-row.count-available strong { color: var(--secondary); }
+        .count-row.count-busy strong { color: var(--warning); }
+        .count-row.count-dispatch strong { color: var(--primary); }
+        .count-row.count-booked strong { color: #7c3aed; }
+        .count-row.count-completed strong { color: var(--secondary); }
+        .count-row.count-cancelled strong { color: var(--danger); }
+
+        .fare-box {
+            margin-top: auto;
+            background: linear-gradient(135deg, #fef9e7, #fde68a);
+            border: 1px solid var(--accent);
+            border-radius: 10px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .fare-box .fare-label {
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.06em;
+            color: var(--accent-dark);
+            text-transform: uppercase;
+        }
+
+        .fare-box .fare-value {
+            font-size: 21px;
+            font-weight: 800;
+            color: #92400e;
+            margin-top: 2px;
+        }
+
+        .fare-box .fare-sub {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 8px;
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--accent-dark);
+            text-transform: uppercase;
+        }
+
+        /* Map panel */
+        .map-panel {
+            padding: 0;
             overflow: hidden;
-            box-shadow: var(--card-shadow);
             position: relative;
-            min-height: 500px;
         }
 
         #map {
+            position: absolute;
+            inset: 0;
             width: 100%;
             height: 100%;
-            border-radius: 20px;
             z-index: 1;
-            position: absolute !important;
         }
 
-        .map-overlay {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: white;
-            border-radius: 12px;
-            padding: 16px;
-            box-shadow: var(--card-shadow);
-            width: 300px;
-        }
-
-        .map-header h3 {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--dark);
-            margin-bottom: 12px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .map-controls {
-            display: flex;
-            gap: 10px;
-            margin-top: 15px;
-        }
-
-        .map-btn {
-            flex: 1;
-            padding: 10px;
-            border-radius: 8px;
-            border: 1.5px solid var(--border);
-            background: white;
-            font-size: 10px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            transition: all 0.2s;
-        }
-
-        .map-btn:hover {
-            border-color: var(--primary);
-            background: #f0f9ff;
-        }
-
-        .map-btn.active {
-            background: var(--primary);
-            color: white;
-            border-color: var(--primary);
-        }
-
-        /* Trip List */
+        /* Trip Queue */
         .trips-container {
-            background: white;
-            border-radius: 20px;
-            padding: 25px;
-            box-shadow: var(--card-shadow);
+            padding: 20px;
         }
 
         .trips-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 16px;
         }
 
         .trips-header h3 {
-            font-size: 18px;
-            font-weight: 700;
+            font-size: 15px;
+            font-weight: 800;
             color: var(--dark);
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
         }
 
         .trip-count {
@@ -450,152 +484,192 @@
             color: white;
             padding: 4px 12px;
             border-radius: 20px;
-            font-size: 13px;
-            font-weight: 600;
+            font-size: 12px;
+            font-weight: 700;
         }
 
-        .trip-list {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 20px;
-        }
-
-        .trip-card {
-            border: 1.5px solid var(--border);
-            border-radius: 14px;
-            padding: 20px;
-            transition: all 0.3s;
-        }
-
-        .trip-card:hover {
-            border-color: var(--primary);
-            transform: translateY(-3px);
-            box-shadow: var(--card-shadow);
-        }
-
-        .trip-card-header {
+        .queue-tabs {
             display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 15px;
+            gap: 6px;
+            flex-wrap: wrap;
         }
 
-        .trip-id {
-            font-size: 14px;
-            font-weight: 600;
+        .queue-tab {
+            border: 1.5px solid var(--border);
+            background: var(--surface-alt);
             color: var(--gray);
-            background: var(--light);
-            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            padding: 6px 14px;
             border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .queue-tab:hover {
+            border-color: var(--accent);
+            color: var(--dark);
+        }
+
+        .queue-tab.active {
+            background: var(--accent);
+            border-color: var(--accent-dark);
+            color: #422006;
+        }
+
+        .queue-table-wrap {
+            overflow-x: auto;
+        }
+
+        table.queue-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .queue-table thead th {
+            text-align: left;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--gray);
+            padding: 9px 12px;
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+        }
+
+        .queue-table tbody td {
+            padding: 9px 12px;
+            border-bottom: 1px solid var(--border);
+            color: var(--dark);
+            vertical-align: middle;
+        }
+
+        .queue-table tbody tr:hover {
+            background: var(--surface-alt);
+        }
+
+        .queue-table .muted-cell {
+            color: var(--gray);
+            font-size: 12px;
         }
 
         .trip-status {
-            padding: 6px 12px;
+            display: inline-block;
+            padding: 4px 10px;
             border-radius: 20px;
-            font-size: 12px;
-            font-weight: 600;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
         }
 
         .status-active {
-            background: rgba(37, 99, 235, 0.1);
+            background: rgba(37, 99, 235, 0.12);
             color: var(--primary);
         }
 
         .status-completed {
-            background: rgba(16, 185, 129, 0.1);
+            background: rgba(16, 185, 129, 0.12);
             color: var(--secondary);
         }
 
         .status-pending {
-            background: rgba(245, 158, 11, 0.1);
-            color: var(--warning);
+            background: rgba(234, 179, 8, 0.18);
+            color: var(--accent-dark);
         }
 
-        .trip-route {
-            margin-bottom: 20px;
-        }
-
-        .route-point {
-            display: flex;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .point-icon {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-right: 12px;
-            flex-shrink: 0;
-        }
-
-        .pickup-icon {
-            background: rgba(37, 99, 235, 0.1);
-            color: var(--primary);
-        }
-
-        .dropoff-icon {
-            background: rgba(239, 68, 68, 0.1);
+        .status-cancelled {
+            background: rgba(239, 68, 68, 0.12);
             color: var(--danger);
         }
 
-        .point-details h4 {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--dark);
-        }
-
-        .point-details p {
-            font-size: 13px;
+        .queue-empty {
+            padding: 30px;
+            text-align: center;
             color: var(--gray);
-            margin-top: 2px;
         }
 
-        .trip-footer {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding-top: 15px;
-            border-top: 1px dashed var(--border);
+        .queue-edit-btn {
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--primary);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
         }
 
-        .trip-driver {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        .queue-edit-btn:hover {
+            background: var(--surface-alt);
         }
 
-        .driver-small {
-            width: 36px;
-            height: 36px;
-            border-radius: 10px;
-            background: linear-gradient(135deg, #8b5cf6, #6366f1);
-            color: white;
-            display: flex;
+        .edit-ride-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.55);
             align-items: center;
             justify-content: center;
-            font-weight: 600;
+            z-index: 2000;
         }
 
-        .driver-name {
-            font-size: 14px;
-            font-weight: 600;
+        .edit-ride-modal-overlay.open {
+            display: flex;
+        }
+
+        .edit-ride-modal {
+            background: var(--surface);
+            border-radius: 12px;
+            width: 100%;
+            max-width: 360px;
+            padding: 24px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+        }
+
+        .edit-ride-modal h4 {
+            margin: 0 0 16px;
+            font-size: 16px;
+            font-weight: 800;
             color: var(--dark);
         }
 
-        .trip-fare {
-            font-size: 18px;
+        .edit-ride-modal .field {
+            margin-bottom: 16px;
+        }
+
+        .edit-ride-modal .field label {
+            display: block;
+            font-size: 11px;
             font-weight: 700;
-            color: var(--dark);
+            text-transform: uppercase;
+            color: var(--gray);
+            margin-bottom: 6px;
+        }
+
+        .edit-ride-modal .field select {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            font-size: 13px;
+        }
+
+        .edit-ride-modal-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
         }
 
         /* Routing machine custom styles */
         .leaflet-routing-container {
             display: none;
-            background: white;
+            background: var(--surface);
             border-radius: 8px;
             box-shadow: var(--card-shadow);
             width: 320px;
@@ -609,39 +683,24 @@
 
         /* Responsive */
         @media (max-width: 1200px) {
-            .dashboard-container {
+            .dispatch-toprow {
                 grid-template-columns: 1fr;
-                grid-template-rows: 80px auto 1fr;
+                min-height: 0;
             }
 
-            .custom-sidebar {
-                grid-row: 2;
-                grid-column: 1;
-                border-right: none;
-                border-bottom: 1px solid var(--border);
+            .form-panel,
+            .counts-panel {
+                max-height: none;
             }
 
-            .main-content {
-                grid-row: 3;
-                grid-column: 1;
+            .map-panel {
+                min-height: 380px;
             }
         }
 
         @media (max-width: 768px) {
-            .trip-list {
+            .field-grid {
                 grid-template-columns: 1fr;
-            }
-
-            .header {
-                padding: 0 15px;
-            }
-
-            .time-display {
-                display: none;
-            }
-
-            .map-overlay {
-                width: 250px;
             }
         }
 
@@ -649,16 +708,16 @@
         .leaflet-control-zoom {
             border: none !important;
             box-shadow: var(--card-shadow) !important;
-            border-radius: 10px !important;
+            border-radius: 8px !important;
             overflow: hidden;
         }
 
         .leaflet-control-zoom a {
             border-radius: 0 !important;
             border: none !important;
-            width: 40px !important;
-            height: 40px !important;
-            line-height: 40px !important;
+            width: 34px !important;
+            height: 34px !important;
+            line-height: 34px !important;
         }
 
         .leaflet-popup-content {
@@ -674,7 +733,8 @@
             position: fixed;
             top: 20px;
             right: 20px;
-            background: white;
+            background: var(--surface);
+            color: var(--dark);
             padding: 12px 20px;
             border-radius: 10px;
             box-shadow: var(--card-shadow);
@@ -706,211 +766,230 @@
 @endsection
 @section('content')
     <div class="dashboard-container">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <!-- Driver Card -->
-            <div class="driver-card">
-                <div class="section-title">
-                    <i class="fas fa-id-card"></i>
-                    <span>Active Driver</span>
-                </div>
-                <div class="driver-header">
-                    <div class="driver-avatar">
-                        {{ strtoupper(substr($driver->name ?? 'NA', 0, 2)) }}
-                        <div class="driver-status status-online"></div>
-                    </div>
-                    <div class="driver-info">
-                        <h3>{{ $driver->name ?? 'Not Assigned' }}</h3>
-                        <div class="driver-meta">
-                            <span><i class="fas fa-id-badge"></i> ID: {{ $driver->id }}</span>
-                            <span><i class="fas fa-car"></i>
-                                {{ $driver->driverVehicle ? $driver->driverVehicle->vehicle_name . ' ' . $driver->driverVehicle->vehicle_make : 'N/A' }}</span>
-                            <span><i class="fas fa-star"></i> Rating: 4.8/5.0</span>
+
+        <!-- Top row: booking form | live counts+fare | map -->
+        <div class="dispatch-toprow">
+
+            <!-- Booking Form Panel -->
+            <section class="panel form-panel">
+                <!-- Compact driver strip -->
+                <div class="driver-card">
+                    <div class="driver-header">
+                        <div class="driver-avatar">
+                            {{ strtoupper(substr($driver->name ?? 'NA', 0, 2)) }}
+                            <div class="driver-status status-online"></div>
                         </div>
+                        <div class="driver-info">
+                            <h3>{{ $driver->name ?? 'Not Assigned' }}</h3>
+                            <div class="driver-meta">
+                                <span><i class="fas fa-id-badge"></i> ID: {{ $driver->id }}</span>
+                                <span><i class="fas fa-car"></i>
+                                    {{ $driver->driverVehicle ? $driver->driverVehicle->vehicle_name . ' ' . $driver->driverVehicle->vehicle_make : 'N/A' }}</span>
+                            </div>
 
-                        <input type="text" hidden value="{{ $driver->driverVehicle->vehicle_type_id }}"
-                            name="vehicle_type_id" id="vehicle_type_id">
+                            <input type="text" hidden value="{{ $driver->driverVehicle->vehicle_type_id }}"
+                                name="vehicle_type_id" id="vehicle_type_id">
+                        </div>
                     </div>
-                </div>
-                <div class="driver-actions">
-                    <button class="btn btn-primary" id="assign-trip">
-                        <i class="fas fa-paper-plane"></i> Assign Ride
-                    </button>
+                    <div class="driver-actions">
+                        <button class="btn btn-outline" id="message-driver" title="Message driver">
+                            <i class="fas fa-comment"></i>
+                        </button>
+                    </div>
                     <input type="text" hidden value="{{ $driver->phone }}" name="driver_phone" id="driver_phone">
-                    <button class="btn btn-outline" id="message-driver">
-                        <i class="fas fa-comment"></i> Message
-                    </button>
+                    <input type="text" hidden value="{{ $driver->id }}" name="driver_id" id="driver_id">
                 </div>
-                <input type="text" hidden value="{{ $driver->id }}" name="driver_id" id="driver_id">
-            </div>
 
-            <!-- Trip Details -->
-            <div class="trip-form">
                 <div class="section-title">
                     <i class="fas fa-route"></i>
-                    <span>Ride Details</span>
+                    <span>New Ride</span>
                 </div>
-                <div class="form-group">
-                    <label for="driverIdInput"><i class="fas fa-map-marker-alt"></i> Driver #ID</label>
-                    <div class="input-with-icon">
+
+                <div class="field-grid">
+                    <div class="field field-full">
+                        <label for="driverIdInput"><i class="fas fa-id-card"></i> Driver #ID <span class="shortcut-hint">F4</span></label>
                         <input type="text" id="driverIdInput" name="driver_id_input" class="form-control"
-                            placeholder="Enter the driver id to assign the ride" value="{{ $driver->id }}">
+                            placeholder="Driver ID" value="{{ $driver->id }}">
                     </div>
-                </div>
-                <div class="form-group">
-                    <label for="pickup-location"><i class="fas fa-map-marker-alt"></i> Pickup Location</label>
-                    <div class="input-with-icon">
-                        <i class="fas fa-location-dot"></i>
+
+                    <div class="field field-full">
+                        <label for="pickup-location"><i class="fas fa-location-dot"></i> Pickup <span class="shortcut-hint">F2</span></label>
                         <input type="text" id="pickup-location" class="form-control"
                             placeholder="Start typing a location...">
+                        <div class="autocomplete-dropdown" id="pickup-autocomplete"></div>
                     </div>
-                    <div class="autocomplete-dropdown" id="pickup-autocomplete"></div>
-                </div>
-                <div class="form-group">
-                    <label for="destination"><i class="fas fa-flag-checkered"></i> Destination</label>
-                    <div class="input-with-icon">
-                        <i class="fas fa-location-dot"></i>
+
+                    <div class="field field-full">
+                        <label for="destination"><i class="fas fa-flag-checkered"></i> Destination <span class="shortcut-hint">F10</span></label>
                         <input type="text" id="destination" class="form-control"
                             placeholder="Start typing a destination...">
+                        <div class="autocomplete-dropdown" id="destination-autocomplete"></div>
                     </div>
-                    <div class="autocomplete-dropdown" id="destination-autocomplete"></div>
-                </div>
-                <div class="form-group">
-                    <label><i class="fas fa-user"></i> Passenger Details</label>
-                    <div class="d-flex gap-2">
+
+                    <div class="field">
+                        <label for="passenger_name"><i class="fas fa-user"></i> Name</label>
                         <input type="text" id="passenger_name" name="passenger_name" class="form-control" placeholder="Passenger name">
-                        <input type="text" id="passenger_phone" name="passenger_phone" class="form-control" placeholder="Passenger phone">
-                        <input type="text" id="passenger_email" name="passenger_email" class="form-control" placeholder="Passenger email">
                     </div>
+                    <div class="field">
+                        <label for="passenger_phone"><i class="fas fa-phone"></i> Phone</label>
+                        <input type="text" id="passenger_phone" name="passenger_phone" class="form-control" placeholder="Phone">
+                    </div>
+                    <input type="text" hidden name="ride_distance" id="ride_distance">
                 </div>
-                <div class="trip-stats">
-                    <div class="stat-item">
-                        <input type="text" hidden name="ride_distance" id="ride_distance">
-                        <div class="stat-value" id="distance">0 km</div>
-                        <div class="stat-label">Distance</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="time">0 min</div>
-                        <div class="stat-label">Est. Time</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-value" id="fare-container">
-                            <span id="original-fare"
-                                style="text-decoration: line-through; color: gray; display: none; margin-right: 5px;"></span>
-                            <span id="final-fare" style="position: relative; font-weight: bold; color: #ef4444;">
-                                Rs 0
-                            </span>
-                            <sup id="boost-multiplier"
-                                style="background-image: linear-gradient(to right, #fa709a 0%, #fee140 100%); font-size: 0.6em; color: #2563eb; display: none; top: -10px; right: -5px; padding: 6px; border-radius: 50px;">x1.0</sup>
-                        </div>
-                        <div class="stat-label">Est. Fare</div>
-                    </div>
-                </div>
-            </div>
-        </aside>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Map Container -->
-            <div class="map-container">
+                <button class="btn btn-primary save-job-btn" id="assign-trip">
+                    <i class="fas fa-paper-plane"></i> Save Job <span class="shortcut-hint">F1</span>
+                </button>
+            </section>
+
+            <!-- Live Counts + Fare Panel -->
+            <section class="panel counts-panel">
+                <div class="section-title">
+                    <i class="fas fa-chart-simple"></i>
+                    <span>Live</span>
+                </div>
+
+                <div class="count-row count-available">
+                    <span>Available</span>
+                    <strong id="stat-available">{{ $driverAvailableCount }}</strong>
+                </div>
+                <div class="count-row count-busy">
+                    <span>Busy</span>
+                    <strong id="stat-busy">{{ $driverBusyCount }}</strong>
+                </div>
+                <div class="count-row count-dispatch">
+                    <span>Dispatch</span>
+                    <strong id="stat-dispatch">{{ $rideCounts['dispatch'] }}</strong>
+                </div>
+                <div class="count-row count-booked">
+                    <span>Booked</span>
+                    <strong id="stat-booked">{{ $rideCounts['booked'] }}</strong>
+                </div>
+                <div class="count-row count-completed">
+                    <span>Completed</span>
+                    <strong id="stat-completed">{{ $rideCounts['completed'] }}</strong>
+                </div>
+                <div class="count-row count-cancelled">
+                    <span>Cancelled</span>
+                    <strong id="stat-cancelled">{{ $rideCounts['cancelled'] }}</strong>
+                </div>
+
+                <div class="fare-box">
+                    <div class="fare-label">Fare</div>
+                    <div class="fare-value" id="fare-container">
+                        <span id="original-fare"
+                            style="text-decoration: line-through; color: #b45309; display: none; margin-right: 5px; font-size: 13px;"></span>
+                        <span id="final-fare">Rs 0</span>
+                        <sup id="boost-multiplier"
+                            style="background: #f59e0b; font-size: 0.5em; color: white; display: none; padding: 3px 5px; border-radius: 50px; margin-left: 4px;">x1.0</sup>
+                    </div>
+                    <div class="fare-sub">
+                        <span id="distance">0 km</span>
+                        <span id="time">0 min</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Map Panel -->
+            <section class="panel map-panel">
                 <div id="map"></div>
-                {{-- <div class="map-overlay">
-                    <div class="map-header">
-                        <h3><i class="fas fa-map"></i> Live Fleet Map</h3>
-                    </div>
-                    <div class="map-controls">
-                        <button class="map-btn active" id="show-all">
-                            <i class="fas fa-taxi"></i> All
-                        </button>
-                        <button class="map-btn" id="show-available">
-                            <i class="fas fa-circle-check"></i> Available
-                        </button>
-                        <button class="map-btn" id="show-busy">
-                            <i class="fas fa-clock"></i> On Trip
-                        </button>
-                    </div>
-                </div> --}}
-            </div>
+            </section>
+        </div>
 
-            <!-- Active Trips -->
-            <div class="trips-container">
-                <div class="trips-header">
-                    <h3><i class="fas fa-list-check"></i> Active Rides</h3>
-                    <span class="trip-count">{{ $activeRidesCount }} Rides</span>
+        <!-- Ride Queue (full width) -->
+        <div class="panel trips-container">
+            <div class="trips-header">
+                <h3><i class="fas fa-list-check"></i> Ride Queue</h3>
+                <div class="queue-tabs" id="queue-tabs">
+                    <button class="queue-tab active" data-queue="all">All</button>
+                    <button class="queue-tab" data-queue="dispatch">Dispatch</button>
+                    <button class="queue-tab" data-queue="booked">Booked</button>
+                    <button class="queue-tab" data-queue="completed">Completed</button>
+                    <button class="queue-tab" data-queue="cancelled">Cancelled</button>
                 </div>
-                <div class="trip-list">
-
-                    @forelse($rides as $ride)
-                        <div class="trip-card">
-                            <div class="trip-card-header">
-                                <span class="trip-id">RIDE-{{ $ride->id }}</span>
-
-                                @php
-                                    $activeStatuses = ['requested', 'accepted', 'en_route', 'arrived', 'started'];
-                                @endphp
-
-                                <span
-                                    class="trip-status
-                                    {{ in_array($ride->status, $activeStatuses) ? 'status-active' : 'status-pending' }}">
-                                    {{ ucwords(str_replace('_', ' ', $ride->status)) }}
-                                </span>
-                            </div>
-
-                            <div class="trip-route">
-                                <div class="route-point">
-                                    <div class="point-icon pickup-icon">
-                                        <i class="fas fa-location-dot"></i>
-                                    </div>
-                                    <div class="point-details">
-                                        <h4>Pickup Location</h4>
-                                        <p id="pickup-{{ $ride->id }}">Loading pickup…</p>
-                                        {{-- <p>{{ $ride->pickup_latitude }}, {{ $ride->pickup_longitude }}</p> --}}
-                                    </div>
-                                </div>
-
-                                <div class="route-point">
-                                    <div class="point-icon dropoff-icon">
-                                        <i class="fas fa-flag-checkered"></i>
-                                    </div>
-                                    <div class="point-details">
-                                        <h4>Dropoff Location</h4>
-                                        <p id="dropoff-{{ $ride->id }}">Loading dropoff…</p>
-                                        {{-- <p>{{ $ride->dropoff_latitude }}, {{ $ride->dropoff_longitude }}</p> --}}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="trip-footer">
-                                <div class="trip-driver">
-                                    <div class="driver-small">
-                                        {{ strtoupper(substr($ride->driver->name ?? 'NA', 0, 2)) }}
-                                    </div>
-                                    <div>
-                                        <div class="driver-name">
-                                            {{ $ride->driver->name ?? 'Not Assigned' }}
-                                        </div>
-                                        <div style="font-size: 12px; color: var(--gray);">
-                                            ETA: {{ $ride->duration_minutes ?? '--' }} min
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="trip-fare">
-                                    Rs {{ number_format($ride->total_fare ?? 0) }}
-                                </div>
-                            </div>
-                        </div>
-
-                    @empty
-                        <div style="padding: 20px; text-align: center; color: var(--gray);">
-                            No active trips
-                        </div>
-                    @endforelse
-
-                </div>
-
+                <span class="trip-count" id="queue-count">{{ count($rides) }} Rides</span>
             </div>
-        </main>
+            <div class="queue-table-wrap">
+                <table class="queue-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Ride</th>
+                            <th>Pickup</th>
+                            <th>Dropoff</th>
+                            <th>Driver</th>
+                            <th>Passenger</th>
+                            <th>Phone</th>
+                            <th>Fare</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="queue-table-body">
+                        @forelse($rides as $ride)
+                            <tr data-queue="{{ $ride['queue'] }}">
+                                <td class="muted-cell">{{ $ride['time'] }}</td>
+                                <td>RIDE-{{ $ride['id'] }}</td>
+                                <td class="muted-cell">{{ $ride['pickup'] }}</td>
+                                <td class="muted-cell">{{ $ride['dropoff'] }}</td>
+                                <td>{{ $ride['driver'] ?? 'Not assigned' }}</td>
+                                <td>{{ $ride['passenger'] ?? '--' }}</td>
+                                <td class="muted-cell">{{ $ride['phone'] ?? '--' }}</td>
+                                <td>Rs {{ number_format($ride['fare']) }}</td>
+                                <td>
+                                    @php
+                                        $badgeClass = match($ride['status']) {
+                                            'completed' => 'status-completed',
+                                            'cancelled' => 'status-cancelled',
+                                            'requested' => 'status-pending',
+                                            default => 'status-active',
+                                        };
+                                    @endphp
+                                    <span class="trip-status {{ $badgeClass }}">{{ ucwords(str_replace('_', ' ', $ride['status'])) }}</span>
+                                </td>
+                                <td>
+                                    @if(in_array($ride['queue'], ['dispatch', 'booked']))
+                                        <button type="button" class="queue-edit-btn" data-id="{{ $ride['id'] }}" data-status="{{ $ride['status'] }}">
+                                            <i class="fas fa-pen"></i> Edit
+                                        </button>
+                                    @else
+                                        --
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr id="queue-empty-row"><td colspan="10" class="queue-empty">No rides in the queue</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Ride Modal -->
+    <div class="edit-ride-modal-overlay" id="editRideModalOverlay">
+        <div class="edit-ride-modal">
+            <h4>Edit Ride Status</h4>
+            <form id="editRideForm">
+                <input type="hidden" id="edit_ride_id">
+                <div class="field">
+                    <label for="edit_ride_status">Ride Status</label>
+                    <select id="edit_ride_status" class="form-control">
+                        <option value="requested">Requested</option>
+                        <option value="accepted">Accepted</option>
+                        <option value="en_route">En Route</option>
+                        <option value="arrived">Arrived</option>
+                        <option value="started">Started</option>
+                        <option value="completed">Completed</option>
+                        <option value="cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="edit-ride-modal-actions">
+                    <button type="button" class="btn btn-label-secondary" id="editRideCancelBtn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
     </div>
 @endsection
 
@@ -1081,7 +1160,7 @@
                         <p style="margin: 5px 0; font-size: 14px;">
                             <strong>Status:</strong>
                             <span style="color: ${driver.status === 'available' ? '#10b981' : '#f59e0b'}">
-                                ${driver.status === 'available' ? 'Available' : 'On Trip'}
+                                ${driver.status === 'available' ? 'Available' : 'Busy'}
                             </span>
                         </p>
                         <p style="margin: 5px 0; font-size: 14px;"><strong>Vehicle:</strong> ${driver.vehicle ?? 'N/A'}</p>
@@ -1498,7 +1577,6 @@
                 const vehicleTypeEl = document.getElementById('vehicle_type_id');
                 const passengerNameEl = document.getElementById('passenger_name');
                 const passengerPhoneEl = document.getElementById('passenger_phone');
-                const passengerEmailEl = document.getElementById('passenger_email');
                 const fareEl = document.getElementById('final-fare');
                 const timeEl = document.getElementById('time');
                 const driver_id_input = document.getElementById('driverIdInput');
@@ -1513,7 +1591,6 @@
                 if (!vehicleTypeEl) return showNotification('Vehicle type not selected!', 'error');
                 if (!passengerNameEl) return showNotification('Passenger name field missing!', 'error');
                 if (!passengerPhoneEl) return showNotification('Passenger phone field missing!', 'error');
-                if (!passengerEmailEl) return showNotification('Passenger email field missing!', 'error');
                 if (!fareEl) return showNotification('Fare not calculated yet!', 'error');
                 if (!timeEl) return showNotification('Trip time not available!', 'error');
 
@@ -1527,7 +1604,6 @@
                 const vehicleTypeId = vehicleTypeEl.value;
                 const passengerName = passengerNameEl.value.trim();
                 const passengerPhone = passengerPhoneEl.value.trim();
-                const passengerEmail = passengerEmailEl?.value.trim() || null;
 
                 /* ======================
                 VALIDATIONS (VALUES)
@@ -1547,11 +1623,6 @@
                 // Basic phone validation
                 if (!/^[0-9+\-\s]{7,15}$/.test(passengerPhone)) {
                     return showNotification('Invalid passenger phone number!', 'error');
-                }
-
-                // Email validation (optional)
-                if (passengerEmail && !/^\S+@\S+\.\S+$/.test(passengerEmail)) {
-                    return showNotification('Invalid passenger email!', 'error');
                 }
 
                 /* ======================
@@ -1589,7 +1660,6 @@
                             total_fare: fareEl.textContent.replace('Rs ', '').trim(),
                             passenger_name: passengerName,
                             passenger_phone: passengerPhone,
-                            passenger_email: passengerEmail,
                             driver_id_input: driver_id_input.value || null,
                         })
                     });
@@ -1605,7 +1675,8 @@
                             'success'
                         );
 
-                        setTimeout(() => location.reload(), 2000);
+                        resetBookingForm();
+                        refreshDispatchStats();
                     } else {
                         showNotification(result.message || 'Ride assignment failed!', 'error');
                     }
@@ -1646,11 +1717,8 @@
             if (driver) {
                 document.getElementById('driverIdInput').value = driver.id;
                 document.getElementById('driver_id').value = driver.id;
-                // Update driver card
-                document.querySelector('.driver-avatar').textContent = driver.name.split(' ').map(n => n[0]).join('');
-                document.querySelector('.driver-info h3').textContent = driver.name;
-                document.querySelector('.driver-meta span:first-child').innerHTML =
-                    `<i class="fas fa-id-badge"></i> ID: ${driver.id}`;
+                // Update driver card (name, ID, vehicle, phone, vehicle_type_id)
+                updateDriverCard(driver);
 
                 showNotification(`Assigned ${driver.name} from ${driver.city} to the current trip!`, 'success');
 
@@ -1692,37 +1760,214 @@
             }
         };
 
-        function reverseGeocode(lat, lng, elementId) {
-            if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
-                document.getElementById(elementId).innerText = 'Location unavailable';
+        // =============================================
+        // Reset booking form after a successful assign
+        // =============================================
+        function resetBookingForm() {
+            ['pickup-location', 'destination', 'passenger_name', 'passenger_phone']
+                .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+
+            pickupCoordinates = null;
+            destinationCoordinates = null;
+
+            [pickupMarker, destinationMarker].forEach(marker => { if (marker) map.removeLayer(marker); });
+            pickupMarker = null;
+            destinationMarker = null;
+
+            if (routingControl) {
+                map.removeControl(routingControl);
+                routingControl = null;
+            }
+
+            document.getElementById('distance').textContent = '0 km';
+            document.getElementById('time').textContent = '0 min';
+            document.getElementById('final-fare').textContent = 'Rs 0';
+            document.getElementById('original-fare').style.display = 'none';
+            document.getElementById('boost-multiplier').style.display = 'none';
+        }
+
+        // =============================================
+        // Live dispatch stats + ride queue polling
+        // =============================================
+        const dispatchStatsUrl = @json(route('dashboard.custom-rides.stats'));
+        const queueStatusBadge = {
+            completed: 'status-completed',
+            cancelled: 'status-cancelled',
+            requested: 'status-pending',
+        };
+        let activeQueueFilter = 'all';
+
+        function renderQueueTable(rides) {
+            const tbody = document.getElementById('queue-table-body');
+            if (!rides.length) {
+                tbody.innerHTML = '<tr id="queue-empty-row"><td colspan="10" class="queue-empty">No rides in the queue</td></tr>';
                 return;
             }
 
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
-                headers: {
-                    'User-Agent': 'Urban/1.0 (laravel.supersoft@gmail.com)',
-                    'Referer': window.location.origin
-                }
-            })
-                .then(response => response.json())
-                .then(data => {
-                    if (data && data.display_name) {
-                        document.getElementById(elementId).innerText = data.display_name;
-                    } else {
-                        document.getElementById(elementId).innerText = 'Location unavailable';
-                    }
-                })
-                .catch(err => {
-                    console.error('Reverse geocoding error:', err);
-                    document.getElementById(elementId).innerText = 'Location unavailable';
-                });
-        }
-    </script>
+            tbody.innerHTML = rides.map(ride => {
+                const badgeClass = queueStatusBadge[ride.status] || 'status-active';
+                const statusLabel = ride.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                const canEdit = ride.queue === 'dispatch' || ride.queue === 'booked';
+                const actionsCell = canEdit
+                    ? `<button type="button" class="queue-edit-btn" data-id="${ride.id}" data-status="${ride.status}"><i class="fas fa-pen"></i> Edit</button>`
+                    : '--';
+                return `
+                    <tr data-queue="${ride.queue}">
+                        <td class="muted-cell">${ride.time ?? ''}</td>
+                        <td>RIDE-${ride.id}</td>
+                        <td class="muted-cell">${ride.pickup ?? ''}</td>
+                        <td class="muted-cell">${ride.dropoff ?? ''}</td>
+                        <td>${ride.driver ?? 'Not assigned'}</td>
+                        <td>${ride.passenger ?? '--'}</td>
+                        <td class="muted-cell">${ride.phone ?? '--'}</td>
+                        <td>Rs ${Math.round(ride.fare ?? 0)}</td>
+                        <td><span class="trip-status ${badgeClass}">${statusLabel}</span></td>
+                        <td>${actionsCell}</td>
+                    </tr>
+                `;
+            }).join('');
 
-    @foreach ($rides as $ride)
-        <script>
-            reverseGeocode({{ $ride->pickup_latitude }}, {{ $ride->pickup_longitude }}, 'pickup-{{ $ride->id }}');
-            reverseGeocode({{ $ride->dropoff_latitude }}, {{ $ride->dropoff_longitude }}, 'dropoff-{{ $ride->id }}');
-        </script>
-    @endforeach
+            applyQueueFilter();
+        }
+
+        function applyQueueFilter() {
+            const rows = document.querySelectorAll('#queue-table-body tr[data-queue]');
+            let visibleCount = 0;
+            rows.forEach(row => {
+                const show = activeQueueFilter === 'all' || row.dataset.queue === activeQueueFilter;
+                row.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
+            });
+            document.getElementById('queue-count').textContent = `${visibleCount} Rides`;
+        }
+
+        async function refreshDispatchStats() {
+            try {
+                const response = await fetch(dispatchStatsUrl, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!response.ok) return;
+
+                const data = await response.json();
+
+                document.getElementById('stat-available').textContent = data.driverAvailableCount;
+                document.getElementById('stat-busy').textContent = data.driverBusyCount;
+                document.getElementById('stat-dispatch').textContent = data.rideCounts.dispatch;
+                document.getElementById('stat-booked').textContent = data.rideCounts.booked;
+                document.getElementById('stat-completed').textContent = data.rideCounts.completed;
+                document.getElementById('stat-cancelled').textContent = data.rideCounts.cancelled;
+
+                renderQueueTable(data.rides);
+            } catch (error) {
+                console.error('Dispatch stats refresh failed:', error);
+            }
+        }
+
+        document.getElementById('queue-tabs').addEventListener('click', function(e) {
+            const tab = e.target.closest('.queue-tab');
+            if (!tab) return;
+
+            this.querySelectorAll('.queue-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeQueueFilter = tab.dataset.queue;
+            applyQueueFilter();
+        });
+
+        // =============================================
+        // Edit Ride (Dispatch / Booked rows only)
+        // =============================================
+        const editRideModalOverlay = document.getElementById('editRideModalOverlay');
+        const editRideForm = document.getElementById('editRideForm');
+        const editRideIdEl = document.getElementById('edit_ride_id');
+        const editRideStatusEl = document.getElementById('edit_ride_status');
+
+        function openEditRideModal(rideId, status) {
+            editRideIdEl.value = rideId;
+            editRideStatusEl.value = status;
+            editRideModalOverlay.classList.add('open');
+        }
+
+        function closeEditRideModal() {
+            editRideModalOverlay.classList.remove('open');
+        }
+
+        document.getElementById('queue-table-body').addEventListener('click', function (e) {
+            const btn = e.target.closest('.queue-edit-btn');
+            if (!btn) return;
+            openEditRideModal(btn.dataset.id, btn.dataset.status);
+        });
+
+        document.getElementById('editRideCancelBtn').addEventListener('click', closeEditRideModal);
+        editRideModalOverlay.addEventListener('click', function (e) {
+            if (e.target === editRideModalOverlay) closeEditRideModal();
+        });
+
+        editRideForm.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            const rideId = editRideIdEl.value;
+            if (!rideId) {
+                return showNotification('No ride selected to update!', 'error');
+            }
+            const submitBtn = editRideForm.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = 'Saving...';
+
+            try {
+                const response = await fetch(`/dashboard/rides/${rideId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify({
+                        ride_id: rideId,
+                        status: editRideStatusEl.value,
+                    })
+                });
+
+                if (response.ok) {
+                    showNotification('Ride updated successfully!', 'success');
+                    closeEditRideModal();
+                    refreshDispatchStats();
+                } else {
+                    const result = await response.json().catch(() => null);
+                    showNotification(result?.message || 'Failed to update ride!', 'error');
+                }
+            } catch (error) {
+                console.error('Edit Ride Error:', error);
+                showNotification('Network error. Please try again.', 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        });
+
+        // =============================================
+        // Keyboard shortcuts: F1 assign, F2 pickup, F4 driver id, F10 destination, Esc clear
+        // =============================================
+        document.addEventListener('keydown', function(e) {
+            const shortcutKeys = ['F1', 'F2', 'F4', 'F10', 'Escape'];
+            if (!shortcutKeys.includes(e.key)) return;
+
+            if (e.key === 'F1') {
+                e.preventDefault();
+                document.getElementById('assign-trip').click();
+            } else if (e.key === 'F2') {
+                e.preventDefault();
+                document.getElementById('pickup-location').focus();
+            } else if (e.key === 'F4') {
+                e.preventDefault();
+                document.getElementById('driverIdInput').focus();
+            } else if (e.key === 'F10') {
+                e.preventDefault();
+                document.getElementById('destination').focus();
+            } else if (e.key === 'Escape') {
+                resetBookingForm();
+            }
+        });
+
+        setInterval(refreshDispatchStats, 5000);
+    </script>
 @endsection

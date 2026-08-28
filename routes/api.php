@@ -76,6 +76,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/offer-ride', [DriverRideController::class, 'OfferToRide']);
         Route::post('/update-ride-status', [DriverRideController::class, 'updateRideStatus']);
         Route::get('/get-ride-details/{ride_id}', [DriverRideController::class, 'getRideDetails']);
+        Route::get('/get-current-ride', [DriverRideController::class, 'getCurrentRide']);
 
         //Driver Ride History
         Route::get('/ride-history', [DriverRideController::class, 'getRideHistory']);

@@ -742,6 +742,8 @@ class RideController extends Controller
             $ride->status = 'cancelled';
             $ride->cancelled_at = now();
             $ride->cancel_reason = $request->cancel_reason;
+            $ride->status_updated_by = $user->id;
+            $ride->status_updated_by_role = 'passenger';
             $ride->save();
 
             $this->firebase->getReference('ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id.'/status')

@@ -501,6 +501,13 @@
                                     @if($ride->cancel_reason)
                                     <p class="mb-0"><small>Reason: {{ $ride->cancel_reason }}</small></p>
                                     @endif
+                                    @if($ride->status_updated_by_role === 'admin' && $ride->statusUpdatedBy)
+                                    <p class="mb-0"><small>Cancelled by admin: {{ $ride->statusUpdatedBy->name }}</small></p>
+                                    @elseif($ride->status_updated_by_role === 'passenger')
+                                    <p class="mb-0"><small>Cancelled by the passenger</small></p>
+                                    @elseif($ride->status_updated_by_role === 'driver')
+                                    <p class="mb-0"><small>Cancelled by the driver</small></p>
+                                    @endif
                                 </div>
                             </div>
                             @endif

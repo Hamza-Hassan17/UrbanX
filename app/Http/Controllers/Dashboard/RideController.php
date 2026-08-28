@@ -85,12 +85,21 @@ class RideController extends Controller
     public function update(Request $request, string $id)
     {
         $this->authorize('update ride');
+
+        $wantsJson = $request->wantsJson();
+
         $validator = Validator::make($request->all(), [
             'ride_id' => 'required|exists:rides,id',
             'status' => 'required|in:requested,accepted,en_route,arrived,started,completed,cancelled',
         ]);
 
         if ($validator->fails()) {
+            if ($wantsJson) {
+                return response()->json([
+                    'message' => $validator->errors()->first() ?: 'Validation Error!',
+                    'errors' => $validator->errors(),
+                ], 422);
+            }
             return redirect()->back()->withErrors($validator)->withInput($request->all())->with('error', 'Validation Error!');
         }
 
@@ -99,28 +108,35 @@ class RideController extends Controller
 
             $ride = Ride::findOrFail($id);
             $ride->status = $request->status;
-            $ride->save();
 
             if ($request->status == 'accepted') {
                 $ride->accepted_at = now();
-                $ride->save();
             } elseif ($request->status == 'started') {
                 $ride->started_at = now();
-                $ride->save();
             } elseif ($request->status == 'completed') {
                 $ride->completed_at = now();
-                $ride->save();
             } elseif ($request->status == 'cancelled') {
                 $ride->cancelled_at = now();
-                $ride->save();
             }
 
+            $ride->status_updated_by = auth()->id();
+            $ride->status_updated_by_role = 'admin';
+
+            $ride->save();
+
             DB::commit();
+
+            if ($wantsJson) {
+                return response()->json(['message' => 'Ride status updated successfully'], 200);
+            }
             return redirect()->route('dashboard.rides.index')->with('success', 'Ride status Updated successfully');
         } catch (\Throwable $th) {
-            // throw $th;
             DB::rollBack();
             Log::error('Ride status update Failed', ['error' => $th->getMessage()]);
+
+            if ($wantsJson) {
+                return response()->json(['message' => 'Something went wrong! Please try again later'], 500);
+            }
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
         }
     }
@@ -130,6 +146,16 @@ class RideController extends Controller
      */
     public function destroy(string $id)
     {
-        //
+        $this->authorize('delete ride');
+
+        try {
+            $ride = Ride::findOrFail($id);
+            $ride->delete();
+
+            return redirect()->route('dashboard.rides.index')->with('success', 'Ride deleted successfully');
+        } catch (\Throwable $th) {
+            Log::error('Ride Delete Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
+        }
     }
 }
