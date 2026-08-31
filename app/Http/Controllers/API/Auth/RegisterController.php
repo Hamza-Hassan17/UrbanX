@@ -88,7 +88,9 @@ class RegisterController extends Controller
             $profile->phone_number = $request->phone;
             $profile->save();
 
-            $otp = $this->sms->sendOtp($user->phone);
+            // Temporarily hardcoded while SMS delivery is paused.
+            // See SmsService::sendOtp() to re-enable real OTP sending.
+            $otp = '1234';
             $user->phone_otp = $otp;
             $user->otp_expires_at = Carbon::now()->addMinutes(10);
             $user->save();

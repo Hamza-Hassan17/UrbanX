@@ -56,7 +56,9 @@ class LoginController extends Controller
             $userfind = User::where('phone', $request->phone)->first();
 
             if ($userfind) {
-                $otp = $this->sms->sendOtp($userfind->phone);
+                // Temporarily hardcoded while SMS delivery is paused.
+                // See SmsService::sendOtp() to re-enable real OTP sending.
+                $otp = '1234';
                 $userfind->phone_otp = $otp;
                 $userfind->otp_expires_at = Carbon::now()->addMinutes(10);
                 $userfind->lat = $request->lat ?? $userfind->lat;
@@ -148,7 +150,9 @@ class LoginController extends Controller
             ], 400);
         }
 
-        $otp = $this->sms->sendOtp($user->phone);
+        // Temporarily hardcoded while SMS delivery is paused.
+        // See SmsService::sendOtp() to re-enable real OTP sending.
+        $otp = '1234';
 
         $user->phone_otp = $otp;
         $user->otp_expires_at = Carbon::now()->addMinutes(10);
