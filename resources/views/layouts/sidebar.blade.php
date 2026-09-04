@@ -42,6 +42,14 @@
                 </a>
             </li>
         @endcan
+        @can(['view ride'])
+            <li class="menu-item {{ request()->routeIs('dashboard.reports.*') ? 'active' : '' }}">
+                <a href="{{ route('dashboard.reports.index') }}" class="menu-link" style="color: #fff !important;">
+                    <i class="menu-icon tf-icons ti ti-report-analytics"></i>
+                    <div>{{__('Reports')}}</div>
+                </a>
+            </li>
+        @endcan
         @can(['view driver'])
             <li class="menu-item {{ request()->routeIs('dashboard.drivers.*') ? 'active' : '' }}">
                 <a href="{{ route('dashboard.drivers.index') }}" class="menu-link" style="color: #fff !important;">

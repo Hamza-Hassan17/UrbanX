@@ -125,6 +125,7 @@ class CustomRideController extends Controller
                     'status'    => $ride->status,
                     'queue'     => $queue,
                     'fare'      => (float) $ride->total_fare,
+                    'ride_type' => $ride->ride_type,
                 ];
             });
 
@@ -264,6 +265,7 @@ class CustomRideController extends Controller
                 $ride->total_fare = $request->total_fare;
                 $ride->requested_at = now();
                 $ride->status = 'requested';
+                $ride->created_by = auth()->id();
                 $ride->save();
 
                 $this->firebase
@@ -312,6 +314,7 @@ class CustomRideController extends Controller
                 $ride->total_fare = $request->total_fare;
                 $ride->requested_at = now();
                 $ride->status = 'requested';
+                $ride->created_by = auth()->id();
                 $ride->save();
             }
 

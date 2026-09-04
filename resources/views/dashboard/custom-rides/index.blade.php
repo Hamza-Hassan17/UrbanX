@@ -594,6 +594,27 @@
             color: var(--gray);
         }
 
+        .trip-type-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+        }
+
+        .trip-type-ride {
+            background: rgba(37, 99, 235, 0.12);
+            color: var(--primary);
+        }
+
+        .trip-type-delivery {
+            background: rgba(234, 88, 12, 0.14);
+            color: #c2410c;
+        }
+
         .queue-edit-btn {
             border: 1px solid var(--border);
             background: var(--surface);
@@ -915,6 +936,7 @@
                         <tr>
                             <th>Time</th>
                             <th>Ride</th>
+                            <th>Type</th>
                             <th>Pickup</th>
                             <th>Dropoff</th>
                             <th>Driver</th>
@@ -930,6 +952,11 @@
                             <tr data-queue="{{ $ride['queue'] }}">
                                 <td class="muted-cell">{{ $ride['time'] }}</td>
                                 <td>RIDE-{{ $ride['id'] }}</td>
+                                <td>
+                                    <span class="trip-type-badge trip-type-{{ $ride['ride_type'] }}">
+                                        {{ $ride['ride_type'] === 'delivery' ? 'Delivery' : 'Taxi' }}
+                                    </span>
+                                </td>
                                 <td class="muted-cell">{{ $ride['pickup'] }}</td>
                                 <td class="muted-cell">{{ $ride['dropoff'] }}</td>
                                 <td>{{ $ride['driver'] ?? 'Not assigned' }}</td>
@@ -949,7 +976,7 @@
                                 </td>
                                 <td>
                                     @if(in_array($ride['queue'], ['dispatch', 'booked']))
-                                        <button type="button" class="queue-edit-btn" data-id="{{ $ride['id'] }}" data-status="{{ $ride['status'] }}">
+                                        <button type="button" class="queue-edit-btn" data-id="{{ $ride['id'] }}" data-status="{{ $ride['status'] }}" data-pickup="{{ $ride['pickup'] }}" data-dropoff="{{ $ride['dropoff'] }}" data-type="{{ $ride['ride_type'] }}" data-queue="{{ $ride['queue'] }}">
                                             <i class="fas fa-pen"></i> Edit
                                         </button>
                                     @else
@@ -958,7 +985,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr id="queue-empty-row"><td colspan="10" class="queue-empty">No rides in the queue</td></tr>
+                            <tr id="queue-empty-row"><td colspan="11" class="queue-empty">No rides in the queue</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -969,7 +996,7 @@
     <!-- Edit Ride Modal -->
     <div class="edit-ride-modal-overlay" id="editRideModalOverlay">
         <div class="edit-ride-modal">
-            <h4>Edit Ride Status</h4>
+            <h4>Edit Ride</h4>
             <form id="editRideForm">
                 <input type="hidden" id="edit_ride_id">
                 <div class="field">
@@ -983,6 +1010,25 @@
                         <option value="completed">Completed</option>
                         <option value="cancelled">Cancelled</option>
                     </select>
+                </div>
+                <div class="field" style="position: relative;">
+                    <label for="edit_pickup_location">Pickup Location</label>
+                    <input type="text" id="edit_pickup_location" class="form-control" placeholder="Start typing to change...">
+                    <div class="autocomplete-dropdown" id="edit-pickup-autocomplete"></div>
+                    <small class="text-muted" id="edit_pickup_current"></small>
+                </div>
+                <div class="field" style="position: relative;">
+                    <label for="edit_dropoff_location">Dropoff Location</label>
+                    <input type="text" id="edit_dropoff_location" class="form-control" placeholder="Start typing to change...">
+                    <div class="autocomplete-dropdown" id="edit-dropoff-autocomplete"></div>
+                    <small class="text-muted" id="edit_dropoff_current"></small>
+                </div>
+                <div class="field" id="edit_assign_driver_field" style="display: none;">
+                    <label for="edit_assign_driver">Assign Driver</label>
+                    <select id="edit_assign_driver" class="form-control">
+                        <option value="">-- Leave unassigned --</option>
+                    </select>
+                    <small class="text-muted">Only available for unclaimed taxi rides.</small>
                 </div>
                 <div class="edit-ride-modal-actions">
                     <button type="button" class="btn btn-label-secondary" id="editRideCancelBtn">Cancel</button>
@@ -1800,7 +1846,7 @@
         function renderQueueTable(rides) {
             const tbody = document.getElementById('queue-table-body');
             if (!rides.length) {
-                tbody.innerHTML = '<tr id="queue-empty-row"><td colspan="10" class="queue-empty">No rides in the queue</td></tr>';
+                tbody.innerHTML = '<tr id="queue-empty-row"><td colspan="11" class="queue-empty">No rides in the queue</td></tr>';
                 return;
             }
 
@@ -1808,13 +1854,16 @@
                 const badgeClass = queueStatusBadge[ride.status] || 'status-active';
                 const statusLabel = ride.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
                 const canEdit = ride.queue === 'dispatch' || ride.queue === 'booked';
+                const rideType = ride.ride_type === 'delivery' ? 'delivery' : 'ride';
+                const typeLabel = rideType === 'delivery' ? 'Delivery' : 'Taxi';
                 const actionsCell = canEdit
-                    ? `<button type="button" class="queue-edit-btn" data-id="${ride.id}" data-status="${ride.status}"><i class="fas fa-pen"></i> Edit</button>`
+                    ? `<button type="button" class="queue-edit-btn" data-id="${ride.id}" data-status="${ride.status}" data-pickup="${ride.pickup ?? ''}" data-dropoff="${ride.dropoff ?? ''}" data-type="${rideType}" data-queue="${ride.queue}"><i class="fas fa-pen"></i> Edit</button>`
                     : '--';
                 return `
                     <tr data-queue="${ride.queue}">
                         <td class="muted-cell">${ride.time ?? ''}</td>
                         <td>RIDE-${ride.id}</td>
+                        <td><span class="trip-type-badge trip-type-${rideType}">${typeLabel}</span></td>
                         <td class="muted-cell">${ride.pickup ?? ''}</td>
                         <td class="muted-cell">${ride.dropoff ?? ''}</td>
                         <td>${ride.driver ?? 'Not assigned'}</td>
@@ -1880,26 +1929,124 @@
         const editRideForm = document.getElementById('editRideForm');
         const editRideIdEl = document.getElementById('edit_ride_id');
         const editRideStatusEl = document.getElementById('edit_ride_status');
+        const editPickupInput = document.getElementById('edit_pickup_location');
+        const editDropoffInput = document.getElementById('edit_dropoff_location');
+        const editPickupDropdown = document.getElementById('edit-pickup-autocomplete');
+        const editDropoffDropdown = document.getElementById('edit-dropoff-autocomplete');
+        const editPickupCurrentEl = document.getElementById('edit_pickup_current');
+        const editDropoffCurrentEl = document.getElementById('edit_dropoff_current');
+        const editAssignDriverField = document.getElementById('edit_assign_driver_field');
+        const editAssignDriverSelect = document.getElementById('edit_assign_driver');
 
-        function openEditRideModal(rideId, status) {
+        // New coordinates only get set here if the admin actually picks a new
+        // location from the autocomplete — otherwise these stay null and the
+        // ride's existing pickup/dropoff are left untouched on save.
+        let editPickupCoords = null;
+        let editDropoffCoords = null;
+        let editAutocompleteDebounce = null;
+
+        function openEditRideModal(rideId, status, pickup, dropoff, type, queue) {
             editRideIdEl.value = rideId;
             editRideStatusEl.value = status;
+
+            editPickupCoords = null;
+            editDropoffCoords = null;
+            editPickupInput.value = '';
+            editDropoffInput.value = '';
+            editPickupCurrentEl.textContent = pickup ? `Current: ${pickup}` : '';
+            editDropoffCurrentEl.textContent = dropoff ? `Current: ${dropoff}` : '';
+
+            // Driver assignment is only wired up for unclaimed taxi rides for now —
+            // delivery jobs need their restaurant_orders status synced the same way
+            // DeliveryController::acceptRide does, which isn't built yet.
+            const canAssignDriver = type === 'ride' && queue === 'dispatch';
+            editAssignDriverSelect.value = '';
+            if (canAssignDriver) {
+                editAssignDriverField.style.display = '';
+                editAssignDriverSelect.innerHTML = '<option value="">-- Leave unassigned --</option>' +
+                    drivers
+                        .filter(d => d.status === 'available')
+                        .map(d => `<option value="${d.id}">${d.name} (#${d.id}) - ${d.vehicle}</option>`)
+                        .join('');
+            } else {
+                editAssignDriverField.style.display = 'none';
+            }
+
             editRideModalOverlay.classList.add('open');
         }
 
         function closeEditRideModal() {
             editRideModalOverlay.classList.remove('open');
+            editPickupDropdown.style.display = 'none';
+            editDropoffDropdown.style.display = 'none';
         }
 
         document.getElementById('queue-table-body').addEventListener('click', function (e) {
             const btn = e.target.closest('.queue-edit-btn');
             if (!btn) return;
-            openEditRideModal(btn.dataset.id, btn.dataset.status);
+            openEditRideModal(btn.dataset.id, btn.dataset.status, btn.dataset.pickup, btn.dataset.dropoff, btn.dataset.type, btn.dataset.queue);
         });
 
         document.getElementById('editRideCancelBtn').addEventListener('click', closeEditRideModal);
         editRideModalOverlay.addEventListener('click', function (e) {
             if (e.target === editRideModalOverlay) closeEditRideModal();
+        });
+
+        // Self-contained autocomplete for the edit modal — deliberately separate
+        // from the "New Ride" panel's pickup/destination globals above, so editing
+        // an existing ride's location can never disturb an in-progress new-ride form.
+        function wireEditAutocomplete(input, dropdown, onSelect) {
+            input.addEventListener('input', function () {
+                const value = input.value.trim();
+                dropdown.innerHTML = '';
+
+                if (value.length < 3) {
+                    dropdown.style.display = 'none';
+                    return;
+                }
+
+                const loadingItem = document.createElement('div');
+                loadingItem.className = 'loading-spinner';
+                loadingItem.innerHTML = '<i class="fas fa-spinner"></i> Searching locations...';
+                dropdown.appendChild(loadingItem);
+                dropdown.style.display = 'block';
+
+                clearTimeout(editAutocompleteDebounce);
+                editAutocompleteDebounce = setTimeout(async () => {
+                    const locations = await searchLocations(value, true);
+
+                    if (locations.length === 0) {
+                        dropdown.innerHTML = '<div class="loading-spinner">No locations found</div>';
+                        return;
+                    }
+
+                    dropdown.innerHTML = '';
+                    locations.forEach(location => {
+                        const item = document.createElement('div');
+                        item.className = 'autocomplete-item';
+                        item.innerHTML = `
+                            <i class="fas fa-map-marker-alt location-icon"></i>
+                            <div class="location-details">
+                                <div class="location-name">${location.name}</div>
+                                <div class="location-address">${location.address}</div>
+                            </div>
+                        `;
+                        item.addEventListener('click', () => {
+                            input.value = location.name;
+                            dropdown.style.display = 'none';
+                            onSelect(location.lat, location.lng);
+                        });
+                        dropdown.appendChild(item);
+                    });
+                }, 500);
+            });
+        }
+
+        wireEditAutocomplete(editPickupInput, editPickupDropdown, (lat, lng) => {
+            editPickupCoords = [lat, lng];
+        });
+        wireEditAutocomplete(editDropoffInput, editDropoffDropdown, (lat, lng) => {
+            editDropoffCoords = [lat, lng];
         });
 
         editRideForm.addEventListener('submit', async function (e) {
@@ -1914,6 +2061,24 @@
             submitBtn.innerHTML = 'Saving...';
 
             try {
+                const payload = {
+                    ride_id: rideId,
+                    status: editRideStatusEl.value,
+                };
+
+                // Only include pickup/dropoff if the admin actually picked a new one.
+                if (editPickupCoords) {
+                    payload.pickup_latitude = editPickupCoords[0].toString();
+                    payload.pickup_longitude = editPickupCoords[1].toString();
+                }
+                if (editDropoffCoords) {
+                    payload.dropoff_latitude = editDropoffCoords[0].toString();
+                    payload.dropoff_longitude = editDropoffCoords[1].toString();
+                }
+                if (editAssignDriverField.style.display !== 'none' && editAssignDriverSelect.value) {
+                    payload.driver_id = editAssignDriverSelect.value;
+                }
+
                 const response = await fetch(`/dashboard/rides/${rideId}`, {
                     method: 'PUT',
                     headers: {
@@ -1921,10 +2086,7 @@
                         'Accept': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                     },
-                    body: JSON.stringify({
-                        ride_id: rideId,
-                        status: editRideStatusEl.value,
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 if (response.ok) {

@@ -41,6 +41,7 @@ class Ride extends Model
         'cancel_reason',
         'status_updated_by',
         'status_updated_by_role',
+        'created_by',
     ];
 
     public function rideOffers()
@@ -61,6 +62,11 @@ class Ride extends Model
     public function statusUpdatedBy()
     {
         return $this->belongsTo(User::class, 'status_updated_by');
+    }
+
+    public function createdBy()
+    {
+        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function promoCode()
