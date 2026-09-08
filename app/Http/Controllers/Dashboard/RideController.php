@@ -95,6 +95,15 @@ class RideController extends Controller
     {
         $this->authorize('update ride');
 
+        // Assigning a driver is a distinct action from editing status/pickup/
+        // dropoff -- checked here (before the transaction below starts) so an
+        // AuthorizationException surfaces as a real 403 instead of getting
+        // caught by the generic \Throwable handler further down and masked
+        // as "Something went wrong".
+        if ($request->filled('driver_id')) {
+            $this->authorize('assign ride');
+        }
+
         $wantsJson = $request->wantsJson();
 
         $validator = Validator::make($request->all(), [

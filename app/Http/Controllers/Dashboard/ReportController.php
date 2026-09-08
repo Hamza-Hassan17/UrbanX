@@ -24,11 +24,14 @@ class ReportController extends Controller
      */
     public function index()
     {
-        $this->authorize('view ride');
+        $this->authorize('view report');
 
         try {
             // Per-operator: how many rides they manually created, and how many
             // status changes (accept/cancel/etc.) they made from the dashboard.
+            // Dispatcher role = "Own" scope per the RBAC matrix -- they only see
+            // their own activity row, not other admins'/dispatchers'. Everyone
+            // else with 'view report' (Admin/Finance/Super Admin) sees all rows.
             $operatorStats = User::query()
                 ->select('users.id', 'users.name')
                 ->with(['roles' => fn($q) => $q->whereIn('name', self::ADMIN_PANEL_ROLES)])
@@ -44,6 +47,9 @@ class ReportController extends Controller
                 )
                 ->whereHas('roles', function ($q) {
                     $q->whereIn('name', self::ADMIN_PANEL_ROLES);
+                })
+                ->when(auth()->user()->hasRole('dispatcher'), function ($q) {
+                    $q->where('users.id', auth()->id());
                 })
                 ->having('rides_created', '>', 0)
                 ->orHaving('status_changes_made', '>', 0)

@@ -141,6 +141,10 @@ class CustomRideController extends Controller
 
     public function requestCustomRide(Request $request)
     {
+        // Previously any authenticated dashboard user could create/assign a ride
+        // through this endpoint regardless of role -- there was no check at all.
+        $this->authorize('assign ride');
+
         Log::info('Request Custom Ride', ['request' => $request->all()]);
         $validator = Validator::make($request->all(), [
             'vehicle_type_id' => 'required|exists:vehicle_types,id',

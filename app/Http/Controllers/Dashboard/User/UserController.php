@@ -24,11 +24,10 @@ class UserController extends Controller
     /**
      * Roles that count as "admin panel users" -- internal staff who operate
      * the dashboard, as opposed to customers/drivers/riders/restaurants who
-     * only use the mobile apps. Add 'manager', 'operator', etc. here the
-     * moment those roles are created; only super-admin/admin exist today.
-     * Kept in sync with ReportController::ADMIN_PANEL_ROLES.
+     * only use the mobile apps. Kept in sync with
+     * LoginController::ALLOWED_DASHBOARD_ROLES and ReportController.
      */
-    public const ADMIN_PANEL_ROLES = ['super-admin', 'admin'];
+    public const ADMIN_PANEL_ROLES = ['super-admin', 'admin', 'dispatcher', 'finance'];
 
     /**
      * Display a listing of the resource.

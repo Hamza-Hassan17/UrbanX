@@ -42,7 +42,7 @@
                 </a>
             </li>
         @endcan
-        @can(['view ride'])
+        @can(['view report'])
             <li class="menu-item {{ request()->routeIs('dashboard.reports.*') ? 'active' : '' }}">
                 <a href="{{ route('dashboard.reports.index') }}" class="menu-link" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-report-analytics"></i>
