@@ -3,12 +3,20 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Dashboard\User\UserController;
 use App\Models\Ride;
 use App\Models\User;
 use Illuminate\Support\Facades\Log;
 
 class ReportController extends Controller
 {
+    /**
+     * Roles that count as "admin panel users" -- kept as a single source of
+     * truth on UserController, since that's also where the separate
+     * "Admin Panel Users" list page lives.
+     */
+    private const ADMIN_PANEL_ROLES = UserController::ADMIN_PANEL_ROLES;
+
     /**
      * Operator (admin/dispatcher) and driver job-count traceability report.
      * Pure aggregation over data that already exists on `rides` -- no new
@@ -23,6 +31,7 @@ class ReportController extends Controller
             // status changes (accept/cancel/etc.) they made from the dashboard.
             $operatorStats = User::query()
                 ->select('users.id', 'users.name')
+                ->with(['roles' => fn($q) => $q->whereIn('name', self::ADMIN_PANEL_ROLES)])
                 ->selectSub(
                     Ride::whereColumn('created_by', 'users.id')->selectRaw('count(*)'),
                     'rides_created'
@@ -34,12 +43,16 @@ class ReportController extends Controller
                     'status_changes_made'
                 )
                 ->whereHas('roles', function ($q) {
-                    $q->whereIn('name', ['admin', 'super-admin']);
+                    $q->whereIn('name', self::ADMIN_PANEL_ROLES);
                 })
                 ->having('rides_created', '>', 0)
                 ->orHaving('status_changes_made', '>', 0)
                 ->orderByDesc('rides_created')
-                ->get();
+                ->get()
+                ->map(function ($operator) {
+                    $operator->role_label = ucwords(str_replace('-', ' ', $operator->roles->first()->name ?? ''));
+                    return $operator;
+                });
 
             // Per-driver: total assigned, completed, cancelled.
             $driverStats = User::role('driver')

@@ -161,7 +161,7 @@
             </li>
         @endcan
         @canany(['view user', 'view archived user'])
-            <li class="menu-item {{ request()->routeIs('dashboard.user.*') || request()->routeIs('dashboard.archived-user.*') ? 'open' : '' }}">
+            <li class="menu-item {{ request()->routeIs('dashboard.user.*') || request()->routeIs('dashboard.archived-user.*') || request()->routeIs('dashboard.admin-users.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-users"></i>
                     <div>{{__('Users')}}</div>
@@ -171,6 +171,11 @@
                         <li class="menu-item {{ request()->routeIs('dashboard.user.*') ? 'active' : '' }}">
                             <a href="{{route('dashboard.user.index')}}" class="menu-link" style="color: #fff !important;">
                                 <div>{{__('All Users')}}</div>
+                            </a>
+                        </li>
+                        <li class="menu-item {{ request()->routeIs('dashboard.admin-users.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.admin-users.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Admin Panel Users')}}</div>
                             </a>
                         </li>
                     @endcan

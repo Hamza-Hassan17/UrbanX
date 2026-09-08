@@ -919,8 +919,13 @@
 
         <!-- Ride Queue (full width) -->
         <div class="panel trips-container">
-            <div class="trips-header">
+            <div class="trips-header" style="flex-wrap: wrap; row-gap: 10px;">
                 <h3><i class="fas fa-list-check"></i> Ride Queue</h3>
+                <div class="queue-tabs" id="queue-type-tabs">
+                    <button class="queue-tab active" data-type="all">All Types</button>
+                    <button class="queue-tab" data-type="ride">🚕 Taxi</button>
+                    <button class="queue-tab" data-type="delivery">🍔 Delivery</button>
+                </div>
                 <div class="queue-tabs" id="queue-tabs">
                     <button class="queue-tab active" data-queue="all">All</button>
                     <button class="queue-tab" data-queue="dispatch">Dispatch</button>
@@ -949,7 +954,7 @@
                     </thead>
                     <tbody id="queue-table-body">
                         @forelse($rides as $ride)
-                            <tr data-queue="{{ $ride['queue'] }}">
+                            <tr data-queue="{{ $ride['queue'] }}" data-type="{{ $ride['ride_type'] === 'delivery' ? 'delivery' : 'ride' }}">
                                 <td class="muted-cell">{{ $ride['time'] }}</td>
                                 <td>RIDE-{{ $ride['id'] }}</td>
                                 <td>
@@ -1842,6 +1847,7 @@
             requested: 'status-pending',
         };
         let activeQueueFilter = 'all';
+        let activeTypeFilter = 'all';
 
         function renderQueueTable(rides) {
             const tbody = document.getElementById('queue-table-body');
@@ -1860,7 +1866,7 @@
                     ? `<button type="button" class="queue-edit-btn" data-id="${ride.id}" data-status="${ride.status}" data-pickup="${ride.pickup ?? ''}" data-dropoff="${ride.dropoff ?? ''}" data-type="${rideType}" data-queue="${ride.queue}"><i class="fas fa-pen"></i> Edit</button>`
                     : '--';
                 return `
-                    <tr data-queue="${ride.queue}">
+                    <tr data-queue="${ride.queue}" data-type="${rideType}">
                         <td class="muted-cell">${ride.time ?? ''}</td>
                         <td>RIDE-${ride.id}</td>
                         <td><span class="trip-type-badge trip-type-${rideType}">${typeLabel}</span></td>
@@ -1883,7 +1889,9 @@
             const rows = document.querySelectorAll('#queue-table-body tr[data-queue]');
             let visibleCount = 0;
             rows.forEach(row => {
-                const show = activeQueueFilter === 'all' || row.dataset.queue === activeQueueFilter;
+                const matchesQueue = activeQueueFilter === 'all' || row.dataset.queue === activeQueueFilter;
+                const matchesType = activeTypeFilter === 'all' || row.dataset.type === activeTypeFilter;
+                const show = matchesQueue && matchesType;
                 row.style.display = show ? '' : 'none';
                 if (show) visibleCount++;
             });
@@ -1911,6 +1919,16 @@
                 console.error('Dispatch stats refresh failed:', error);
             }
         }
+
+        document.getElementById('queue-type-tabs').addEventListener('click', function(e) {
+            const tab = e.target.closest('.queue-tab');
+            if (!tab) return;
+
+            this.querySelectorAll('.queue-tab').forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            activeTypeFilter = tab.dataset.type;
+            applyQueueFilter();
+        });
 
         document.getElementById('queue-tabs').addEventListener('click', function(e) {
             const tab = e.target.closest('.queue-tab');

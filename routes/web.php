@@ -146,6 +146,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::resource('archived-user', ArchivedUserController::class);
             Route::get('user/restore/{id}', [ArchivedUserController::class, 'restoreUser'])->name('archived-user.restore');
             Route::get('user/status/{id}', [UserController::class, 'updateStatus'])->name('user.status.update');
+            Route::get('admin-users', [UserController::class, 'adminUsers'])->name('admin-users.index');
 
             // Role & Permission Start
             Route::resource('permissions', PermissionController::class);

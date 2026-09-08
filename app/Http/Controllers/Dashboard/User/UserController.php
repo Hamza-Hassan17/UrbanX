@@ -20,25 +20,70 @@ use Spatie\Permission\Models\Role;
 class UserController extends Controller
 {
     use AuthorizesRequests;
+
+    /**
+     * Roles that count as "admin panel users" -- internal staff who operate
+     * the dashboard, as opposed to customers/drivers/riders/restaurants who
+     * only use the mobile apps. Add 'manager', 'operator', etc. here the
+     * moment those roles are created; only super-admin/admin exist today.
+     * Kept in sync with ReportController::ADMIN_PANEL_ROLES.
+     */
+    public const ADMIN_PANEL_ROLES = ['super-admin', 'admin'];
+
     /**
      * Display a listing of the resource.
+     * This is the platform's end users only (customers, drivers, riders,
+     * restaurants) -- internal staff accounts live on adminUsers() instead,
+     * so the two don't get confused together in one list.
      */
     public function index()
     {
         $this->authorize('view user');
         try {
-            $users  = User::with('profile')->get();
-            $totalUsers = User::count();
-            $totalDeactivatedUsers = User::where('is_active', 'inactive')->count();
-            $totalActiveUsers = User::where('is_active', 'active')->count();
-            $totalUnverifiedUsers = User::where('email_verified_at', null)->count();
-            $totalArchivedUsers = User::onlyTrashed()->count();
-            $roles = Role::all();
+            $users  = User::with('profile')->whereDoesntHave('roles', function ($q) {
+                $q->whereIn('name', self::ADMIN_PANEL_ROLES);
+            })->get();
+            $totalUsers = $users->count();
+            $totalDeactivatedUsers = $users->where('is_active', 'inactive')->count();
+            $totalActiveUsers = $users->where('is_active', 'active')->count();
+            $totalUnverifiedUsers = $users->whereNull('email_verified_at')->count();
+            $totalArchivedUsers = User::onlyTrashed()->whereDoesntHave('roles', function ($q) {
+                $q->whereIn('name', self::ADMIN_PANEL_ROLES);
+            })->count();
+            $roles = Role::whereNotIn('name', self::ADMIN_PANEL_ROLES)->get();
             return view('dashboard.users.index', compact('users', 'totalUsers', 'totalDeactivatedUsers', 'totalActiveUsers', 'totalUnverifiedUsers', 'roles', 'totalArchivedUsers'));
         } catch (\Throwable $th) {
             // Handle the exception
             // throw $th;
             Log::error("User Index Failed:" . $th->getMessage());
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
+        }
+    }
+
+    /**
+     * Display a listing of admin panel staff accounts only (super admin,
+     * admin, and any manager/operator roles added later) -- kept separate
+     * from index() so a customer/driver list of potentially millions never
+     * gets mixed in with the handful of internal dashboard accounts.
+     */
+    public function adminUsers()
+    {
+        $this->authorize('view user');
+        try {
+            $users = User::with('profile')->whereHas('roles', function ($q) {
+                $q->whereIn('name', self::ADMIN_PANEL_ROLES);
+            })->get();
+            $totalUsers = $users->count();
+            $totalDeactivatedUsers = $users->where('is_active', 'inactive')->count();
+            $totalActiveUsers = $users->where('is_active', 'active')->count();
+            $totalUnverifiedUsers = $users->whereNull('email_verified_at')->count();
+            $totalArchivedUsers = User::onlyTrashed()->whereHas('roles', function ($q) {
+                $q->whereIn('name', self::ADMIN_PANEL_ROLES);
+            })->count();
+            $roles = Role::whereIn('name', self::ADMIN_PANEL_ROLES)->get();
+            return view('dashboard.users.admin-index', compact('users', 'totalUsers', 'totalDeactivatedUsers', 'totalActiveUsers', 'totalUnverifiedUsers', 'roles', 'totalArchivedUsers'));
+        } catch (\Throwable $th) {
+            Log::error("Admin Panel Users Index Failed:" . $th->getMessage());
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
         }
     }
