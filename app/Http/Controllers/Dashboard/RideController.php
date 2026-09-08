@@ -169,6 +169,12 @@ class RideController extends Controller
 
                 $assignedDriver = User::find($request->driver_id);
                 $ride->driver_id = $assignedDriver->id;
+                // Operator-traceability audit field (RBAC brief Task 4) -- this
+                // ride was organically requested by a customer, not created by an
+                // operator, so created_by would otherwise stay null forever even
+                // though a dispatcher/super-admin just made the actual assignment
+                // decision from the dispatch queue.
+                $ride->created_by = auth()->id();
             }
 
             if ($request->status == 'accepted') {
