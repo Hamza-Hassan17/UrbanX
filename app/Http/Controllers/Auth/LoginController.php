@@ -13,6 +13,14 @@ use Illuminate\Support\Facades\Validator;
 
 class LoginController extends Controller
 {
+    /**
+     * Roles allowed to log into the web dashboard. Mobile-app-only roles
+     * (driver, restaurant, user, rider) are valid API roles but have no
+     * business reaching /dashboard -- until now nothing actually stopped
+     * them, they just landed on a blank dashboard and 403'd on first click.
+     */
+    private const ALLOWED_DASHBOARD_ROLES = ['super-admin', 'admin', 'dispatcher', 'finance'];
+
     public function login()
     {
         if (Auth::check()) {
@@ -64,6 +72,13 @@ class LoginController extends Controller
                     Auth::attempt(['email' => $userfind->email, 'password' => $request->password], $remember_me);
 
                     if (Auth::check()) {
+                        if (!Auth::user()->hasAnyRole(self::ALLOWED_DASHBOARD_ROLES)) {
+                            Auth::logout();
+                            $request->session()->invalidate();
+                            $request->session()->regenerateToken();
+                            return redirect()->back()->withInput($request->all())
+                                ->with('error', 'This account does not have access to the admin dashboard.');
+                        }
                         return redirect()->route('dashboard')->with('success', "Login successfully!");
                     } else {
                         return redirect()->back()->withInput($request->all())->with('error', 'Authentication Error');
