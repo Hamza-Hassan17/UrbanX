@@ -447,13 +447,24 @@
             padding: 0;
             overflow: hidden;
             position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Was position:absolute; inset:0 before -- that made #map fill the whole
+           panel edge-to-edge and completely cover this bar, which lived inside
+           the same panel above it. Flex column + #map:flex:1 below fixes it:
+           this bar takes its natural height, #map gets everything left over. */
+        .live-tracking-bar {
+            padding: 8px 10px;
+            border-bottom: 1px solid var(--border, #e5e7eb);
+            flex-shrink: 0;
         }
 
         #map {
-            position: absolute;
-            inset: 0;
+            position: relative;
             width: 100%;
-            height: 100%;
+            flex: 1;
             z-index: 1;
         }
 
@@ -913,27 +924,29 @@
 
             <!-- Map Panel -->
             <section class="panel map-panel" id="live-tracking">
-                <div class="d-flex flex-wrap align-items-center gap-2 mb-2" style="padding: 0 4px;">
-                    <label for="cityFilter" class="mb-0 text-muted" style="font-size: 13px;">City:</label>
-                    <select id="cityFilter" class="form-select form-select-sm" style="width: auto;">
-                        <option value="all">All Cities</option>
-                        <option value="unassigned">Unassigned</option>
-                        @foreach ($cities as $city)
-                            <option value="{{ $city }}">{{ $city }}</option>
-                        @endforeach
-                    </select>
-                    <div class="form-check form-switch ms-2">
-                        <input class="form-check-input" type="checkbox" id="activeOnlyToggle">
-                        <label class="form-check-label" for="activeOnlyToggle" style="font-size: 13px;">
-                            Active rides/deliveries only
-                        </label>
+                <div class="live-tracking-bar">
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <label for="cityFilter" class="mb-0 text-muted" style="font-size: 13px;">City:</label>
+                        <select id="cityFilter" class="form-select form-select-sm" style="width: auto;">
+                            <option value="all">All Cities</option>
+                            <option value="unassigned">Unassigned</option>
+                            @foreach ($cities as $city)
+                                <option value="{{ $city }}">{{ $city }}</option>
+                            @endforeach
+                        </select>
+                        <div class="form-check form-switch ms-2">
+                            <input class="form-check-input" type="checkbox" id="activeOnlyToggle">
+                            <label class="form-check-label" for="activeOnlyToggle" style="font-size: 13px;">
+                                Active rides/deliveries only
+                            </label>
+                        </div>
+                        <small class="text-muted ms-auto" style="font-size: 12px;">
+                            <i class="fas fa-circle" style="color:#10b981; font-size:8px;"></i> Available
+                            <i class="fas fa-circle ms-2" style="color:#f59e0b; font-size:8px;"></i> Busy
+                            <i class="fas fa-circle ms-2" style="color:#2563eb; font-size:8px;"></i> Active taxi ride (last known position)
+                            <i class="fas fa-circle ms-2" style="color:#db2777; font-size:8px;"></i> Active delivery (live)
+                        </small>
                     </div>
-                    <small class="text-muted ms-auto" style="font-size: 12px;">
-                        <i class="fas fa-circle" style="color:#10b981; font-size:8px;"></i> Available
-                        <i class="fas fa-circle ms-2" style="color:#f59e0b; font-size:8px;"></i> Busy
-                        <i class="fas fa-circle ms-2" style="color:#2563eb; font-size:8px;"></i> Active taxi ride (last known position)
-                        <i class="fas fa-circle ms-2" style="color:#db2777; font-size:8px;"></i> Active delivery (live)
-                    </small>
                 </div>
                 <div id="map"></div>
             </section>
