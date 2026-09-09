@@ -18,10 +18,10 @@
     <ul class="menu-inner py-1">
         {{--
             Grouped by function per UrbanX_Sidebar_Spec.pdf (+ addendum superseding
-            the Riders/Customers naming), not by controller. Restaurant Owners has
-            since been built (Tier 1 follow-up). Still deliberately left out: Live
-            Ops, Reviews, Chauffeur Transactions, Restaurant Orders, Payroll Export,
-            Email Settings -- none of those pages exist yet.
+            the Riders/Customers naming), not by controller. Restaurant Owners and
+            Email Settings have since been built (Tier 1 follow-up, now complete).
+            Still deliberately left out: Live Ops, Reviews, Chauffeur Transactions,
+            Restaurant Orders, Payroll Export -- none of those pages exist yet.
         --}}
 
         <!-- 1. Dashboard -->
@@ -259,13 +259,23 @@
                         </li>
                     @endcan
                     @can(['view setting'])
-                        <li class="menu-item {{ request()->routeIs('dashboard.setting.*') ? 'active' : '' }}">
+                        <li class="menu-item {{ request()->routeIs('dashboard.setting.*') && request()->query('tab') !== 'email' ? 'active' : '' }}">
                             <a href="{{route('dashboard.setting.index')}}" class="menu-link" style="color: #fff !important;">
                                 <div>{{__('Company / System Settings')}}</div>
                             </a>
                         </li>
+                        {{--
+                            Same page/controller as above -- Settings already has its own
+                            in-page tabs (public/assets/js/custom-js/settings.js reads
+                            ?tab=... on load), this just deep-links straight to the email
+                            tab rather than duplicating a controller/view for it.
+                        --}}
+                        <li class="menu-item {{ request()->routeIs('dashboard.setting.*') && request()->query('tab') === 'email' ? 'active' : '' }}">
+                            <a href="{{route('dashboard.setting.index')}}?tab=email" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Email Settings')}}</div>
+                            </a>
+                        </li>
                     @endcan
-                    {{-- Email Settings -- omitted as a separate link: no standalone page exists, only an update route (likely a section within Company/System Settings itself). --}}
                 </ul>
             </li>
         @endcanany
