@@ -912,7 +912,29 @@
             </section>
 
             <!-- Map Panel -->
-            <section class="panel map-panel">
+            <section class="panel map-panel" id="live-tracking">
+                <div class="d-flex flex-wrap align-items-center gap-2 mb-2" style="padding: 0 4px;">
+                    <label for="cityFilter" class="mb-0 text-muted" style="font-size: 13px;">City:</label>
+                    <select id="cityFilter" class="form-select form-select-sm" style="width: auto;">
+                        <option value="all">All Cities</option>
+                        <option value="unassigned">Unassigned</option>
+                        @foreach ($cities as $city)
+                            <option value="{{ $city }}">{{ $city }}</option>
+                        @endforeach
+                    </select>
+                    <div class="form-check form-switch ms-2">
+                        <input class="form-check-input" type="checkbox" id="activeOnlyToggle">
+                        <label class="form-check-label" for="activeOnlyToggle" style="font-size: 13px;">
+                            Active rides/deliveries only
+                        </label>
+                    </div>
+                    <small class="text-muted ms-auto" style="font-size: 12px;">
+                        <i class="fas fa-circle" style="color:#10b981; font-size:8px;"></i> Available
+                        <i class="fas fa-circle ms-2" style="color:#f59e0b; font-size:8px;"></i> Busy
+                        <i class="fas fa-circle ms-2" style="color:#2563eb; font-size:8px;"></i> Active taxi ride (last known position)
+                        <i class="fas fa-circle ms-2" style="color:#db2777; font-size:8px;"></i> Active delivery (live)
+                    </small>
+                </div>
                 <div id="map"></div>
             </section>
         </div>
@@ -1090,6 +1112,21 @@
             iconAnchor: [22, 22]
         });
 
+        // Active-ride / active-delivery icons (Live Ops Task 3 -- distinct from
+        // idle available/busy driver markers above).
+        const activeRideIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: '<div style="background-color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 3px solid #2563eb; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><i class="fas fa-route" style="color: #2563eb; font-size: 16px;"></i></div>',
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+        });
+        const activeDeliveryIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: '<div style="background-color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 3px solid #db2777; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><i class="fas fa-motorcycle" style="color: #db2777; font-size: 16px;"></i></div>',
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+        });
+
         function getDriverIcon(driver) {
             const borderColor = driver.status === 'available' ? '#10b981' : '#f59e0b';
 
@@ -1189,8 +1226,29 @@
             }
         }
 
+        // Live Ops (Live Tracking brief): city filter + active-only toggle state,
+        // and the marker layers each render function tracks so it can clear and
+        // redraw itself on filter change / poll refresh without touching the
+        // other layers.
+        let cityFilter = 'all';
+        let activeOnly = false;
+        let driverMarkers = [];
+        let activeRideMarkers = [];
+        let activeDeliveryMarkers = [];
+
+        function driverMatchesCityFilter(driver) {
+            if (cityFilter === 'all') return true;
+            if (cityFilter === 'unassigned') return !driver.city;
+            return driver.city === cityFilter;
+        }
+
         // Add driver markers to map
         function addDriverMarkers() {
+            driverMarkers.forEach(m => map.removeLayer(m));
+            driverMarkers = [];
+
+            if (activeOnly) return; // idle drivers hidden while "active only" is on
+
             drivers.forEach(driver => {
 
                 const lat = parseFloat(driver.lat);
@@ -1202,6 +1260,8 @@
                     return;
                 }
 
+                if (!driverMatchesCityFilter(driver)) return;
+
                 const marker = L.marker(
                         [parseFloat(driver.lat), parseFloat(driver.lng)], {
                             icon: getDriverIcon(driver)
@@ -1211,7 +1271,7 @@
                     <div style="padding: 10px; min-width: 200px;">
                         <h3 style="margin: 0 0 10px 0; color: #1f2937;">${driver.name}</h3>
                         <p style="margin: 5px 0; font-size: 14px;"><strong>#ID:</strong> ${driver.id}</p>
-                        <p style="margin: 5px 0; font-size: 14px;"><strong>City:</strong> ${driver.city}</p>
+                        <p style="margin: 5px 0; font-size: 14px;"><strong>City:</strong> ${driver.city ?? 'Unassigned'}</p>
                         <p style="margin: 5px 0; font-size: 14px;">
                             <strong>Status:</strong>
                             <span style="color: ${driver.status === 'available' ? '#10b981' : '#f59e0b'}">
@@ -1226,8 +1286,101 @@
                     </div>
                 `)
                     .addTo(map);
+                driverMarkers.push(marker);
             });
         }
+
+        // City lookup by driver id -- active-ride/delivery rows don't carry city
+        // themselves, so filtering them by city means looking up their driver.
+        function cityForDriverId(driverId) {
+            const d = drivers.find(d => d.id == driverId);
+            return d ? d.city : null;
+        }
+
+        function renderActiveRideMarkers(activeRides) {
+            activeRideMarkers.forEach(m => map.removeLayer(m));
+            activeRideMarkers = [];
+
+            activeRides.forEach(ride => {
+                if (cityFilter !== 'all') {
+                    const city = cityForDriverId(ride.driver_id);
+                    const matches = cityFilter === 'unassigned' ? !city : city === cityFilter;
+                    if (!matches) return;
+                }
+
+                const marker = L.marker([ride.lat, ride.lng], { icon: activeRideIcon })
+                    .bindPopup(`
+                        <div style="padding: 10px; min-width: 200px;">
+                            <h3 style="margin: 0 0 10px 0; color: #1f2937;">Active Ride #${ride.ride_id}</h3>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>Driver:</strong> ${ride.driver_name ?? 'N/A'}</p>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>Passenger:</strong> ${ride.passenger_name ?? 'N/A'}</p>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>Status:</strong> ${ride.status}</p>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>Pickup:</strong> ${ride.pickup}</p>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>Dropoff:</strong> ${ride.dropoff}</p>
+                            <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
+                                <i class="fas fa-info-circle"></i> Last known driver position, not continuous GPS.
+                            </p>
+                        </div>
+                    `)
+                    .addTo(map);
+                activeRideMarkers.push(marker);
+            });
+        }
+
+        function renderActiveDeliveryMarkers(activeDeliveries) {
+            activeDeliveryMarkers.forEach(m => map.removeLayer(m));
+            activeDeliveryMarkers = [];
+
+            activeDeliveries.forEach(delivery => {
+                const marker = L.marker([delivery.lat, delivery.lng], { icon: activeDeliveryIcon })
+                    .bindPopup(`
+                        <div style="padding: 10px; min-width: 200px;">
+                            <h3 style="margin: 0 0 10px 0; color: #1f2937;">Active Delivery — Order #${delivery.order_id}</h3>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>Restaurant:</strong> ${delivery.restaurant_name ?? 'N/A'}</p>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>Customer:</strong> ${delivery.customer_name ?? 'N/A'}</p>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>Status:</strong> ${delivery.status}</p>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>Pickup:</strong> ${delivery.pickup ?? 'N/A'}</p>
+                            <p style="margin: 5px 0; font-size: 14px;"><strong>Dropoff:</strong> ${delivery.dropoff ?? 'N/A'}</p>
+                            <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
+                                <i class="fas fa-satellite-dish"></i> Live position.
+                            </p>
+                        </div>
+                    `)
+                    .addTo(map);
+                activeDeliveryMarkers.push(marker);
+            });
+        }
+
+        async function fetchLiveTrackingData() {
+            try {
+                const response = await fetch(@json(route('dashboard.custom-rides.live-tracking')), {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!response.ok) return;
+                const data = await response.json();
+                renderActiveRideMarkers(data.activeRides || []);
+                renderActiveDeliveryMarkers(data.activeDeliveries || []);
+            } catch (error) {
+                console.error('Live tracking refresh failed:', error);
+            }
+        }
+
+        document.getElementById('cityFilter')?.addEventListener('change', function () {
+            cityFilter = this.value;
+            addDriverMarkers();
+            fetchLiveTrackingData();
+        });
+
+        document.getElementById('activeOnlyToggle')?.addEventListener('change', function () {
+            activeOnly = this.checked;
+            addDriverMarkers();
+        });
+
+        // Live trace refresh -- separate from the 5s dispatch-queue poll since this
+        // hits Firebase per active delivery on every tick; a slightly longer
+        // interval keeps that cost reasonable without the map feeling stale.
+        fetchLiveTrackingData();
+        setInterval(fetchLiveTrackingData, 8000);
 
         // Show notification
         function showNotification(message, type = 'info') {

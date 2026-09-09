@@ -52,8 +52,23 @@
                                     <span class="h6">Gender:</span>
                                     <span>{{ $driver->profile->gender ?? 'N/A' }}</span>
                                 </li>
+                                <li class="mb-2">
+                                    <span class="h6">City:</span>
+                                    <span>{{ $driver->profile->city ?? 'Unassigned' }}</span>
+                                </li>
                             </ul>
                         </div>
+                        {{-- City is admin-assigned once at onboarding, not derived from
+                             GPS -- used to scope the multi-city live tracking view. --}}
+                        @can(['update driver'])
+                            <form action="{{ route('dashboard.drivers.update', $driver->id) }}" method="POST" class="d-flex gap-2">
+                                @csrf
+                                @method('PUT')
+                                <input type="text" name="city" class="form-control form-control-sm"
+                                    value="{{ $driver->profile->city ?? '' }}" placeholder="e.g. Karachi">
+                                <button type="submit" class="btn btn-sm btn-primary text-nowrap">Save City</button>
+                            </form>
+                        @endcan
                     </div>
                 </div>
                 <!-- /User Card -->

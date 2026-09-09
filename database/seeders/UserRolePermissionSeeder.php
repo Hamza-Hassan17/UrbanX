@@ -168,6 +168,10 @@ class UserRolePermissionSeeder extends Seeder
         // Manual ride assignment / dispatch queue = View for Admin (can see the
         // queue, cannot assign -- that needs 'assign ride', which Admin does not get).
         $adminRole->givePermissionTo(['view custom rides']);
+        // Multi-city live tracking = View for Admin. Found missing while building
+        // the Live Ops tracking feature -- the matrix always intended this, it
+        // just never got granted when the permission was first created.
+        $adminRole->givePermissionTo(['view live tracking']);
         // Operator/driver job-count reporting = View for Admin.
         $adminRole->givePermissionTo(['view report']);
         // Complaints & reviews, Announcements = Full for Admin.

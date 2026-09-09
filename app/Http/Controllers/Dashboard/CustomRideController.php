@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Models\RestaurantOrder;
 use App\Models\Ride;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -27,7 +28,7 @@ class CustomRideController extends Controller
     {
         $this->authorize('view custom rides');
         try {
-            $drivers = User::with('driverVehicle.vehicleType')
+            $drivers = User::with('driverVehicle.vehicleType', 'profile:id,user_id,city')
             ->role('driver')
             ->whereHas('driverVehicle')
             ->get()
@@ -51,7 +52,10 @@ class CustomRideController extends Controller
                     'is_delivery' => $driver->driverVehicle && $driver->driverVehicle->vehicleType
                                     ? (bool) $driver->driverVehicle->vehicleType->is_delivery
                                     : false,
-                    'city'   => 'Karachi',
+                    // Admin-assigned at onboarding (Live Ops brief Task 1) -- not
+                    // derived from GPS. Null until someone sets it via the driver
+                    // detail page; the UI buckets these under "Unassigned".
+                    'city'   => $driver->profile->city ?? null,
                 ];
             });
 
@@ -64,8 +68,13 @@ class CustomRideController extends Controller
 
             $dispatch = $this->getDispatchSnapshot();
 
+            // Distinct list of cities actually assigned to a driver right now, for
+            // the city-filter dropdown -- "All Cities" and "Unassigned" are handled
+            // separately in the view since they're not real city values.
+            $cities = $drivers->pluck('city')->filter()->unique()->sort()->values();
+
             return view('dashboard.custom-rides.index', array_merge(
-                compact('drivers', 'driver'),
+                compact('drivers', 'driver', 'cities'),
                 $dispatch
             ));
         } catch (\Throwable $th) {
@@ -85,6 +94,97 @@ class CustomRideController extends Controller
             return response()->json($this->getDispatchSnapshot());
         } catch (\Throwable $th) {
             Log::error('Dispatch Stats Failed', ['error' => $th->getMessage()]);
+            return response()->json(['message' => 'Something went wrong!'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Live Ops: multi-city tracking + live trace, polled from the map view.
+     *
+     * IMPORTANT finding, not something to silently work around: there is no
+     * continuous location-write path for taxi drivers at all -- grepped every
+     * API controller under Driver/*, the only place users.lat/lang ever gets
+     * set is at registration/login (one-time snapshot), never refreshed while
+     * a driver is online. So taxi driver positions here are "last known", not
+     * live GPS -- labelled as such in the UI rather than pretending otherwise.
+     * Delivery riders DO have real continuous writes
+     * (DeliveryController::updateRiderLocation -> restaurant_orders/{id}/rider_location),
+     * so those genuinely are live.
+     *
+     * Also: there's no Firebase Web SDK config anywhere in this codebase (only
+     * the server-side service account, which must never reach the browser), so
+     * this relays Firebase reads through the backend on the same polling
+     * pattern dispatchStats already uses, rather than a client-side Firebase
+     * subscription -- avoids needing a new public web API key or touching
+     * Firebase security rules blind.
+     */
+    public function liveTrackingData()
+    {
+        $this->authorize('view live tracking');
+        try {
+            $activeRideStatuses = ['accepted', 'en_route', 'arrived', 'started'];
+
+            $activeRides = Ride::with(['driver:id,name,phone,lat,lang', 'passenger:id,name,phone'])
+                ->where('ride_type', 'ride')
+                ->whereIn('status', $activeRideStatuses)
+                ->whereNotNull('driver_id')
+                ->get()
+                ->map(function ($ride) {
+                    return [
+                        'ride_id' => $ride->id,
+                        'driver_id' => $ride->driver_id,
+                        'driver_name' => $ride->driver->name ?? null,
+                        'passenger_name' => $ride->passenger->name ?? null,
+                        // Last-known position (see class-level note above) --
+                        // driver's own lat/lng, since taxi rides don't have a
+                        // continuous location trail to show instead.
+                        'lat' => $ride->driver->lat ? (float) $ride->driver->lat : null,
+                        'lng' => $ride->driver->lang ? (float) $ride->driver->lang : null,
+                        'pickup' => $ride->pickup_latitude . ', ' . $ride->pickup_longitude,
+                        'dropoff' => $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude,
+                        'status' => $ride->status,
+                        'ride_type' => 'ride',
+                    ];
+                })
+                ->filter(fn ($r) => $r['lat'] && $r['lng'])
+                ->values();
+
+            $activeOrderStatuses = ['rider_assigned', 'picked_up', 'on_the_way'];
+
+            $activeDeliveries = RestaurantOrder::with(['restaurant:id,name', 'customer:id,name'])
+                ->whereIn('status', $activeOrderStatuses)
+                ->whereNotNull('ride_id')
+                ->get()
+                ->map(function ($order) {
+                    $ride = Ride::find($order->ride_id);
+                    // Real live position, read fresh from Firebase on every poll --
+                    // this is the one part of this feature that's genuinely live.
+                    $location = $this->firebase
+                        ->getReference('restaurant_orders/' . $order->id . '/rider_location')
+                        ->getValue();
+
+                    return [
+                        'order_id' => $order->id,
+                        'ride_id' => $order->ride_id,
+                        'restaurant_name' => $order->restaurant->name ?? null,
+                        'customer_name' => $order->customer->name ?? null,
+                        'lat' => $location['latitude'] ?? null,
+                        'lng' => $location['longitude'] ?? null,
+                        'pickup' => $ride ? $ride->pickup_latitude . ', ' . $ride->pickup_longitude : null,
+                        'dropoff' => $ride ? $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude : null,
+                        'status' => $order->status,
+                        'ride_type' => 'delivery',
+                    ];
+                })
+                ->filter(fn ($d) => $d['lat'] && $d['lng'])
+                ->values();
+
+            return response()->json([
+                'activeRides' => $activeRides,
+                'activeDeliveries' => $activeDeliveries,
+            ]);
+        } catch (\Throwable $th) {
+            Log::error('Live Tracking Data Failed', ['error' => $th->getMessage()]);
             return response()->json(['message' => 'Something went wrong!'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }

@@ -39,7 +39,7 @@
         {{-- 2. Live Ops -- omitted: no dispatch-queue/live-tracking/anomaly-alert backend built yet. --}}
 
         {{-- 3. Rides --}}
-        @canany(['view ride', 'view custom rides', 'view vehicle type', 'create boost hour', 'view promo code'])
+        @canany(['view ride', 'view custom rides', 'view live tracking', 'view vehicle type', 'create boost hour', 'view promo code'])
             <li class="menu-item {{ request()->routeIs('dashboard.rides.*') || request()->routeIs('dashboard.custom-rides.*') || request()->routeIs('dashboard.vehicle-types.*') || request()->routeIs('dashboard.boost-hours.*') || request()->routeIs('dashboard.promo-codes.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-steering-wheel"></i>
@@ -57,6 +57,21 @@
                         <li class="menu-item {{ request()->routeIs('dashboard.custom-rides.*') ? 'active' : '' }}">
                             <a href="{{route('dashboard.custom-rides.index')}}" class="menu-link" style="color: #fff !important;">
                                 <div>{{__('Manual Ride Assignment')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    {{--
+                        TEMPORARY placement per Live Ops brief -- this is the same
+                        page as Manual Ride Assignment above (the map lives there),
+                        just deep-linked to its tracking section. Move this into a
+                        real "Live Ops" group once Alerts also exists and that group
+                        is stood up (was deliberately not created early with just
+                        one item in it).
+                    --}}
+                    @can(['view live tracking'])
+                        <li class="menu-item">
+                            <a href="{{route('dashboard.custom-rides.index')}}#live-tracking" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Live Tracking (temp)')}}</div>
                             </a>
                         </li>
                     @endcan

@@ -16,7 +16,7 @@ class DriverController extends Controller
     {
         $this->authorize('view driver');
         try {
-            $drivers = User::with('profile:id,user_id,phone_number')->role('driver')->get();
+            $drivers = User::with('profile:id,user_id,phone_number,city')->role('driver')->get();
             return view('dashboard.drivers.index', compact('drivers'));
         } catch (\Throwable $th) {
             Log::error('Drivers Index Failed', ['error' => $th->getMessage()]);
@@ -67,10 +67,27 @@ class DriverController extends Controller
 
     /**
      * Update the specified resource in storage.
+     * Currently just the city field -- admin-assigned once when a driver is
+     * onboarded/verified, not derived from GPS (Live Ops brief Task 1). Kept
+     * deliberately minimal since there's no full driver-edit screen yet.
      */
     public function update(Request $request, string $id)
     {
-        //
+        $this->authorize('update driver');
+        $request->validate([
+            'city' => 'nullable|string|max:255',
+        ]);
+        try {
+            $driver = User::findOrFail($id);
+            $profile = $driver->profile()->firstOrCreate([], ['first_name' => $driver->name]);
+            $profile->city = $request->city;
+            $profile->save();
+
+            return redirect()->back()->with('success', 'Driver city updated successfully');
+        } catch (\Throwable $th) {
+            Log::error('Driver Update Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
+        }
     }
 
     /**
