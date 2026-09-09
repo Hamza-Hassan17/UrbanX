@@ -1029,11 +1029,15 @@
                     <small class="text-muted" id="edit_dropoff_current"></small>
                 </div>
                 <div class="field" id="edit_assign_driver_field" style="display: none;">
-                    <label for="edit_assign_driver">Assign Driver</label>
+                    <label for="edit_assign_driver" id="edit_assign_driver_label">Assign Driver</label>
                     <select id="edit_assign_driver" class="form-control">
                         <option value="">-- Leave unassigned --</option>
                     </select>
-                    <small class="text-muted">Only available for unclaimed taxi rides.</small>
+                    <small class="text-muted" id="edit_assign_driver_hint">Only available for unclaimed rides/jobs.</small>
+                </div>
+                <div class="field" id="edit_assign_eta_field" style="display: none;">
+                    <label for="edit_assign_eta">Rider ETA (minutes)</label>
+                    <input type="number" id="edit_assign_eta" class="form-control" min="0" placeholder="15">
                 </div>
                 <div class="edit-ride-modal-actions">
                     <button type="button" class="btn btn-label-secondary" id="editRideCancelBtn">Cancel</button>
@@ -1955,6 +1959,9 @@
         const editDropoffCurrentEl = document.getElementById('edit_dropoff_current');
         const editAssignDriverField = document.getElementById('edit_assign_driver_field');
         const editAssignDriverSelect = document.getElementById('edit_assign_driver');
+        const editAssignDriverHint = document.getElementById('edit_assign_driver_hint');
+        const editAssignEtaField = document.getElementById('edit_assign_eta_field');
+        const editAssignEtaInput = document.getElementById('edit_assign_eta');
 
         // New coordinates only get set here if the admin actually picks a new
         // location from the autocomplete — otherwise these stay null and the
@@ -1974,20 +1981,24 @@
             editPickupCurrentEl.textContent = pickup ? `Current: ${pickup}` : '';
             editDropoffCurrentEl.textContent = dropoff ? `Current: ${dropoff}` : '';
 
-            // Driver assignment is only wired up for unclaimed taxi rides for now —
-            // delivery jobs need their restaurant_orders status synced the same way
-            // DeliveryController::acceptRide does, which isn't built yet.
-            const canAssignDriver = type === 'ride' && queue === 'dispatch';
+            const canAssignDriver = queue === 'dispatch' && (type === 'ride' || type === 'delivery');
+            const isDelivery = type === 'delivery';
             editAssignDriverSelect.value = '';
+            editAssignEtaInput.value = '';
             if (canAssignDriver) {
                 editAssignDriverField.style.display = '';
+                editAssignDriverHint.textContent = isDelivery
+                    ? 'Only delivery-capable drivers are listed for a delivery job.'
+                    : 'Only available for unclaimed rides/jobs.';
+                editAssignEtaField.style.display = isDelivery ? '' : 'none';
                 editAssignDriverSelect.innerHTML = '<option value="">-- Leave unassigned --</option>' +
                     drivers
-                        .filter(d => d.status === 'available')
+                        .filter(d => d.status === 'available' && (!isDelivery || d.is_delivery))
                         .map(d => `<option value="${d.id}">${d.name} (#${d.id}) - ${d.vehicle}</option>`)
                         .join('');
             } else {
                 editAssignDriverField.style.display = 'none';
+                editAssignEtaField.style.display = 'none';
             }
 
             editRideModalOverlay.classList.add('open');
@@ -2095,6 +2106,9 @@
                 }
                 if (editAssignDriverField.style.display !== 'none' && editAssignDriverSelect.value) {
                     payload.driver_id = editAssignDriverSelect.value;
+                    if (editAssignEtaField.style.display !== 'none' && editAssignEtaInput.value) {
+                        payload.eta_minutes = editAssignEtaInput.value;
+                    }
                 }
 
                 const response = await fetch(`/dashboard/rides/${rideId}`, {

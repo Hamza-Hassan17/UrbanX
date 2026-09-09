@@ -27,7 +27,7 @@ class CustomRideController extends Controller
     {
         $this->authorize('view custom rides');
         try {
-            $drivers = User::with('driverVehicle')
+            $drivers = User::with('driverVehicle.vehicleType')
             ->role('driver')
             ->whereHas('driverVehicle')
             ->get()
@@ -44,6 +44,13 @@ class CustomRideController extends Controller
                                     : 'taxiIconBusy',
                     'vehicle'  => $driver->driverVehicle ? $driver->driverVehicle->vehicle_name.' '.$driver->driverVehicle->vehicle_make.' '.$driver->driverVehicle->vehicle_year : 'N/A',
                     'vehicle_type_id' => $driver->driverVehicle ? $driver->driverVehicle->vehicle_type_id : null,
+                    // Whether this driver's vehicle is delivery-capable -- same flag
+                    // DeliveryController::getLatestRides uses to decide who can see
+                    // delivery jobs at all, reused here so the dispatch queue only
+                    // ever offers a delivery-capable driver for a delivery job.
+                    'is_delivery' => $driver->driverVehicle && $driver->driverVehicle->vehicleType
+                                    ? (bool) $driver->driverVehicle->vehicleType->is_delivery
+                                    : false,
                     'city'   => 'Karachi',
                 ];
             });

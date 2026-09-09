@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\BoostHour;
+use App\Models\RestaurantOrder;
 use App\Models\Ride;
+use App\Models\RideDriverLog;
 use App\Models\RideExtraCharge;
 use App\Models\RideOffer;
 use App\Models\User;
@@ -114,6 +116,7 @@ class RideController extends Controller
             'dropoff_latitude' => 'nullable|string',
             'dropoff_longitude' => 'nullable|string',
             'driver_id' => 'nullable|exists:users,id',
+            'eta_minutes' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -145,19 +148,8 @@ class RideController extends Controller
             }
 
             $assignedDriver = null;
+            $assignedRestaurantOrder = null;
             if ($request->filled('driver_id')) {
-                // Assigning a driver to an unclaimed ride from the dispatch queue is
-                // only supported for taxi rides right now -- delivery jobs need their
-                // linked restaurant_orders row synced the same way
-                // DeliveryController::acceptRide does, which this doesn't do yet.
-                if ($ride->ride_type !== 'ride') {
-                    DB::rollBack();
-                    $message = 'Manually assigning a driver to a delivery job is not supported yet.';
-                    if ($wantsJson) {
-                        return response()->json(['message' => $message], 422);
-                    }
-                    return redirect()->back()->with('error', $message);
-                }
                 if ($ride->driver_id) {
                     DB::rollBack();
                     $message = 'This ride already has a driver assigned.';
@@ -165,6 +157,24 @@ class RideController extends Controller
                         return response()->json(['message' => $message], 422);
                     }
                     return redirect()->back()->with('error', $message);
+                }
+
+                // For a delivery job, "claimed" is gated by restaurant_orders.status
+                // (accepted -> rider_assigned), not by rides.driver_id -- confirmed
+                // against DeliveryController::acceptRide()/getLatestRides(), which
+                // never touch/filter on driver_id at all for delivery. So an
+                // unclaimed delivery job must still have its linked order sitting
+                // at 'accepted'.
+                if ($ride->ride_type !== 'ride') {
+                    $assignedRestaurantOrder = RestaurantOrder::where('ride_id', $ride->id)->first();
+                    if (!$assignedRestaurantOrder || $assignedRestaurantOrder->status !== 'accepted') {
+                        DB::rollBack();
+                        $message = 'This delivery job is no longer available to assign.';
+                        if ($wantsJson) {
+                            return response()->json(['message' => $message], 422);
+                        }
+                        return redirect()->back()->with('error', $message);
+                    }
                 }
 
                 $assignedDriver = User::find($request->driver_id);
@@ -192,7 +202,7 @@ class RideController extends Controller
 
             $ride->save();
 
-            if ($assignedDriver) {
+            if ($assignedDriver && $ride->ride_type === 'ride') {
                 // Same discovery pipeline the driver app already listens to, mirroring
                 // CustomRideController::requestCustomRide()'s admin-assign branch.
                 $this->firebase
@@ -212,7 +222,7 @@ class RideController extends Controller
                         'discount_amount' => $ride->discount_amount,
                         'total_fare' => $ride->total_fare,
                         'status' => $ride->status,
-                        'ride_type' => 'ride',
+                        'ride_type' => $ride->ride_type,
                         'requested_at' => optional($ride->requested_at)->toDateTimeString(),
                     ]);
 
@@ -224,6 +234,95 @@ class RideController extends Controller
                     $ride->id,
                     'ride_details'
                 );
+            } elseif ($assignedDriver && $ride->ride_type !== 'ride' && $assignedRestaurantOrder) {
+                // Mirrors DeliveryController::acceptRide()'s full side-effect set as
+                // closely as possible, since that's the only proven-working path for
+                // a rider claiming a delivery job -- just triggered by admin instead
+                // of the rider self-claiming.
+                $rideOffer = new RideOffer();
+                $rideOffer->ride_id = $ride->id;
+                $rideOffer->driver_id = $assignedDriver->id;
+                $rideOffer->proposed_price = $ride->total_fare;
+                // No ETA input on the admin assignment form -- default to 15 minutes
+                // when not explicitly provided.
+                $rideOffer->eta_minutes = $request->input('eta_minutes', 15);
+                $rideOffer->note = 'Assigned by admin';
+                $rideOffer->offered_at = now();
+                $rideOffer->status = 'accepted';
+                $rideOffer->save();
+
+                RideDriverLog::updateOrCreate(
+                    ['ride_id' => $ride->id, 'driver_id' => $assignedDriver->id],
+                    ['action' => 'sent', 'note' => 'Delivery assigned by admin']
+                );
+
+                $this->firebase
+                    ->getReference('ride_requests/vehicle_type_' . $ride->vehicle_type_id . '/ride_' . $ride->id)
+                    ->remove();
+
+                $this->firebase
+                    ->getReference('ride_offers/ride_' . $ride->id . '/offer_' . $rideOffer->id)
+                    ->set([
+                        'offer_id' => $rideOffer->id,
+                        'ride_id' => $ride->id,
+                        'driver_id' => $rideOffer->driver_id,
+                        'driver_name' => $assignedDriver->name,
+                        'driver_email' => $assignedDriver->email,
+                        'driver_phone' => $assignedDriver->phone,
+                        'driver_rating' => round($assignedDriver->driverReviews()->avg('rating'), 1),
+                        'vehicle_type' => $assignedDriver->vehicle->type ?? null,
+                        'proposed_price' => $rideOffer->proposed_price,
+                        'eta_minutes' => $rideOffer->eta_minutes,
+                        'note' => $rideOffer->note,
+                        'status' => $ride->status,
+                        'offered_at' => now()->toDateTimeString(),
+                    ]);
+
+                $assignedRestaurantOrder->status = 'rider_assigned';
+                $assignedRestaurantOrder->save();
+
+                $this->firebase
+                    ->getReference('restaurant_orders/' . $assignedRestaurantOrder->id)
+                    ->update([
+                        'status' => 'rider_assigned',
+                        'rider_id' => $assignedDriver->id,
+                        'rider_name' => $assignedDriver->name,
+                        'rider_phone' => $assignedDriver->phone,
+                        'rider_rating' => round($assignedDriver->driverReviews()->avg('rating'), 1),
+                        'updated_at' => now()->toDateTimeString(),
+                    ]);
+
+                // acceptRide() doesn't need this -- the rider already knows they just
+                // claimed it. Here, the rider has no way to find out otherwise: the
+                // proven-working discovery path (DeliveryController::getLatestRides)
+                // only surfaces still-unclaimed jobs by design, so once
+                // restaurant_orders.status flips away from 'accepted' above, this
+                // rider's own next poll would come back empty rather than showing
+                // this job as theirs. A push notification is the one channel I can
+                // confirm actually reaches their device regardless of that -- but
+                // whether their app has any *screen* that then shows this as an
+                // active/assigned delivery is unverified. Flagging this rather than
+                // assuming it's fully wired end-to-end.
+                app('notificationService')->notifyUsers(
+                    [$assignedDriver],
+                    'New Delivery Assigned',
+                    'You have been assigned a delivery by the admin.',
+                    'rides',
+                    $ride->id,
+                    'ride_details'
+                );
+
+                $customer = $assignedRestaurantOrder->customer;
+                if ($customer) {
+                    app('notificationService')->notifyUsers(
+                        [$customer],
+                        'New Delivery Ride Offer',
+                        'A driver has been assigned to your delivery order.',
+                        'ride_offers',
+                        $rideOffer->id,
+                        'ride_offer_details'
+                    );
+                }
             }
 
             DB::commit();
