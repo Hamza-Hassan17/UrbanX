@@ -184,6 +184,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::resource('chauffeur-bookings', ChauffeursBooking::class);
             Route::post('chauffeur-bookings/status/{id}', [ChauffeursBooking::class, 'updateStatus'])->name('chauffeur-bookings.status.update');
             Route::get('chauffeur-bookings/download-receipt/{id}', [ChauffeursBooking::class, 'downloadReceipt'])->name('chauffeur-bookings.download-receipt');
+            Route::post('chauffeur-bookings/transactions/{id}/mark-received', [ChauffeursBooking::class, 'markTransactionReceived'])->name('chauffeur-bookings.transactions.mark-received');
 
             //Complain Routes
             Route::resource('complains', ComplainController::class);

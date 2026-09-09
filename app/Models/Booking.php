@@ -53,8 +53,14 @@ class Booking extends Model
         return $this->belongsTo(Vehicle::class, 'vehicle_id');
     }
 
-    public function transaction()
+    /**
+     * A booking can accumulate multiple transaction attempts (e.g. the
+     * customer's app calls createTransaction more than once, or a failed
+     * attempt is followed by a successful one) -- the data confirms this
+     * actually happens, so this is hasMany, not hasOne.
+     */
+    public function transactions()
     {
-        return $this->hasOne(Transaction::class, 'booking_id');
+        return $this->hasMany(Transaction::class, 'booking_id');
     }
 }

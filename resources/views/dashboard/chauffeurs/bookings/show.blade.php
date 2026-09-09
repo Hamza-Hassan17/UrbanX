@@ -40,7 +40,7 @@
                         </span>
 
                         {{-- DOWNLOAD RECEIPT --}}
-                        @if ($booking->transaction)
+                        @if ($booking->transactions->isNotEmpty())
                             <a href="{{ route('dashboard.chauffeur-bookings.download-receipt', $booking->id) }}"
                                 class="btn btn-sm btn-primary">
                                 <i class="ti ti-download me-1"></i> Receipt
@@ -144,35 +144,51 @@
                         </div>
                     </div>
 
-                    {{-- TRANSACTION --}}
+                    {{-- TRANSACTIONS --}}
                     <div class="col-lg-12">
                         <div class="border rounded p-3">
                             <h6 class="mb-3 text-primary">
-                                <i class="ti ti-credit-card me-1"></i> Transaction
+                                <i class="ti ti-credit-card me-1"></i> Transactions
                             </h6>
 
-                            @if ($booking->transaction)
-                                <div class="row">
-                                    <div class="col-md-4">
-                                        <strong>TRX ID</strong><br>
-                                        {{ $booking->transaction->trx_id }}
+                            @if ($booking->transactions->isNotEmpty())
+                                @foreach ($booking->transactions->sortByDesc('created_at') as $transaction)
+                                    <div class="row align-items-center {{ !$loop->last ? 'mb-3 pb-3 border-bottom' : '' }}">
+                                        <div class="col-md-3">
+                                            <strong>TRX ID</strong><br>
+                                            {{ $transaction->trx_id }}
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>Method</strong><br>
+                                            {{ ucfirst($transaction->payment_method) }}
+                                        </div>
+                                        <div class="col-md-3">
+                                            <strong>Status</strong><br>
+                                            <span
+                                                class="badge bg-label-{{ $transaction->payment_status == 'complete'
+                                        ? 'success'
+                                        : ($transaction->payment_status == 'failed'
+                                            ? 'danger'
+                                            : 'warning') }}">
+                                                {{ ucfirst($transaction->payment_status) }}
+                                            </span>
+                                        </div>
+                                        <div class="col-md-3">
+                                            @can(['update chauffeur booking'])
+                                                @if ($transaction->payment_status === 'pending')
+                                                    <form
+                                                        action="{{ route('dashboard.chauffeur-bookings.transactions.mark-received', $transaction->id) }}"
+                                                        method="POST" onsubmit="return confirm('Confirm cash payment was received for this transaction?');">
+                                                        @csrf
+                                                        <button type="submit" class="btn btn-sm btn-outline-success">
+                                                            <i class="ti ti-check me-1"></i> Mark as Received
+                                                        </button>
+                                                    </form>
+                                                @endif
+                                            @endcan
+                                        </div>
                                     </div>
-                                    <div class="col-md-4">
-                                        <strong>Method</strong><br>
-                                        {{ ucfirst($booking->transaction->payment_method) }}
-                                    </div>
-                                    <div class="col-md-4">
-                                        <strong>Status</strong><br>
-                                        <span
-                                            class="badge bg-label-{{ $booking->transaction->payment_status == 'complete'
-                                    ? 'success'
-                                    : ($booking->transaction->payment_status == 'failed'
-                                        ? 'danger'
-                                        : 'warning') }}">
-                                            {{ ucfirst($booking->transaction->payment_status) }}
-                                        </span>
-                                    </div>
-                                </div>
+                                @endforeach
                             @else
                                 <span class="text-muted">
                                     <i class="ti ti-alert-circle me-1"></i> No transaction found

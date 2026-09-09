@@ -283,14 +283,16 @@ class ChauffersController extends Controller
     public function downloadReceipt($booking_id)
     {
         try {
-            $booking = Booking::with('transaction')->where('id', $booking_id)->first();
+            $booking = Booking::with('transactions')->where('id', $booking_id)->first();
             if (!$booking) {
                 return response()->json([
                     'message' => 'Booking not found!'
                 ], Response::HTTP_NOT_FOUND);
             }
 
-            $transaction = $booking->transaction;
+            // Multiple transaction attempts can exist per booking -- the
+            // receipt is for the most recent one.
+            $transaction = $booking->transactions->sortByDesc('created_at')->first();
             if (!$transaction) {
                 return response()->json([
                     'message' => 'Transaction not found for this booking!'
