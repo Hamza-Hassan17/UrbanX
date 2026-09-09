@@ -21,6 +21,7 @@
                             <th>{{ __('Name') }}</th>
                             <th>{{ __('Email') }}</th>
                             <th>{{ __('Phone Number') }}</th>
+                            <th>{{ __('City') }}</th>
                             <th>{{ __('Created Date') }}</th>
                             <th>{{ __('Status') }}</th>
                             @canany(['delete driver', 'view driver', 'update driver'])<th>{{ __('Action') }}</th>@endcan
@@ -33,6 +34,21 @@
                                 <td>{{ $driver->name }}</td>
                                 <td>{{ $driver->email }}</td>
                                 <td>{{ $driver->profile->phone_number }}</td>
+                                <td>
+                                    @can(['update driver'])
+                                        <form action="{{ route('dashboard.drivers.update', $driver->id) }}" method="POST" class="d-flex gap-1">
+                                            @csrf
+                                            @method('PUT')
+                                            <input type="text" name="city" class="form-control form-control-sm" style="width: 110px;"
+                                                value="{{ $driver->profile->city ?? '' }}" placeholder="Unassigned">
+                                            <button type="submit" class="btn btn-icon btn-sm btn-text-primary" title="Save City">
+                                                <i class="ti ti-check ti-sm"></i>
+                                            </button>
+                                        </form>
+                                    @else
+                                        {{ $driver->profile->city ?? 'Unassigned' }}
+                                    @endcan
+                                </td>
                                 <td>{{ $driver->created_at->format('M d, Y') }}</td>
                                 <td>
                                     <span
