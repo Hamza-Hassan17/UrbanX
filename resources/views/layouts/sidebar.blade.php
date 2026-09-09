@@ -16,93 +16,82 @@
     <div class="menu-inner-shadow"></div>
 
     <ul class="menu-inner py-1">
-        <!-- Dashboards -->
+        {{--
+            Grouped by function per UrbanX_Sidebar_Spec.pdf, not by controller.
+            Live Ops, Reviews, and the new sub-tabs under Users/Chauffeur/Restaurants
+            (Riders/Customers, Restaurant Owners, Transactions, Orders, Ride Offers,
+            Payroll Export, Email Settings) are deliberately left out of this pass --
+            none of those pages exist yet, and the spec's own build order says wire
+            existing controllers into the new grouping first, build new screens after.
+        --}}
+
+        <!-- 1. Dashboard -->
         <li class="menu-item {{ request()->routeIs('dashboard') ? 'active' : '' }}">
             <a href="{{ route('dashboard') }}" class="menu-link"  style="color: #fff !important;">
                 <i class="menu-icon tf-icons ti ti-smart-home"></i>
                 <div>{{__('Dashboard')}}</div>
             </a>
         </li>
-        <li class="menu-item {{ request()->routeIs('dashboard.custom-rides.index') ? 'active' : '' }}">
-            <a href="{{ route('dashboard.custom-rides.index') }}" class="menu-link"  style="color: #fff !important;">
-                <i class="menu-icon tf-icons ti ti-bike"></i>
-                <div>{{__('Custom Rides')}}</div>
-            </a>
-        </li>
 
-        <!-- Apps & Pages -->
         <li class="menu-header small">
             <span class="menu-header-text">{{__('Apps & Pages')}}</span>
         </li>
-        @can(['view ride'])
-            <li class="menu-item {{ request()->routeIs('dashboard.rides.*') ? 'active' : '' }}">
-                <a href="{{ route('dashboard.rides.index') }}" class="menu-link" style="color: #fff !important;">
+
+        {{-- 2. Live Ops -- omitted: no dispatch-queue/live-tracking/anomaly-alert backend built yet. --}}
+
+        {{-- 3. Rides --}}
+        @canany(['view ride', 'view custom rides', 'view vehicle type', 'create boost hour', 'view promo code'])
+            <li class="menu-item {{ request()->routeIs('dashboard.rides.*') || request()->routeIs('dashboard.custom-rides.*') || request()->routeIs('dashboard.vehicle-types.*') || request()->routeIs('dashboard.boost-hours.*') || request()->routeIs('dashboard.promo-codes.*') ? 'open' : '' }}">
+                <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-steering-wheel"></i>
                     <div>{{__('Rides')}}</div>
                 </a>
+                <ul class="menu-sub">
+                    @can(['view ride'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.rides.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.rides.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('All Rides')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['view custom rides'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.custom-rides.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.custom-rides.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Manual Ride Assignment')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['view vehicle type'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.vehicle-types.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.vehicle-types.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Vehicle Types')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['create boost hour'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.boost-hours.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.boost-hours.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Boost Hours')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['view promo code'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.promo-codes.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.promo-codes.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Promo Codes')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                </ul>
             </li>
-        @endcan
-        @can(['view report'])
-            <li class="menu-item {{ request()->routeIs('dashboard.reports.*') ? 'active' : '' }}">
-                <a href="{{ route('dashboard.reports.index') }}" class="menu-link" style="color: #fff !important;">
-                    <i class="menu-icon tf-icons ti ti-report-analytics"></i>
-                    <div>{{__('Reports')}}</div>
-                </a>
-            </li>
-        @endcan
-        @can(['view driver'])
-            <li class="menu-item {{ request()->routeIs('dashboard.drivers.*') ? 'active' : '' }}">
-                <a href="{{ route('dashboard.drivers.index') }}" class="menu-link" style="color: #fff !important;">
-                    <i class="menu-icon tf-icons ti ti-steering-wheel"></i>
-                    <div>{{__('Drivers')}}</div>
-                </a>
-            </li>
-        @endcan
-        @can(['view promo code'])
-            <li class="menu-item {{ request()->routeIs('dashboard.promo-codes.*') ? 'active' : '' }}">
-                <a href="{{ route('dashboard.promo-codes.index') }}" class="menu-link" style="color: #fff !important;">
-                    <i class="menu-icon tf-icons ti ti-tag"></i>
-                    <div>{{__('Promo Codes')}}</div>
-                </a>
-            </li>
-        @endcan
-        @can(['view vehicle type'])
-            <li class="menu-item {{ request()->routeIs('dashboard.vehicle-types.*') ? 'active' : '' }}">
-                <a href="{{ route('dashboard.vehicle-types.index') }}" class="menu-link" style="color: #fff !important;">
-                    <i class="menu-icon tf-icons ti ti-car"></i>
-                    <div>{{__('Vehicle Types')}}</div>
-                </a>
-            </li>
-        @endcan
-        @can(['create notification'])
-            <li class="menu-item {{ request()->routeIs('dashboard.notifications.create') ? 'active' : '' }}">
-                <a href="{{ route('dashboard.notifications.create') }}" class="menu-link" style="color: #fff !important;">
-                    <i class="menu-icon tf-icons ti ti-bell"></i>
-                    <div>{{__('Send Notification')}}</div>
-                </a>
-            </li>
-        @endcan
-        @can(['create complain'])
-            <li class="menu-item {{ request()->routeIs('dashboard.complains.*') ? 'active' : '' }}">
-                <a href="{{ route('dashboard.complains.index') }}" class="menu-link" style="color: #fff !important;">
-                    <i class="menu-icon tf-icons ti ti-message-exclamation"></i>
-                    <div>{{__('Complains')}}</div>
-                </a>
-            </li>
-        @endcan
-        @can(['create boost hour'])
-            <li class="menu-item {{ request()->routeIs('dashboard.boost-hours.*') ? 'active' : '' }}">
-                <a href="{{ route('dashboard.boost-hours.index') }}" class="menu-link" style="color: #fff !important;">
-                    <i class="menu-icon tf-icons ti ti-clock"></i>
-                    <div>{{__('Boost Hours')}}</div>
-                </a>
-            </li>
-        @endcan
-        @canany(['view chauffeur vehicle', 'view chauffeur booking', 'view announcement'])
+        @endcanany
+
+        {{-- 4. Chauffeur / Rentals --}}
+        @canany(['view chauffeur vehicle', 'view chauffeur booking'])
             <li class="menu-item {{ request()->routeIs('dashboard.chauffeur-vehicles.*') || request()->routeIs('dashboard.chauffeur-bookings.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
-                    <i class="menu-icon tf-icons ti ti-steering-wheel"></i>
-                    <div>{{__('Chauffeurs')}}</div>
+                    <i class="menu-icon tf-icons ti ti-car"></i>
+                    <div>{{__('Chauffeur / Rentals')}}</div>
                 </a>
                 <ul class="menu-sub">
                     @can(['view chauffeur vehicle'])
@@ -115,34 +104,23 @@
                     @can(['view chauffeur booking'])
                         <li class="menu-item {{ request()->routeIs('dashboard.chauffeur-bookings.*') ? 'active' : '' }}">
                             <a href="{{route('dashboard.chauffeur-bookings.index')}}" class="menu-link" style="color: #fff !important;">
-                                <div>{{__('Booking')}}</div>
+                                <div>{{__('Bookings')}}</div>
                             </a>
                         </li>
                     @endcan
-                    @can(['view announcement'])
-                        <li class="menu-item {{ request()->routeIs('dashboard.announcements.*') ? 'active' : '' }}">
-                            <a href="{{route('dashboard.announcements.index')}}" class="menu-link" style="color: #fff !important;">
-                                <div>{{__('Announcements')}}</div>
-                            </a>
-                        </li>
-                    @endcan
+                    {{-- Transactions -- omitted: no dashboard page exists for this yet. --}}
                 </ul>
             </li>
-        @endcan
-        @canany(['view restaurant category'])
-            <li class="menu-item {{ request()->routeIs('dashboard.restaurant-categories.*') || request()->routeIs('dashboard.restaurants.*') || request()->routeIs('dashboard.restaurant-vouchers.*') ? 'open' : '' }}">
+        @endcanany
+
+        {{-- 5. Restaurants --}}
+        @canany(['view restaurant', 'view restaurant category', 'view restaurant voucher'])
+            <li class="menu-item {{ request()->routeIs('dashboard.restaurants.*') || request()->routeIs('dashboard.restaurant-categories.*') || request()->routeIs('dashboard.restaurant-vouchers.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-chef-hat"></i>
-                    <div>{{__('Restaurants Setup')}}</div>
+                    <div>{{__('Restaurants')}}</div>
                 </a>
                 <ul class="menu-sub">
-                    @can(['view restaurant category'])
-                        <li class="menu-item {{ request()->routeIs('dashboard.restaurant-categories.*') ? 'active' : '' }}">
-                            <a href="{{route('dashboard.restaurant-categories.index')}}" class="menu-link" style="color: #fff !important;">
-                                <div>{{__('Categories')}}</div>
-                            </a>
-                        </li>
-                    @endcan
                     @can(['view restaurant'])
                         <li class="menu-item {{ request()->routeIs('dashboard.restaurants.*') ? 'active' : '' }}">
                             <a href="{{route('dashboard.restaurants.index')}}" class="menu-link" style="color: #fff !important;">
@@ -150,27 +128,50 @@
                             </a>
                         </li>
                     @endcan
+                    @can(['view restaurant category'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.restaurant-categories.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.restaurant-categories.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Categories')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    {{-- Orders -- omitted: no standalone dashboard list page exists yet, only an inline update route. --}}
                     @can(['view restaurant voucher'])
                         <li class="menu-item {{ request()->routeIs('dashboard.restaurant-vouchers.*') ? 'active' : '' }}">
                             <a href="{{route('dashboard.restaurant-vouchers.index')}}" class="menu-link" style="color: #fff !important;">
-                                <div>{{__('Vouchers')}}</div>
+                                <div>{{__('Voucher Codes')}}</div>
                             </a>
                         </li>
                     @endcan
                 </ul>
             </li>
-        @endcan
-        @canany(['view user', 'view archived user'])
-            <li class="menu-item {{ request()->routeIs('dashboard.user.*') || request()->routeIs('dashboard.archived-user.*') || request()->routeIs('dashboard.admin-users.*') ? 'open' : '' }}">
+        @endcanany
+
+        {{-- 6. Users --}}
+        @canany(['view driver', 'view user', 'view archived user'])
+            <li class="menu-item {{ request()->routeIs('dashboard.drivers.*') || request()->routeIs('dashboard.user.*') || request()->routeIs('dashboard.admin-users.*') || request()->routeIs('dashboard.archived-user.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-users"></i>
                     <div>{{__('Users')}}</div>
                 </a>
                 <ul class="menu-sub">
+                    @can(['view driver'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.drivers.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.drivers.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Drivers')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    {{--
+                        Riders/Customers combined view and Restaurant Owners -- omitted,
+                        need real scaffolding (new controller methods + views). Until
+                        then "Customers" below is role=user only, same as before; the
+                        rider role has no page anywhere in the dashboard right now.
+                    --}}
                     @can(['view user'])
                         <li class="menu-item {{ request()->routeIs('dashboard.user.*') ? 'active' : '' }}">
                             <a href="{{route('dashboard.user.index')}}" class="menu-link" style="color: #fff !important;">
-                                <div>{{__('All Users')}}</div>
+                                <div>{{__('Customers')}}</div>
                             </a>
                         </li>
                         <li class="menu-item {{ request()->routeIs('dashboard.admin-users.*') ? 'active' : '' }}">
@@ -188,19 +189,60 @@
                     @endcan
                 </ul>
             </li>
-        @endcan
-        @canany(['view role', 'view permission'])
-            <li class="menu-item {{ request()->routeIs('dashboard.roles.*') || request()->routeIs('dashboard.permissions.*') ? 'open' : '' }}">
+        @endcanany
+
+        {{-- 7. Reports & Payroll --}}
+        @can(['view report'])
+            <li class="menu-item {{ request()->routeIs('dashboard.reports.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
-                    {{-- <i class="menu-icon tf-icons ti ti-settings"></i> --}}
-                    <i class="menu-icon tf-icons ti ti-shield-lock"></i>
-                    <div>{{__('Roles & Permissions')}}</div>
+                    <i class="menu-icon tf-icons ti ti-report-analytics"></i>
+                    <div>{{__('Reports & Payroll')}}</div>
+                </a>
+                <ul class="menu-sub">
+                    <li class="menu-item {{ request()->routeIs('dashboard.reports.*') ? 'active' : '' }}">
+                        <a href="{{route('dashboard.reports.index')}}" class="menu-link" style="color: #fff !important;">
+                            <div>{{__('Operator / Driver Job Reports')}}</div>
+                        </a>
+                    </li>
+                    {{-- Weekly Payroll Export -- omitted: needs real scoping (export format, data source) before building. --}}
+                </ul>
+            </li>
+        @endcan
+
+        {{-- 8. Complaints --}}
+        @can(['create complain'])
+            <li class="menu-item {{ request()->routeIs('dashboard.complains.*') ? 'active' : '' }}">
+                <a href="{{ route('dashboard.complains.index') }}" class="menu-link" style="color: #fff !important;">
+                    <i class="menu-icon tf-icons ti ti-message-exclamation"></i>
+                    <div>{{__('Complaints')}}</div>
+                </a>
+            </li>
+        @endcan
+
+        {{-- 9. Reviews -- omitted: no dashboard controller/view exists for DriverReview or RestaurantReview yet. --}}
+
+        {{-- 10. Announcements --}}
+        @can(['view announcement'])
+            <li class="menu-item {{ request()->routeIs('dashboard.announcements.*') ? 'active' : '' }}">
+                <a href="{{ route('dashboard.announcements.index') }}" class="menu-link" style="color: #fff !important;">
+                    <i class="menu-icon tf-icons ti ti-speakerphone"></i>
+                    <div>{{__('Announcements')}}</div>
+                </a>
+            </li>
+        @endcan
+
+        {{-- 11. Settings --}}
+        @canany(['view role', 'view permission', 'view setting'])
+            <li class="menu-item {{ request()->routeIs('dashboard.roles.*') || request()->routeIs('dashboard.permissions.*') || request()->routeIs('dashboard.setting.*') ? 'open' : '' }}">
+                <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
+                    <i class="menu-icon tf-icons ti ti-settings"></i>
+                    <div>{{__('Settings')}}</div>
                 </a>
                 <ul class="menu-sub">
                     @can(['view role'])
                         <li class="menu-item {{ request()->routeIs('dashboard.roles.*') ? 'active' : '' }}">
                             <a href="{{route('dashboard.roles.index')}}" class="menu-link" style="color: #fff !important;">
-                                <div>{{__('Roles')}}</div>
+                                <div>{{__('Roles & Permissions')}}</div>
                             </a>
                         </li>
                     @endcan
@@ -211,14 +253,27 @@
                             </a>
                         </li>
                     @endcan
+                    @can(['view setting'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.setting.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.setting.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Company / System Settings')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    {{-- Email Settings -- omitted as a separate link: no standalone page exists, only an update route (likely a section within Company/System Settings itself). --}}
                 </ul>
             </li>
-        @endcan
-        @can(['view setting'])
-            <li class="menu-item {{ request()->routeIs('dashboard.setting.*') ? 'active' : '' }}">
-                <a href="{{ route('dashboard.setting.index') }}" class="menu-link" style="color: #fff !important;">
-                    <i class="menu-icon tf-icons ti ti-settings"></i>
-                    <div>{{__('Settings')}}</div>
+        @endcanany
+
+        {{--
+            Not part of the 11-group spec, left untouched and in place since the
+            doc doesn't mention it: Send Notification.
+        --}}
+        @can(['create notification'])
+            <li class="menu-item {{ request()->routeIs('dashboard.notifications.create') ? 'active' : '' }}">
+                <a href="{{ route('dashboard.notifications.create') }}" class="menu-link" style="color: #fff !important;">
+                    <i class="menu-icon tf-icons ti ti-bell"></i>
+                    <div>{{__('Send Notification')}}</div>
                 </a>
             </li>
         @endcan
