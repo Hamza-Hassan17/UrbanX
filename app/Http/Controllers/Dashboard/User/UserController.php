@@ -88,6 +88,30 @@ class UserController extends Controller
     }
 
     /**
+     * Display a listing of restaurant owner accounts only (role=restaurant) --
+     * the person who owns/manages a storefront, not the storefront entity
+     * itself (that's Restaurant::class, browsed separately under the
+     * Restaurants group / RestaurantsController).
+     */
+    public function restaurantOwners()
+    {
+        $this->authorize('view user');
+        try {
+            $users = User::with('profile')->role('restaurant')->get();
+            $totalUsers = $users->count();
+            $totalDeactivatedUsers = $users->where('is_active', 'inactive')->count();
+            $totalActiveUsers = $users->where('is_active', 'active')->count();
+            $totalUnverifiedUsers = $users->whereNull('email_verified_at')->count();
+            $totalArchivedUsers = User::onlyTrashed()->role('restaurant')->count();
+            $roles = Role::where('name', 'restaurant')->get();
+            return view('dashboard.users.restaurant-owners', compact('users', 'totalUsers', 'totalDeactivatedUsers', 'totalActiveUsers', 'totalUnverifiedUsers', 'roles', 'totalArchivedUsers'));
+        } catch (\Throwable $th) {
+            Log::error("Restaurant Owners Index Failed:" . $th->getMessage());
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
+        }
+    }
+
+    /**
      * Show the form for creating a new resource.
      */
     public function create()

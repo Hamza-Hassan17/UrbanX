@@ -17,12 +17,11 @@
 
     <ul class="menu-inner py-1">
         {{--
-            Grouped by function per UrbanX_Sidebar_Spec.pdf, not by controller.
-            Live Ops, Reviews, and the new sub-tabs under Users/Chauffeur/Restaurants
-            (Riders/Customers, Restaurant Owners, Transactions, Orders, Ride Offers,
-            Payroll Export, Email Settings) are deliberately left out of this pass --
-            none of those pages exist yet, and the spec's own build order says wire
-            existing controllers into the new grouping first, build new screens after.
+            Grouped by function per UrbanX_Sidebar_Spec.pdf (+ addendum superseding
+            the Riders/Customers naming), not by controller. Restaurant Owners has
+            since been built (Tier 1 follow-up). Still deliberately left out: Live
+            Ops, Reviews, Chauffeur Transactions, Restaurant Orders, Payroll Export,
+            Email Settings -- none of those pages exist yet.
         --}}
 
         <!-- 1. Dashboard -->
@@ -149,7 +148,7 @@
 
         {{-- 6. Users --}}
         @canany(['view driver', 'view user', 'view archived user'])
-            <li class="menu-item {{ request()->routeIs('dashboard.drivers.*') || request()->routeIs('dashboard.user.*') || request()->routeIs('dashboard.admin-users.*') || request()->routeIs('dashboard.archived-user.*') ? 'open' : '' }}">
+            <li class="menu-item {{ request()->routeIs('dashboard.drivers.*') || request()->routeIs('dashboard.user.*') || request()->routeIs('dashboard.admin-users.*') || request()->routeIs('dashboard.restaurant-owners.*') || request()->routeIs('dashboard.archived-user.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-users"></i>
                     <div>{{__('Users')}}</div>
@@ -163,15 +162,21 @@
                         </li>
                     @endcan
                     {{--
-                        Riders/Customers combined view and Restaurant Owners -- omitted,
-                        need real scaffolding (new controller methods + views). Until
-                        then "Customers" below is role=user only, same as before; the
-                        rider role has no page anywhere in the dashboard right now.
+                        "Riders/Customers" from the original spec was superseded by the
+                        addendum -- rider is a vestigial, unused role (verified: zero
+                        activity, zero references anywhere in app/routes, real delivery
+                        couriers are driver-role + vehicle-type flag instead). Left out
+                        of the sidebar entirely; "Customers" below is role=user only.
                     --}}
                     @can(['view user'])
                         <li class="menu-item {{ request()->routeIs('dashboard.user.*') ? 'active' : '' }}">
                             <a href="{{route('dashboard.user.index')}}" class="menu-link" style="color: #fff !important;">
                                 <div>{{__('Customers')}}</div>
+                            </a>
+                        </li>
+                        <li class="menu-item {{ request()->routeIs('dashboard.restaurant-owners.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.restaurant-owners.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Restaurant Owners')}}</div>
                             </a>
                         </li>
                         <li class="menu-item {{ request()->routeIs('dashboard.admin-users.*') ? 'active' : '' }}">
