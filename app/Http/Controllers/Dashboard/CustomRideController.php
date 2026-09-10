@@ -28,15 +28,19 @@ class CustomRideController extends Controller
     {
         $this->authorize('view custom rides');
         try {
+            // Every driver, not just ones with a registered vehicle -- otherwise
+            // typing a real driver's ID that happens to have no vehicle yet gives
+            // the misleading "No driver found with ID: x". They still can't be
+            // assigned a ride (no vehicle_type_id), but the UI can now say why.
             $drivers = User::with('driverVehicle.vehicleType', 'profile:id,user_id,city')
             ->role('driver')
-            ->whereHas('driverVehicle')
             ->get()
             ->map(function ($driver) {
                 return [
                     'id'     => $driver->id,
                     'name'   => $driver->name,
                     'phone'   => $driver->phone,
+                    'has_vehicle' => (bool) $driver->driverVehicle,
                     'lat'    => $driver->lat ? (float) $driver->lat : null,
                     'lng'    => $driver->lang ? (float) $driver->lang : null,
                     'status' => $driver->driver_status, // busy | available

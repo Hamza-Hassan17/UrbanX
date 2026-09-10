@@ -1197,16 +1197,15 @@
                 // Find driver by ID
                 const driver = drivers.find(d => d.id == enteredId);
 
-                if (driver) {
+                if (driver && !driver.has_vehicle) {
+                    hiddenDriverId.value = '';
+                    showNotification(`Driver ${driver.name} (ID: ${driver.id}) has no registered vehicle -- can't be assigned a ride until they add one.`, 'error');
+                } else if (driver) {
                     // Auto-assign
                     hiddenDriverId.value = driver.id;
                     updateDriverCard(driver);
                     showNotification(`Driver ${driver.name} (ID: ${driver.id}) auto-assigned`, 'success');
                 } else {
-                    // Optional: clear previous selection if invalid ID
-                    // hiddenDriverId.value = '';
-                    // You can also clear the card here if you want
-
                     showNotification(`No driver found with ID: ${enteredId}`, 'error');
                 }
             });
