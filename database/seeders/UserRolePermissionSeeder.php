@@ -221,6 +221,9 @@ class UserRolePermissionSeeder extends Seeder
                 ]);
 
         $superAdminUser->assignRole($superAdminRole);
+        // Stray 'user' role made Super Admin show up in the Customers list and
+        // in Reports activity. No-op once already clean.
+        $superAdminUser->removeRole('user');
 
         $superAdminProfile = $superAdminUser->profile()->firstOrCreate([
             'user_id' => $superAdminUser->id,
@@ -261,6 +264,9 @@ class UserRolePermissionSeeder extends Seeder
                 ]);
 
         $driverUser->assignRole($driverRole);
+        // Clean up stray roles picked up from the old shadowed-variable bug
+        // (driver@gmail.com had 'restaurant' too). No-op once already clean.
+        $driverUser->removeRole('restaurant');
 
         $driverProfile = $driverUser->profile()->firstOrCreate([
             'user_id' => $driverUser->id,
