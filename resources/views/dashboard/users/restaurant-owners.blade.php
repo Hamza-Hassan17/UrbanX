@@ -143,7 +143,7 @@
                                 <td>{{ $user->name }}</td>
                                 <td>{{ $user->username }}</td>
                                 <td>{{ $user->email }}</td>
-                                <td>{{ Str::title(str_replace('-', ' ', $user->getRoleNames()->first())) }}</td>
+                                <td>{{ $user->getRoleNames()->map(fn($r) => Str::title(str_replace('-', ' ', $r)))->implode(', ') }}</td>
                                 <td>{{ $user->created_at->format('Y-m-d') }}</td>
                                 <td>
                                     <span

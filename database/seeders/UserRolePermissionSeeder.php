@@ -132,7 +132,10 @@ class UserRolePermissionSeeder extends Seeder
         $superAdminRole = Role::firstOrCreate(['name' => 'super-admin']); //as super-admin
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
         $driverRole = Role::firstOrCreate(['name' => 'driver']);
-        $driverRole = Role::firstOrCreate(['name' => 'restaurant']);
+        // Was '$driverRole = ...' here -- a copy-paste bug that clobbered the
+        // driver role variable, so the seeded driver@gmail.com test account got
+        // assigned the restaurant role instead of driver further down.
+        $restaurantRole = Role::firstOrCreate(['name' => 'restaurant']);
         $userRole = Role::firstOrCreate(['name' => 'user']);
         $riderRole = Role::firstOrCreate(['name' => 'rider']);
         $dispatcherRole = Role::firstOrCreate(['name' => 'dispatcher']);

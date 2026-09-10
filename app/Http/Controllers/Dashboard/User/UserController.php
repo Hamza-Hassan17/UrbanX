@@ -30,26 +30,22 @@ class UserController extends Controller
     public const ADMIN_PANEL_ROLES = ['super-admin', 'admin', 'dispatcher', 'finance'];
 
     /**
-     * Display a listing of the resource.
-     * This is the platform's end users only (customers, drivers, riders,
-     * restaurants) -- internal staff accounts live on adminUsers() instead,
-     * so the two don't get confused together in one list.
+     * Display a listing of the resource -- the "Customers" tab.
+     * Scoped to role=user only. Drivers, restaurant owners and admin panel
+     * staff each have their own dedicated list (drivers.index /
+     * restaurantOwners() / adminUsers()), so this one is just customers.
      */
     public function index()
     {
         $this->authorize('view user');
         try {
-            $users  = User::with('profile')->whereDoesntHave('roles', function ($q) {
-                $q->whereIn('name', self::ADMIN_PANEL_ROLES);
-            })->get();
+            $users  = User::with('profile')->role('user')->get();
             $totalUsers = $users->count();
             $totalDeactivatedUsers = $users->where('is_active', 'inactive')->count();
             $totalActiveUsers = $users->where('is_active', 'active')->count();
             $totalUnverifiedUsers = $users->whereNull('email_verified_at')->count();
-            $totalArchivedUsers = User::onlyTrashed()->whereDoesntHave('roles', function ($q) {
-                $q->whereIn('name', self::ADMIN_PANEL_ROLES);
-            })->count();
-            $roles = Role::whereNotIn('name', self::ADMIN_PANEL_ROLES)->get();
+            $totalArchivedUsers = User::onlyTrashed()->role('user')->count();
+            $roles = Role::where('name', 'user')->get();
             return view('dashboard.users.index', compact('users', 'totalUsers', 'totalDeactivatedUsers', 'totalActiveUsers', 'totalUnverifiedUsers', 'roles', 'totalArchivedUsers'));
         } catch (\Throwable $th) {
             // Handle the exception
