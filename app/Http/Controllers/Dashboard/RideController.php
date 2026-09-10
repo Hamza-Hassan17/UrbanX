@@ -337,11 +337,11 @@ class RideController extends Controller
             }
 
             // Plain edit of an already-active ride (status / pickup / dropoff /
-            // fare) -- push the new values to the same Firebase node the driver
-            // and passenger apps already watch for live ride updates, and ping
-            // the driver so their screen refreshes. Without this the app keeps
-            // showing whatever it cached when the ride was accepted.
+            // fare) -- push the new values everywhere the apps read ride data
+            // from, and ping the driver. Without this the app keeps showing
+            // whatever it cached when the ride was accepted.
             if (!$assignedDriver && $ride->driver_id && $ride->ride_type === 'ride') {
+                // Node the passenger app + the driver's status flow watch.
                 $this->firebase
                     ->getReference('ride_requests/vehicle_type_' . $ride->vehicle_type_id . '/ride_' . $ride->id)
                     ->update([
@@ -353,6 +353,31 @@ class RideController extends Controller
                         'status' => $ride->status,
                         'updated_at' => now()->toDateTimeString(),
                     ]);
+
+                // The accepted offer is what the driver app's active-ride banner
+                // actually reads (proposed_price -> the "PKR xxx" it shows). Keep
+                // it in step with the edited fare, in the DB and in Firebase.
+                $acceptedOffer = $ride->rideOffers()
+                    ->where('driver_id', $ride->driver_id)
+                    ->where('status', 'accepted')
+                    ->latest()
+                    ->first();
+                if ($acceptedOffer) {
+                    $acceptedOffer->proposed_price = $ride->total_fare;
+                    $acceptedOffer->save();
+
+                    $this->firebase
+                        ->getReference('ride_offers/ride_' . $ride->id . '/offer_' . $acceptedOffer->id)
+                        ->update([
+                            'proposed_price' => $ride->total_fare,
+                            'pickup_latitude' => $ride->pickup_latitude,
+                            'pickup_longitude' => $ride->pickup_longitude,
+                            'dropoff_latitude' => $ride->dropoff_latitude,
+                            'dropoff_longitude' => $ride->dropoff_longitude,
+                            'status' => $ride->status,
+                            'updated_at' => now()->toDateTimeString(),
+                        ]);
+                }
 
                 if ($ride->driver) {
                     app('notificationService')->notifyUsers(
