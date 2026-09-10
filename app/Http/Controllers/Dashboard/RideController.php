@@ -106,6 +106,12 @@ class RideController extends Controller
             $this->authorize('assign ride');
         }
 
+        // Editing the fare is a separate capability again -- 'update ride' lets
+        // you touch status/pickup/dropoff, but not the money.
+        if ($request->filled('total_fare')) {
+            $this->authorize('edit ride payment');
+        }
+
         $wantsJson = $request->wantsJson();
 
         $validator = Validator::make($request->all(), [
@@ -117,6 +123,7 @@ class RideController extends Controller
             'dropoff_longitude' => 'nullable|string',
             'driver_id' => 'nullable|exists:users,id',
             'eta_minutes' => 'nullable|integer|min:0',
+            'total_fare' => 'nullable|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -145,6 +152,10 @@ class RideController extends Controller
             if ($request->filled('dropoff_latitude') && $request->filled('dropoff_longitude')) {
                 $ride->dropoff_latitude = $request->dropoff_latitude;
                 $ride->dropoff_longitude = $request->dropoff_longitude;
+            }
+
+            if ($request->filled('total_fare')) {
+                $ride->total_fare = $request->total_fare;
             }
 
             $assignedDriver = null;

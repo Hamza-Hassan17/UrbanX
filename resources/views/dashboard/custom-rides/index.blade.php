@@ -1016,7 +1016,7 @@
                                 </td>
                                 <td>
                                     @if(in_array($ride['queue'], ['dispatch', 'booked']))
-                                        <button type="button" class="queue-edit-btn" data-id="{{ $ride['id'] }}" data-status="{{ $ride['status'] }}" data-pickup="{{ $ride['pickup'] }}" data-dropoff="{{ $ride['dropoff'] }}" data-type="{{ $ride['ride_type'] }}" data-queue="{{ $ride['queue'] }}">
+                                        <button type="button" class="queue-edit-btn" data-id="{{ $ride['id'] }}" data-status="{{ $ride['status'] }}" data-pickup="{{ $ride['pickup'] }}" data-dropoff="{{ $ride['dropoff'] }}" data-type="{{ $ride['ride_type'] }}" data-queue="{{ $ride['queue'] }}" data-fare="{{ $ride['fare'] }}">
                                             <i class="fas fa-pen"></i> Edit
                                         </button>
                                     @else
@@ -1074,6 +1074,14 @@
                     <label for="edit_assign_eta">Rider ETA (minutes)</label>
                     <input type="number" id="edit_assign_eta" class="form-control" min="0" placeholder="15">
                 </div>
+                @can('edit ride payment')
+                    <div class="field">
+                        <label for="edit_ride_fare">Ride Amount (Rs)</label>
+                        <input type="number" id="edit_ride_fare" class="form-control" min="0" step="0.01"
+                            placeholder="Leave blank to keep current">
+                        <small class="text-muted" id="edit_ride_fare_current"></small>
+                    </div>
+                @endcan
                 <div class="edit-ride-modal-actions">
                     <button type="button" class="btn btn-label-secondary" id="editRideCancelBtn">Cancel</button>
                     <button type="submit" class="btn btn-primary">Save</button>
@@ -2033,7 +2041,7 @@
                 const rideType = ride.ride_type === 'delivery' ? 'delivery' : 'ride';
                 const typeLabel = rideType === 'delivery' ? 'Delivery' : 'Taxi';
                 const actionsCell = canEdit
-                    ? `<button type="button" class="queue-edit-btn" data-id="${ride.id}" data-status="${ride.status}" data-pickup="${ride.pickup ?? ''}" data-dropoff="${ride.dropoff ?? ''}" data-type="${rideType}" data-queue="${ride.queue}"><i class="fas fa-pen"></i> Edit</button>`
+                    ? `<button type="button" class="queue-edit-btn" data-id="${ride.id}" data-status="${ride.status}" data-pickup="${ride.pickup ?? ''}" data-dropoff="${ride.dropoff ?? ''}" data-type="${rideType}" data-queue="${ride.queue}" data-fare="${ride.fare ?? ''}"><i class="fas fa-pen"></i> Edit</button>`
                     : '--';
                 return `
                     <tr data-queue="${ride.queue}" data-type="${rideType}">
@@ -2136,7 +2144,7 @@
         let editDropoffCoords = null;
         let editAutocompleteDebounce = null;
 
-        function openEditRideModal(rideId, status, pickup, dropoff, type, queue) {
+        function openEditRideModal(rideId, status, pickup, dropoff, type, queue, fare) {
             editRideIdEl.value = rideId;
             editRideStatusEl.value = status;
 
@@ -2146,6 +2154,14 @@
             editDropoffInput.value = '';
             editPickupCurrentEl.textContent = pickup ? `Current: ${pickup}` : '';
             editDropoffCurrentEl.textContent = dropoff ? `Current: ${dropoff}` : '';
+
+            // Fare field only renders for users with 'edit ride payment'.
+            const editRideFareEl = document.getElementById('edit_ride_fare');
+            if (editRideFareEl) {
+                editRideFareEl.value = '';
+                document.getElementById('edit_ride_fare_current').textContent =
+                    (fare !== undefined && fare !== '') ? `Current: Rs ${fare}` : '';
+            }
 
             const canAssignDriver = queue === 'dispatch' && (type === 'ride' || type === 'delivery');
             const isDelivery = type === 'delivery';
@@ -2179,7 +2195,7 @@
         document.getElementById('queue-table-body').addEventListener('click', function (e) {
             const btn = e.target.closest('.queue-edit-btn');
             if (!btn) return;
-            openEditRideModal(btn.dataset.id, btn.dataset.status, btn.dataset.pickup, btn.dataset.dropoff, btn.dataset.type, btn.dataset.queue);
+            openEditRideModal(btn.dataset.id, btn.dataset.status, btn.dataset.pickup, btn.dataset.dropoff, btn.dataset.type, btn.dataset.queue, btn.dataset.fare);
         });
 
         document.getElementById('editRideCancelBtn').addEventListener('click', closeEditRideModal);
@@ -2275,6 +2291,12 @@
                     if (editAssignEtaField.style.display !== 'none' && editAssignEtaInput.value) {
                         payload.eta_minutes = editAssignEtaInput.value;
                     }
+                }
+
+                // Only send a fare if the admin actually typed a new one.
+                const editRideFareEl = document.getElementById('edit_ride_fare');
+                if (editRideFareEl && editRideFareEl.value !== '') {
+                    payload.total_fare = editRideFareEl.value;
                 }
 
                 const response = await fetch(`/dashboard/rides/${rideId}`, {
