@@ -295,7 +295,9 @@ class UserRolePermissionSeeder extends Seeder
             'driver_id' => $driverUser->id,
         ], [
             'driver_id' => $driverUser->id,
-            'vehicle_type_id' => 1,
+            // Was hardcoded to 1 -- crashes the whole seeder on any environment
+            // where vehicle type 1 doesn't exist. Use the first available one.
+            'vehicle_type_id' => \App\Models\VehicleType::value('id') ?? 1,
             'vehicle_name' => 'Toyota Prius',
             'vehicle_make' => 'Toyota',
             'vehicle_model' => 'Prius',
