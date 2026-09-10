@@ -197,6 +197,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('custom-rides', [CustomRideController::class, 'index'])->name('custom-rides.index');
             Route::get('custom-rides/stats', [CustomRideController::class, 'dispatchStats'])->name('custom-rides.stats');
             Route::get('custom-rides/live-tracking', [CustomRideController::class, 'liveTrackingData'])->name('custom-rides.live-tracking');
+            // Was POST /api/request-ride (unauthenticated -- so once requestCustomRide()
+            // got an authorize() check it threw "unauthorized" for everyone). This is
+            // a dashboard action, belongs on a session-authed web route.
+            Route::post('custom-rides', [CustomRideController::class, 'requestCustomRide'])->name('custom-rides.store');
 
             //AnnouncementController Routes
             Route::resource('announcements', AnnoucementController::class);

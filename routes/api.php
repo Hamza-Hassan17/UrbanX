@@ -13,7 +13,6 @@ use App\Http\Controllers\API\Frontend\ProfileController;
 use App\Http\Controllers\API\Frontend\Restaurant\CustomerController;
 use App\Http\Controllers\API\Frontend\Restaurant\DeliveryController;
 use App\Http\Controllers\API\Frontend\Restaurant\RestaurantController;
-use App\Http\Controllers\Dashboard\CustomRideController;
 use App\Http\Controllers\Dashboard\HomeController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -177,7 +176,9 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 Route::post('/calculate-distance-fare', [RideController::class, 'calculateDistanceFare']);
-Route::post('/request-ride', [CustomRideController::class, 'requestCustomRide']);
+// POST /request-ride moved to a session-authed web route
+// (dashboard.custom-rides.store) -- it's a dashboard-only admin action and
+// was never meant to be an unauthenticated public API endpoint.
 // Authentication Routes (Login and Register) for guests
 Route::post('/login', [LoginController::class, 'login_attempt']);
 Route::post('/register', [RegisterController::class, 'register_attempt']);

@@ -1857,7 +1857,7 @@
                 API CALL
                 ====================== */
                 try {
-                    const response = await fetch('/api/request-ride', {
+                    const response = await fetch(@json(route('dashboard.custom-rides.store')), {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
