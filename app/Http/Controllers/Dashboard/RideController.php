@@ -336,6 +336,36 @@ class RideController extends Controller
                 }
             }
 
+            // Plain edit of an already-active ride (status / pickup / dropoff /
+            // fare) -- push the new values to the same Firebase node the driver
+            // and passenger apps already watch for live ride updates, and ping
+            // the driver so their screen refreshes. Without this the app keeps
+            // showing whatever it cached when the ride was accepted.
+            if (!$assignedDriver && $ride->driver_id && $ride->ride_type === 'ride') {
+                $this->firebase
+                    ->getReference('ride_requests/vehicle_type_' . $ride->vehicle_type_id . '/ride_' . $ride->id)
+                    ->update([
+                        'pickup_latitude' => $ride->pickup_latitude,
+                        'pickup_longitude' => $ride->pickup_longitude,
+                        'dropoff_latitude' => $ride->dropoff_latitude,
+                        'dropoff_longitude' => $ride->dropoff_longitude,
+                        'total_fare' => $ride->total_fare,
+                        'status' => $ride->status,
+                        'updated_at' => now()->toDateTimeString(),
+                    ]);
+
+                if ($ride->driver) {
+                    app('notificationService')->notifyUsers(
+                        [$ride->driver],
+                        'Ride Updated',
+                        'The admin has updated the details of your ride.',
+                        'rides',
+                        $ride->id,
+                        'ride_details'
+                    );
+                }
+            }
+
             DB::commit();
 
             if ($wantsJson) {
