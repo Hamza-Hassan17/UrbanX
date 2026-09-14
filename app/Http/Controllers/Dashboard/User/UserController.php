@@ -63,7 +63,7 @@ class UserController extends Controller
      */
     public function adminUsers()
     {
-        $this->authorize('view user');
+        $this->authorize('view admin user');
         try {
             $users = User::with('profile')->whereHas('roles', function ($q) {
                 $q->whereIn('name', self::ADMIN_PANEL_ROLES);

@@ -37,6 +37,12 @@ class UserRolePermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'update archived user']);
         Permission::firstOrCreate(['name' => 'delete archived user']);
 
+        // Split out from 'view user' so Admin Panel Users (managing other admin
+        // accounts) can be gated independently now that it's its own top-level
+        // sidebar item instead of a sub-item inheriting the Users tab's
+        // permission -- per the sidebar restructure spec's own implementation note.
+        Permission::firstOrCreate(['name' => 'view admin user']);
+
         Permission::firstOrCreate(['name' => 'view setting']);
         Permission::firstOrCreate(['name' => 'create setting']);
         Permission::firstOrCreate(['name' => 'update setting']);
@@ -158,6 +164,9 @@ class UserRolePermissionSeeder extends Seeder
         $adminRole->givePermissionTo(['view role']);
         $adminRole->givePermissionTo(['view permission']);
         $adminRole->givePermissionTo(['create user', 'view user', 'update user']);
+        // Preserves Admin's pre-existing ability to see Admin Panel Users (it was
+        // bundled into 'view user' before the split above) -- not a new grant.
+        $adminRole->givePermissionTo(['view admin user']);
         // Users/drivers/restaurants CRUD = Full for Admin (driver/restaurant/
         // archived-user permissions didn't exist on Admin at all before this).
         $adminRole->givePermissionTo(['delete user']);

@@ -39,8 +39,8 @@
         {{-- 2. Live Ops -- omitted: no dispatch-queue/live-tracking/anomaly-alert backend built yet. --}}
 
         {{-- 3. Rides --}}
-        @canany(['view ride', 'view custom rides', 'view live tracking', 'view vehicle type', 'create boost hour', 'view promo code'])
-            <li class="menu-item {{ request()->routeIs('dashboard.rides.*') || request()->routeIs('dashboard.custom-rides.*') || request()->routeIs('dashboard.vehicle-types.*') || request()->routeIs('dashboard.boost-hours.*') || request()->routeIs('dashboard.promo-codes.*') ? 'open' : '' }}">
+        @canany(['view ride', 'view custom rides', 'view live tracking', 'view vehicle type', 'create boost hour', 'view promo code', 'view driver'])
+            <li class="menu-item {{ request()->routeIs('dashboard.rides.*') || request()->routeIs('dashboard.custom-rides.*') || request()->routeIs('dashboard.vehicle-types.*') || request()->routeIs('dashboard.boost-hours.*') || request()->routeIs('dashboard.promo-codes.*') || request()->routeIs('dashboard.drivers.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-steering-wheel"></i>
                     <div>{{__('Rides')}}</div>
@@ -50,6 +50,21 @@
                         <li class="menu-item {{ request()->routeIs('dashboard.rides.*') ? 'active' : '' }}">
                             <a href="{{route('dashboard.rides.index')}}" class="menu-link" style="color: #fff !important;">
                                 <div>{{__('All Rides')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    {{--
+                        Moved here from Users per the sidebar restructure spec --
+                        ride-hailing drivers are a Rides concept. Confirmed in code
+                        that Chauffeur/Rentals has no driver-role tie-in at all
+                        (ChauffeursVehicle/ChauffeursBooking never reference the
+                        driver role), so there's no "same table, two places" case
+                        to also list this under Chauffeur/Rentals.
+                    --}}
+                    @can(['view driver'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.drivers.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.drivers.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Drivers')}}</div>
                             </a>
                         </li>
                     @endcan
@@ -128,8 +143,8 @@
         @endcanany
 
         {{-- 5. Restaurants --}}
-        @canany(['view restaurant', 'view restaurant category', 'view restaurant voucher'])
-            <li class="menu-item {{ request()->routeIs('dashboard.restaurants.*') || request()->routeIs('dashboard.restaurant-categories.*') || request()->routeIs('dashboard.restaurant-vouchers.*') ? 'open' : '' }}">
+        @canany(['view restaurant', 'view restaurant category', 'view restaurant voucher', 'view user'])
+            <li class="menu-item {{ request()->routeIs('dashboard.restaurants.*') || request()->routeIs('dashboard.restaurant-categories.*') || request()->routeIs('dashboard.restaurant-vouchers.*') || request()->routeIs('dashboard.restaurant-owners.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-chef-hat"></i>
                     <div>{{__('Restaurants')}}</div>
@@ -150,6 +165,14 @@
                         </li>
                     @endcan
                     {{-- Orders -- omitted: no standalone dashboard list page exists yet, only an inline update route. --}}
+                    {{-- Moved here from Users per the sidebar restructure spec -- restaurant owner accounts are a Restaurants concept, not a generic Users one. --}}
+                    @can(['view user'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.restaurant-owners.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.restaurant-owners.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Restaurant Owners')}}</div>
+                            </a>
+                        </li>
+                    @endcan
                     @can(['view restaurant voucher'])
                         <li class="menu-item {{ request()->routeIs('dashboard.restaurant-vouchers.*') ? 'active' : '' }}">
                             <a href="{{route('dashboard.restaurant-vouchers.index')}}" class="menu-link" style="color: #fff !important;">
@@ -161,21 +184,16 @@
             </li>
         @endcanany
 
-        {{-- 6. Users --}}
-        @canany(['view driver', 'view user', 'view archived user'])
-            <li class="menu-item {{ request()->routeIs('dashboard.drivers.*') || request()->routeIs('dashboard.user.*') || request()->routeIs('dashboard.admin-users.*') || request()->routeIs('dashboard.restaurant-owners.*') || request()->routeIs('dashboard.archived-user.*') ? 'open' : '' }}">
+        {{-- 6. Users -- scoped to Customers (+ Archived Users) only per the sidebar
+             restructure spec. Drivers moved to Rides, Restaurant Owners moved to
+             Restaurants, Admin Panel Users promoted to its own top-level item below. --}}
+        @canany(['view user', 'view archived user'])
+            <li class="menu-item {{ request()->routeIs('dashboard.user.*') || request()->routeIs('dashboard.archived-user.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-users"></i>
                     <div>{{__('Users')}}</div>
                 </a>
                 <ul class="menu-sub">
-                    @can(['view driver'])
-                        <li class="menu-item {{ request()->routeIs('dashboard.drivers.*') ? 'active' : '' }}">
-                            <a href="{{route('dashboard.drivers.index')}}" class="menu-link" style="color: #fff !important;">
-                                <div>{{__('Drivers')}}</div>
-                            </a>
-                        </li>
-                    @endcan
                     {{--
                         "Riders/Customers" from the original spec was superseded by the
                         addendum -- rider is a vestigial, unused role (verified: zero
@@ -187,16 +205,6 @@
                         <li class="menu-item {{ request()->routeIs('dashboard.user.*') ? 'active' : '' }}">
                             <a href="{{route('dashboard.user.index')}}" class="menu-link" style="color: #fff !important;">
                                 <div>{{__('Customers')}}</div>
-                            </a>
-                        </li>
-                        <li class="menu-item {{ request()->routeIs('dashboard.restaurant-owners.*') ? 'active' : '' }}">
-                            <a href="{{route('dashboard.restaurant-owners.index')}}" class="menu-link" style="color: #fff !important;">
-                                <div>{{__('Restaurant Owners')}}</div>
-                            </a>
-                        </li>
-                        <li class="menu-item {{ request()->routeIs('dashboard.admin-users.*') ? 'active' : '' }}">
-                            <a href="{{route('dashboard.admin-users.index')}}" class="menu-link" style="color: #fff !important;">
-                                <div>{{__('Admin Panel Users')}}</div>
                             </a>
                         </li>
                     @endcan
@@ -211,7 +219,22 @@
             </li>
         @endcanany
 
-        {{-- 7. Reports & Payroll --}}
+        {{--
+            7. Admin Panel Users -- own top-level item per the spec, no longer
+            nested under Users. Now gated by its own 'view admin user' permission
+            instead of inheriting 'view user', since managing other admin accounts
+            is more sensitive than viewing customers.
+        --}}
+        @can(['view admin user'])
+            <li class="menu-item {{ request()->routeIs('dashboard.admin-users.*') ? 'active' : '' }}">
+                <a href="{{ route('dashboard.admin-users.index') }}" class="menu-link" style="color: #fff !important;">
+                    <i class="menu-icon tf-icons ti ti-user-shield"></i>
+                    <div>{{__('Admin Panel Users')}}</div>
+                </a>
+            </li>
+        @endcan
+
+        {{-- 8. Reports & Payroll --}}
         @can(['view report'])
             <li class="menu-item {{ request()->routeIs('dashboard.reports.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
@@ -229,7 +252,7 @@
             </li>
         @endcan
 
-        {{-- 8. Complaints --}}
+        {{-- 9. Complaints --}}
         @can(['create complain'])
             <li class="menu-item {{ request()->routeIs('dashboard.complains.*') ? 'active' : '' }}">
                 <a href="{{ route('dashboard.complains.index') }}" class="menu-link" style="color: #fff !important;">
@@ -239,9 +262,9 @@
             </li>
         @endcan
 
-        {{-- 9. Reviews -- omitted: no dashboard controller/view exists for DriverReview or RestaurantReview yet. --}}
+        {{-- 10. Reviews -- omitted: no dashboard controller/view exists for DriverReview or RestaurantReview yet. --}}
 
-        {{-- 10. Announcements --}}
+        {{-- 11. Announcements --}}
         @can(['view announcement'])
             <li class="menu-item {{ request()->routeIs('dashboard.announcements.*') ? 'active' : '' }}">
                 <a href="{{ route('dashboard.announcements.index') }}" class="menu-link" style="color: #fff !important;">
@@ -251,7 +274,7 @@
             </li>
         @endcan
 
-        {{-- 11. Settings --}}
+        {{-- 12. Settings --}}
         @canany(['view role', 'view permission', 'view setting'])
             <li class="menu-item {{ request()->routeIs('dashboard.roles.*') || request()->routeIs('dashboard.permissions.*') || request()->routeIs('dashboard.setting.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
