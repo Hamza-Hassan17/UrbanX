@@ -840,8 +840,14 @@
                 <div class="field-grid">
                     <div class="field field-full">
                         <label for="driverIdInput"><i class="fas fa-id-card"></i> Driver #ID <span class="shortcut-hint">F4</span></label>
-                        <input type="text" id="driverIdInput" name="driver_id_input" class="form-control"
-                            placeholder="Driver ID" value="{{ $driver->id }}">
+                        <div style="display:flex; gap:6px;">
+                            <input type="text" id="driverIdInput" name="driver_id_input" class="form-control"
+                                placeholder="Driver ID" value="{{ $driver->id }}" style="flex:1;">
+                            <button type="button" id="assignNearestDriverBtn" class="btn btn-outline"
+                                title="Assign nearest available driver to the pickup location">
+                                <i class="fas fa-location-crosshairs"></i> Nearest
+                            </button>
+                        </div>
                     </div>
 
                     <div class="field field-full">
@@ -1210,6 +1216,29 @@
                 }
             });
 
+            // Explicit opt-in alternative to typing an ID -- picks the closest
+            // available, vehicle-equipped driver to the pickup point already set
+            // on the map. Doesn't run automatically so it never silently
+            // overrides a driver ID the operator typed on purpose.
+            const nearestDriverBtn = document.getElementById('assignNearestDriverBtn');
+            if (nearestDriverBtn) {
+                nearestDriverBtn.addEventListener('click', function () {
+                    if (!pickupCoordinates) {
+                        showNotification('Set a pickup location first', 'warning');
+                        return;
+                    }
+                    const nearestDriver = getNearestDriver(pickupCoordinates[0], pickupCoordinates[1]);
+                    if (!nearestDriver) {
+                        showNotification('No available driver with a registered vehicle found nearby', 'error');
+                        return;
+                    }
+                    driverIdInput.value = nearestDriver.id;
+                    hiddenDriverId.value = nearestDriver.id;
+                    updateDriverCard(nearestDriver);
+                    showNotification(`Nearest driver assigned: ${nearestDriver.name} (ID: ${nearestDriver.id})`, 'success');
+                });
+            }
+
             // Optional: also trigger on blur / enter key
             driverIdInput.addEventListener('blur', function () {
                 if (this.value.trim() && !hiddenDriverId.value) {
@@ -1543,6 +1572,7 @@
 
             drivers.forEach(driver => {
                 if (driver.status !== 'available') return; // only available drivers
+                if (!driver.has_vehicle) return; // can't be assigned a ride without one
                 if (!driver.lat || !driver.lng) return;
 
                 // Simple Euclidean distance (approximate)
@@ -1583,14 +1613,6 @@
             }
 
             showNotification('Pickup location set', 'success');
-
-            // --- AUTO-SELECT NEAREST DRIVER ---
-            const nearestDriver = getNearestDriver(lat, lng);
-            if (nearestDriver) {
-                document.getElementById('driver_id').value = nearestDriver.id;
-                updateDriverCard(nearestDriver);
-                showNotification(`Nearest driver selected: ${nearestDriver.name}`, 'info');
-            }
         }
 
         // Update destination location on map
