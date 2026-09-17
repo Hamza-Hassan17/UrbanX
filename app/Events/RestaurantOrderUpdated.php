@@ -3,7 +3,6 @@
 namespace App\Events;
 
 use App\Models\RestaurantOrder;
-use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
@@ -14,8 +13,8 @@ use Illuminate\Queue\SerializesModels;
  * Replaces the old `restaurant_orders/{id}` Firebase RTDB node (`.set()`/`.update()`
  * calls across CustomerController::store(), RestaurantController::acceptOrder()/
  * rejectOrder()/generic status update, and DeliveryController's status + rider-assign
- * updates). Payload mirrors those Firebase writes field-for-field as a migration
- * draft -- confirm with mobile dev before Flutter listener code is finalized.
+ * updates). Payload shape is our own (not a Firebase mirror, per mobile dev) --
+ * confirmed with mobile dev before Flutter listener code is finalized.
  */
 class RestaurantOrderUpdated implements ShouldBroadcastNow
 {
@@ -56,11 +55,18 @@ class RestaurantOrderUpdated implements ShouldBroadcastNow
             'restaurant_id' => $this->order->restaurant_id,
             'customer_id' => $this->order->customer_id,
             'total_price' => (float) $this->order->total_price,
-            'rider_id' => $this->rider['id'] ?? null,
-            'rider_name' => $this->rider['name'] ?? null,
-            'rider_phone' => $this->rider['phone'] ?? null,
-            'rider_rating' => $this->rider['rating'] ?? null,
-            'updated_at' => now()->toDateTimeString(),
+            'rider' => $this->rider ? [
+                'id' => $this->rider['id'],
+                'name' => $this->rider['name'],
+                'phone' => $this->rider['phone'],
+                'rating' => $this->rider['rating'],
+            ] : null,
+            // Named for what it actually is -- the record's last-modified time,
+            // not a precise per-status-transition timestamp. No dedicated
+            // delivered_at/status-history column exists on restaurant_orders to
+            // report anything more specific than that.
+            'order_status_updated_at' => $this->order->updated_at?->toIso8601String()
+                ?? now()->toIso8601String(),
         ];
     }
 }
