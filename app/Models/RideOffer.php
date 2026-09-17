@@ -21,6 +21,12 @@ class RideOffer extends Model
         'expires_at',
     ];
 
+    protected $casts = [
+        'offered_at' => 'datetime',
+        'accepted_at' => 'datetime',
+        'expires_at' => 'datetime',
+    ];
+
     public function ride()
     {
         return $this->belongsTo(Ride::class, 'ride_id');

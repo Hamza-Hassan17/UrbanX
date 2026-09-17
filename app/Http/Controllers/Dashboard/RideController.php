@@ -259,23 +259,12 @@ class RideController extends Controller
                     Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
                 }
 
-                $this->firebase
-                    ->getReference('ride_offers/ride_' . $ride->id . '/offer_' . $rideOffer->id)
-                    ->set([
-                        'offer_id' => $rideOffer->id,
-                        'ride_id' => $ride->id,
-                        'driver_id' => $rideOffer->driver_id,
-                        'driver_name' => $assignedDriver->name,
-                        'driver_email' => $assignedDriver->email,
-                        'driver_phone' => $assignedDriver->phone,
-                        'driver_rating' => round($assignedDriver->driverReviews()->avg('rating'), 1),
-                        'vehicle_type' => $assignedDriver->vehicle->type ?? null,
-                        'proposed_price' => $rideOffer->proposed_price,
-                        'eta_minutes' => $rideOffer->eta_minutes,
-                        'note' => $rideOffer->note,
-                        'status' => $ride->status,
-                        'offered_at' => now()->toDateTimeString(),
-                    ]);
+                try {
+                    broadcast(new \App\Events\RideOfferCreated($rideOffer));
+                    broadcast(new \App\Events\RideOfferStatusUpdated($rideOffer));
+                } catch (\Throwable $e) {
+                    Log::error('RideOffer broadcast failed', ['offer_id' => $rideOffer->id, 'error' => $e->getMessage()]);
+                }
 
                 $assignedRestaurantOrder->status = 'rider_assigned';
                 $assignedRestaurantOrder->save();
@@ -348,17 +337,11 @@ class RideController extends Controller
                     $acceptedOffer->proposed_price = $ride->total_fare;
                     $acceptedOffer->save();
 
-                    $this->firebase
-                        ->getReference('ride_offers/ride_' . $ride->id . '/offer_' . $acceptedOffer->id)
-                        ->update([
-                            'proposed_price' => $ride->total_fare,
-                            'pickup_latitude' => $ride->pickup_latitude,
-                            'pickup_longitude' => $ride->pickup_longitude,
-                            'dropoff_latitude' => $ride->dropoff_latitude,
-                            'dropoff_longitude' => $ride->dropoff_longitude,
-                            'status' => $ride->status,
-                            'updated_at' => now()->toDateTimeString(),
-                        ]);
+                    try {
+                        broadcast(new \App\Events\RideOfferStatusUpdated($acceptedOffer));
+                    } catch (\Throwable $e) {
+                        Log::error('RideOfferStatusUpdated broadcast failed', ['offer_id' => $acceptedOffer->id, 'error' => $e->getMessage()]);
+                    }
                 }
 
                 if ($ride->driver) {

@@ -551,27 +551,29 @@ class RideController extends Controller
                 Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
             }
 
-            $this->firebase
-                ->getReference(
-                    "ride_offers/ride_{$ride->id}/offer_{$rideOffer->id}"
-                )
-                ->update([
-                    'status' => 'accepted',
-                    'ride_id' => $ride->id,
-                    'driver_id' => $rideOffer->driver_id,
-                ]);
+            try {
+                broadcast(new \App\Events\RideOfferStatusUpdated($rideOffer));
+            } catch (\Throwable $e) {
+                Log::error('RideOfferStatusUpdated broadcast failed', ['offer_id' => $rideOffer->id, 'error' => $e->getMessage()]);
+            }
 
-            $offersRef = $this->firebase
-                ->getReference("ride_offers/ride_{$ride->id}")
-                ->getValue();
+            // Reject every other pending offer on this ride -- the old
+            // Firebase code just `.remove()`'d their nodes with nothing to
+            // tell the losing driver why. Reusing the existing 'rejected'
+            // status rather than adding a new enum value for "superseded".
+            $siblingOffers = RideOffer::where('ride_id', $ride->id)
+                ->where('id', '!=', $rideOffer->id)
+                ->where('status', 'pending')
+                ->get();
 
-            if ($offersRef) {
-                foreach ($offersRef as $key => $offer) {
-                    if ($key !== 'offer_'.$rideOffer->id) {
-                        $this->firebase
-                            ->getReference("ride_offers/ride_{$ride->id}/{$key}")
-                            ->remove();
-                    }
+            foreach ($siblingOffers as $siblingOffer) {
+                $siblingOffer->status = 'rejected';
+                $siblingOffer->save();
+
+                try {
+                    broadcast(new \App\Events\RideOfferStatusUpdated($siblingOffer));
+                } catch (\Throwable $e) {
+                    Log::error('RideOfferStatusUpdated broadcast failed', ['offer_id' => $siblingOffer->id, 'error' => $e->getMessage()]);
                 }
             }
 
@@ -621,8 +623,11 @@ class RideController extends Controller
             $rideOffer->status = 'rejected';
             $rideOffer->save();
 
-            $this->firebase->getReference('ride_offers/ride_offer_'.$rideOffer->id.'/status')
-                ->set('rejected');
+            try {
+                broadcast(new \App\Events\RideOfferStatusUpdated($rideOffer));
+            } catch (\Throwable $e) {
+                Log::error('RideOfferStatusUpdated broadcast failed', ['offer_id' => $rideOffer->id, 'error' => $e->getMessage()]);
+            }
 
             $driver = $rideOffer->driver;
             app('notificationService')->notifyUsers(
@@ -672,6 +677,12 @@ class RideController extends Controller
             // Update ride offer status to expired
             $rideOffer->status = 'expired';
             $rideOffer->save();
+
+            try {
+                broadcast(new \App\Events\RideOfferStatusUpdated($rideOffer));
+            } catch (\Throwable $e) {
+                Log::error('RideOfferStatusUpdated broadcast failed', ['offer_id' => $rideOffer->id, 'error' => $e->getMessage()]);
+            }
 
             $driver = $rideOffer->driver;
             app('notificationService')->notifyUsers(

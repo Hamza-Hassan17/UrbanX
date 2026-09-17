@@ -374,22 +374,12 @@ class RideController extends Controller
                     Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
                 }
 
-                $this->firebase
-                    ->getReference('ride_offers/ride_' . $ride->id . '/offer_' . $rideOffer->id)
-                    ->set([
-                        'offer_id' => $rideOffer->id,
-                        'ride_id' => $ride->id,
-                        'driver_id' => $rideOffer->driver_id,
-                        'driver_name' => $rideOffer->driver->name,
-                        'driver_email' => $rideOffer->driver->email,
-                        'driver_phone' => $rideOffer->driver->phone,
-                        'proposed_price' => $rideOffer->proposed_price,
-                        'eta_minutes' => $rideOffer->eta_minutes,
-                        'note' => $rideOffer->note,
-                        'status' => 'accepted',
-                        'offered_at' => now()->toDateTimeString(),
-                        'accepted_at' => now()->toDateTimeString(),
-                    ]);
+                try {
+                    broadcast(new \App\Events\RideOfferCreated($rideOffer));
+                    broadcast(new \App\Events\RideOfferStatusUpdated($rideOffer));
+                } catch (\Throwable $e) {
+                    Log::error('RideOffer broadcast failed', ['offer_id' => $rideOffer->id, 'error' => $e->getMessage()]);
+                }
 
                 DB::commit();
 
@@ -421,25 +411,11 @@ class RideController extends Controller
                 ]
             );
 
-            $this->firebase
-                ->getReference(
-                    'ride_offers/ride_' . $ride->id . '/offer_' . $rideOffer->id
-                )
-                ->set([
-                    'offer_id' => $rideOffer->id,
-                    'ride_id' => $ride->id,
-                    'driver_id' => $rideOffer->driver_id,
-                    'driver_name' => $rideOffer->driver->name,
-                    'driver_email' => $rideOffer->driver->email,
-                    'driver_phone' => $rideOffer->driver->phone,
-                    'driver_rating' => round($rideOffer->driver->driverReviews()->avg('rating'), 1),
-                    'vehicle_type' => $rideOffer->driver->vehicle->type ?? null,
-                    'proposed_price' => $rideOffer->proposed_price,
-                    'eta_minutes' => $rideOffer->eta_minutes,
-                    'note' => $rideOffer->note,
-                    // 'status' => 'pending',
-                    'offered_at' => now()->toDateTimeString(),
-                ]);
+            try {
+                broadcast(new \App\Events\RideOfferCreated($rideOffer));
+            } catch (\Throwable $e) {
+                Log::error('RideOfferCreated broadcast failed', ['offer_id' => $rideOffer->id, 'error' => $e->getMessage()]);
+            }
 
 
             $passenger = $ride->passenger;

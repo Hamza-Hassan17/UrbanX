@@ -2,6 +2,7 @@
 
 use App\Models\RestaurantOrder;
 use App\Models\Ride;
+use App\Models\RideOffer;
 use Illuminate\Support\Facades\Broadcast;
 
 /*
@@ -68,6 +69,30 @@ Broadcast::channel('ride.{rideId}', function ($user, $rideId) {
     }
 
     if ($ride->driver_id && (int) $ride->driver_id === (int) $user->id) {
+        return true;
+    }
+
+    return $user->hasRole(['admin', 'super-admin', 'dispatcher']);
+});
+
+/**
+ * Carries one specific offer's outcome (accepted/rejected/superseded) --
+ * this is the offering driver's own result, not something every subscriber
+ * to the ride needs. Restricted to the driver who made the offer, the ride's
+ * passenger (so they can see who's responding), and staff roles.
+ */
+Broadcast::channel('ride-offer.{offerId}', function ($user, $offerId) {
+    $offer = RideOffer::with('ride')->find($offerId);
+
+    if (!$offer) {
+        return false;
+    }
+
+    if ((int) $offer->driver_id === (int) $user->id) {
+        return true;
+    }
+
+    if ($offer->ride && (int) $offer->ride->passenger_id === (int) $user->id) {
         return true;
     }
 

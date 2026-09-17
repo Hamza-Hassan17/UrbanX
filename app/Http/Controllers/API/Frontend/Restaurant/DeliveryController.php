@@ -262,37 +262,29 @@ class DeliveryController extends Controller
                 Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
             }
 
-            $this->firebase
-                ->getReference(
-                    'ride_offers/ride_' . $ride->id . '/offer_' . $rideOffer->id
-                )
-                ->set([
-                    'offer_id' => $rideOffer->id,
-                    'ride_id' => $ride->id,
-                    'driver_id' => $rideOffer->driver_id,
-                    'driver_name' => $rideOffer->driver->name,
-                    'driver_email' => $rideOffer->driver->email,
-                    'driver_phone' => $rideOffer->driver->phone,
-                    'driver_rating' => round($rideOffer->driver->driverReviews()->avg('rating'), 1),
-                    'vehicle_type' => $rideOffer->driver->vehicle->type ?? null,
-                    'proposed_price' => $rideOffer->proposed_price,
-                    'eta_minutes' => $rideOffer->eta_minutes,
-                    'note' => $rideOffer->note,
-                    'status' => $ride->status,
-                    'offered_at' => now()->toDateTimeString(),
-                ]);
+            try {
+                broadcast(new \App\Events\RideOfferCreated($rideOffer));
+                broadcast(new \App\Events\RideOfferStatusUpdated($rideOffer));
+            } catch (\Throwable $e) {
+                Log::error('RideOffer broadcast failed', ['offer_id' => $rideOffer->id, 'error' => $e->getMessage()]);
+            }
 
-            $offersRef = $this->firebase
-                ->getReference("ride_offers/ride_{$ride->id}")
-                ->getValue();
+            // Reject every other pending offer on this ride, same as the
+            // ride-hailing accept flow -- reusing the existing 'rejected'
+            // status rather than adding a new enum value for "superseded".
+            $siblingOffers = RideOffer::where('ride_id', $ride->id)
+                ->where('id', '!=', $rideOffer->id)
+                ->where('status', 'pending')
+                ->get();
 
-            if ($offersRef) {
-                foreach ($offersRef as $key => $offer) {
-                    if ($key !== 'offer_'.$rideOffer->id) {
-                        $this->firebase
-                            ->getReference("ride_offers/ride_{$ride->id}/{$key}")
-                            ->remove();
-                    }
+            foreach ($siblingOffers as $siblingOffer) {
+                $siblingOffer->status = 'rejected';
+                $siblingOffer->save();
+
+                try {
+                    broadcast(new \App\Events\RideOfferStatusUpdated($siblingOffer));
+                } catch (\Throwable $e) {
+                    Log::error('RideOfferStatusUpdated broadcast failed', ['offer_id' => $siblingOffer->id, 'error' => $e->getMessage()]);
                 }
             }
 
