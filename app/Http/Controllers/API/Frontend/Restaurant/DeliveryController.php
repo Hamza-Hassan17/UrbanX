@@ -304,16 +304,16 @@ class DeliveryController extends Controller
                 $restaurantOrder->save();
 
                 $rider = $rideOffer->driver;
-                $this->firebase
-                    ->getReference('restaurant_orders/' . $restaurantOrder->id)
-                    ->update([
-                        'status'       => 'rider_assigned',
-                        'rider_id'     => $rider->id,
-                        'rider_name'   => $rider->name,
-                        'rider_phone'  => $rider->phone,
-                        'rider_rating' => round($rider->driverReviews()->avg('rating'), 1),
-                        'updated_at'   => now()->toDateTimeString(),
-                    ]);
+                try {
+                    broadcast(new \App\Events\RestaurantOrderUpdated($restaurantOrder, [
+                        'id' => $rider->id,
+                        'name' => $rider->name,
+                        'phone' => $rider->phone,
+                        'rating' => round($rider->driverReviews()->avg('rating'), 1),
+                    ]));
+                } catch (\Throwable $e) {
+                    Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $restaurantOrder->id, 'error' => $e->getMessage()]);
+                }
             }
 
             $passenger = $ride->passenger;
@@ -415,12 +415,11 @@ class DeliveryController extends Controller
             $order->status = $request->status;
             $order->save();
 
-            $this->firebase
-                ->getReference('restaurant_orders/' . $order->id)
-                ->update([
-                    'status'     => $request->status,
-                    'updated_at' => now()->toDateTimeString(),
-                ]);
+            try {
+                broadcast(new \App\Events\RestaurantOrderUpdated($order));
+            } catch (\Throwable $e) {
+                Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+            }
 
             return response()->json([
                 'message' => 'Delivery status updated.',

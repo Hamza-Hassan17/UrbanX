@@ -682,18 +682,15 @@ class CustomerController extends Controller
 
             DB::commit();
 
-            // Notify restaurant app in real time
-            $this->firebase
-                ->getReference('restaurant_orders/' . $order->id)
-                ->set([
-                    'order_id'      => $order->id,
-                    'order_number'  => $order->order_number,
-                    'status'        => 'pending',
-                    'restaurant_id' => $order->restaurant_id,
-                    'customer_id'   => $order->customer_id,
-                    'total_price'   => (float) $order->total_price,
-                    'updated_at'    => now()->toDateTimeString(),
-                ]);
+            // Notify restaurant app in real time. A broadcast failure (e.g. the
+            // websocket server being down) must never fail an order that already
+            // saved successfully -- log and move on, same as Firebase's old
+            // fire-and-forget behavior here.
+            try {
+                broadcast(new \App\Events\RestaurantOrderUpdated($order));
+            } catch (\Throwable $e) {
+                Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+            }
 
             return response()->json([
                 'message' => 'Order placed successfully!',

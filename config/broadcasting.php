@@ -43,7 +43,10 @@ return [
                 'useTLS' => env('PUSHER_SCHEME', 'https') === 'https',
             ],
             'client_options' => [
-                // Guzzle client options: https://docs.guzzlephp.org/en/stable/request-options.html
+                // soketi's cPanel-proxied Node.js app terminates TLS via the
+                // subdomain's own cert; only disable verification if soketi is
+                // reached directly over plain http during local dev.
+                'verify' => env('PUSHER_VERIFY_TLS', true),
             ],
         ],
 

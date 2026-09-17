@@ -292,16 +292,16 @@ class RideController extends Controller
                 $assignedRestaurantOrder->status = 'rider_assigned';
                 $assignedRestaurantOrder->save();
 
-                $this->firebase
-                    ->getReference('restaurant_orders/' . $assignedRestaurantOrder->id)
-                    ->update([
-                        'status' => 'rider_assigned',
-                        'rider_id' => $assignedDriver->id,
-                        'rider_name' => $assignedDriver->name,
-                        'rider_phone' => $assignedDriver->phone,
-                        'rider_rating' => round($assignedDriver->driverReviews()->avg('rating'), 1),
-                        'updated_at' => now()->toDateTimeString(),
-                    ]);
+                try {
+                    broadcast(new \App\Events\RestaurantOrderUpdated($assignedRestaurantOrder, [
+                        'id' => $assignedDriver->id,
+                        'name' => $assignedDriver->name,
+                        'phone' => $assignedDriver->phone,
+                        'rating' => round($assignedDriver->driverReviews()->avg('rating'), 1),
+                    ]));
+                } catch (\Throwable $e) {
+                    Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $assignedRestaurantOrder->id, 'error' => $e->getMessage()]);
+                }
 
                 // acceptRide() doesn't need this -- the rider already knows they just
                 // claimed it. Here, the rider has no way to find out otherwise: the

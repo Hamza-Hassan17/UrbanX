@@ -558,13 +558,13 @@ class RestaurantController extends Controller
             $order->status = 'accepted';
             $order->save();
 
-            // Update customer-facing Firebase node
-            $this->firebase
-                ->getReference('restaurant_orders/' . $order->id)
-                ->update([
-                    'status'     => 'accepted',
-                    'updated_at' => now()->toDateTimeString(),
-                ]);
+            // Notify customer-facing listeners. A broadcast failure must never
+            // fail an order that already saved successfully.
+            try {
+                broadcast(new \App\Events\RestaurantOrderUpdated($order));
+            } catch (\Throwable $e) {
+                Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+            }
 
             // Now make the delivery visible to riders via Firebase
             $ride = Ride::find($order->ride_id);
@@ -642,13 +642,12 @@ class RestaurantController extends Controller
                 Ride::where('id', $order->ride_id)->update(['status' => 'cancelled']);
             }
 
-            // Update customer-facing Firebase node
-            $this->firebase
-                ->getReference('restaurant_orders/' . $order->id)
-                ->update([
-                    'status'     => 'rejected',
-                    'updated_at' => now()->toDateTimeString(),
-                ]);
+            // Notify customer-facing listeners
+            try {
+                broadcast(new \App\Events\RestaurantOrderUpdated($order));
+            } catch (\Throwable $e) {
+                Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+            }
 
             return response()->json([
                 'message' => 'Order rejected successfully',
@@ -699,12 +698,11 @@ class RestaurantController extends Controller
             $order->status = $request->status;
             $order->save();
 
-            $this->firebase
-                ->getReference('restaurant_orders/' . $order->id)
-                ->update([
-                    'status'     => $request->status,
-                    'updated_at' => now()->toDateTimeString(),
-                ]);
+            try {
+                broadcast(new \App\Events\RestaurantOrderUpdated($order));
+            } catch (\Throwable $e) {
+                Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+            }
 
             return response()->json([
                 'message' => 'Order status updated.',
