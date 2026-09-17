@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Events\NotificationEvent;
 use App\Models\Notification;
 use App\Models\UserDevice;
 use App\Services\FirebaseService;
@@ -34,6 +35,12 @@ class NotificationServiceProvider extends ServiceProvider
                             'table_id' => $tableId,
                             'page' => $page,
                         ]);
+
+                        try {
+                            event(new NotificationEvent($notification));
+                        } catch (\Throwable $e) {
+                            Log::error('NotificationEvent broadcast failed', ['notification_id' => $notification->id, 'error' => $e->getMessage()]);
+                        }
 
                         // Get FCM token
                         $userDevice = UserDevice::where('user_id', $user->id)->first();

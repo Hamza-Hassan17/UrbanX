@@ -21,6 +21,14 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 });
 
 /**
+ * The admin panel notification bell -- strictly the owning user's own
+ * notifications channel.
+ */
+Broadcast::channel('notifications.{id}', function ($user, $id) {
+    return (int) $user->id === (int) $id;
+});
+
+/**
  * Carries the customer's order status, the restaurant's own order, and (once
  * assigned) the delivery rider's name/phone/rating -- PII, so only the four
  * parties actually involved may subscribe: the customer who placed it, the

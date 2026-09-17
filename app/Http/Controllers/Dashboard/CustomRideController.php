@@ -13,17 +13,9 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Validation\ValidationException;
-use App\Services\FirebaseService;
 
 class CustomRideController extends Controller
 {
-    protected $firebase;
-
-    public function __construct(FirebaseService $firebase)
-    {
-        $this->firebase = $firebase->getDatabase();
-    }
-
     public function index()
     {
         $this->authorize('view custom rides');

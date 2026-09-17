@@ -10,7 +10,6 @@ use App\Models\RideDriverLog;
 use App\Models\RideExtraCharge;
 use App\Models\RideOffer;
 use App\Models\User;
-use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -18,13 +17,6 @@ use Illuminate\Support\Facades\Validator;
 
 class RideController extends Controller
 {
-    protected $firebase;
-
-    public function __construct(FirebaseService $firebase)
-    {
-        $this->firebase = $firebase->getDatabase();
-    }
-
     /**
      * Display a listing of the resource.
      */

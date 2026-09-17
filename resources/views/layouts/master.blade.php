@@ -88,23 +88,35 @@
         updateTime();
         setInterval(updateTime, 60000);
     </script>
-    {{-- <script src="https://cdn.jsdelivr.net/npm/pusher-js@7.0.3"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.11.1/echo.iife.min.js"></script> --}}
+    <script src="https://cdn.jsdelivr.net/npm/pusher-js@8.4.0/dist/web/pusher.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.16.1/echo.iife.min.js"></script>
     <script>
         $(document).ready(function() {
-            // window.Pusher = Pusher;
-            // window.Echo = new Echo({
-            //     broadcaster: 'pusher',
-            //     key: "{{ env('PUSHER_APP_KEY') }}",
-            //     cluster: "{{ env('PUSHER_APP_CLUSTER') }}",
-            //     forceTLS: true
-            // });
+            window.Pusher = Pusher;
+            window.Echo = new Echo({
+                broadcaster: 'pusher',
+                key: @json(config('broadcasting.connections.pusher.key')),
+                wsHost: @json(config('broadcasting.connections.pusher.options.host')),
+                wsPort: @json((int) config('broadcasting.connections.pusher.options.port')),
+                wssPort: @json((int) config('broadcasting.connections.pusher.options.port')),
+                forceTLS: @json(config('broadcasting.connections.pusher.options.scheme') === 'https'),
+                enabledTransports: ['ws', 'wss'],
+                disableStats: true,
+                cluster: @json(config('broadcasting.connections.pusher.options.cluster', 'mt1')),
+                authEndpoint: @json(url('/broadcasting/auth')),
+                auth: {
+                    headers: {
+                        'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content'),
+                    },
+                },
+            });
 
-            // window.Echo.private(`notifications.${@php echo auth()->user()->id;@endphp}`)
-            // .listen('NotificationEvent', (e) => {
-            //     console.log('New Notification:', e);
-            //     fetchNotifications(); // Refresh the notification list
-            // });
+            @auth
+            window.Echo.private(@json('notifications.' . auth()->id()))
+                .listen('NotificationEvent', (e) => {
+                    fetchNotifications();
+                });
+            @endauth
 
             const notificationDropdown = $('.dropdown-notifications-list ul');
             const markAllAsReadButton = $('.dropdown-notifications-all');

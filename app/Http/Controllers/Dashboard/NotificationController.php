@@ -186,7 +186,6 @@ class NotificationController extends Controller
         try {
             $notification = Notification::findOrFail($id);
             $notification->delete();
-            // event(new NotificationEvent($notification));
             return response()->json([
                 'success' => true,
                 'status' => 'success'
