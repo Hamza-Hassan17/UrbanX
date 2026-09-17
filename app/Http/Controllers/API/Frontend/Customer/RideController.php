@@ -373,24 +373,11 @@ class RideController extends Controller
             $ride->ride_type = 'ride';
             $ride->save();
 
-            $this->firebase->getReference('ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id)
-                ->set([
-                    'ride_id' => $ride->id,
-                    'passenger_id' => $ride->passenger_id,
-                    'vehicle_type_id' => $ride->vehicle_type_id,
-                    'pickup_latitude' => $ride->pickup_latitude,
-                    'pickup_longitude' => $ride->pickup_longitude,
-                    'dropoff_latitude' => $ride->dropoff_latitude,
-                    'dropoff_longitude' => $ride->dropoff_longitude,
-                    'distance_km' => $ride->distance_km,
-                    'duration_minutes' => $ride->duration_minutes,
-                    'subtotal' => $ride->subtotal,
-                    'discount_amount' => $ride->discount_amount,
-                    'total_fare' => $ride->total_fare,
-                    'status' => $ride->status,
-                    'ride_type' => $ride->ride_type,
-                    'requested_at' => $ride->requested_at->toDateTimeString(),
-                ]);
+            try {
+                broadcast(new \App\Events\RideStatusUpdated($ride));
+            } catch (\Throwable $e) {
+                Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+            }
 
             return response()->json([
                 'ride_id' => $ride->id,
@@ -558,11 +545,11 @@ class RideController extends Controller
                 'accepted_at' => now(),
             ]);
 
-            $this->firebase
-                ->getReference(
-                    'ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id
-                )
-                ->remove();
+            try {
+                broadcast(new \App\Events\RideStatusUpdated($ride));
+            } catch (\Throwable $e) {
+                Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+            }
 
             $this->firebase
                 ->getReference(
@@ -746,8 +733,11 @@ class RideController extends Controller
             $ride->status_updated_by_role = 'passenger';
             $ride->save();
 
-            $this->firebase->getReference('ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id.'/status')
-                ->set('cancelled');
+            try {
+                broadcast(new \App\Events\RideStatusUpdated($ride));
+            } catch (\Throwable $e) {
+                Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+            }
 
             // Notify the driver if assigned
             if ($ride->driver_id) {

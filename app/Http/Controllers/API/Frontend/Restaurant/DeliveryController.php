@@ -256,11 +256,11 @@ class DeliveryController extends Controller
                 ]
             );
 
-            $this->firebase
-                ->getReference(
-                    'ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id
-                )
-                ->remove();
+            try {
+                broadcast(new \App\Events\RideStatusUpdated($ride));
+            } catch (\Throwable $e) {
+                Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+            }
 
             $this->firebase
                 ->getReference(

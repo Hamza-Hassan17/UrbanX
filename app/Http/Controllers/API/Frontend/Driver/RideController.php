@@ -368,9 +368,11 @@ class RideController extends Controller
                 $ride->accepted_at = now();
                 $ride->save();
 
-                $this->firebase
-                    ->getReference('ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id)
-                    ->remove();
+                try {
+                    broadcast(new \App\Events\RideStatusUpdated($ride));
+                } catch (\Throwable $e) {
+                    Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+                }
 
                 $this->firebase
                     ->getReference('ride_offers/ride_' . $ride->id . '/offer_' . $rideOffer->id)
@@ -542,15 +544,12 @@ class RideController extends Controller
                 'ride_details'
             );
 
-            // 🔥 Update status in Firebase so passenger can see live
-            $this->firebase
-                ->getReference('ride_requests/vehicle_type_'.$ride->vehicle_type_id.'/ride_'.$ride->id)
-                ->update([
-                    'status' => $ride->status,
-                    'started_at' => $ride->started_at ? \Carbon\Carbon::parse($ride->started_at)->toDateTimeString() : null,
-                    'completed_at' => $ride->completed_at ? \Carbon\Carbon::parse($ride->completed_at)->toDateTimeString() : null,
-                    'updated_at' => now()->toDateTimeString(),
-                ]);
+            // Update status so the passenger can see live
+            try {
+                broadcast(new \App\Events\RideStatusUpdated($ride));
+            } catch (\Throwable $e) {
+                Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+            }
 
 
             return response()->json([

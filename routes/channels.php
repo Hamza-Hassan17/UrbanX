@@ -50,3 +50,26 @@ Broadcast::channel('restaurant-order.{orderId}', function ($user, $orderId) {
 
     return $user->hasRole(['admin', 'super-admin', 'dispatcher']);
 });
+
+/**
+ * Carries the ride's live status (and, once assigned, driver_id) for the
+ * passenger to watch while requesting/riding. Restricted to the passenger,
+ * the assigned driver, and staff roles.
+ */
+Broadcast::channel('ride.{rideId}', function ($user, $rideId) {
+    $ride = Ride::find($rideId);
+
+    if (!$ride) {
+        return false;
+    }
+
+    if ((int) $ride->passenger_id === (int) $user->id) {
+        return true;
+    }
+
+    if ($ride->driver_id && (int) $ride->driver_id === (int) $user->id) {
+        return true;
+    }
+
+    return $user->hasRole(['admin', 'super-admin', 'dispatcher']);
+});

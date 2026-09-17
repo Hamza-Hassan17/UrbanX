@@ -214,28 +214,14 @@ class RideController extends Controller
             $ride->save();
 
             if ($assignedDriver && $ride->ride_type === 'ride') {
-                // Same discovery pipeline the driver app already listens to, mirroring
-                // CustomRideController::requestCustomRide()'s admin-assign branch.
-                $this->firebase
-                    ->getReference('ride_requests/vehicle_type_' . $ride->vehicle_type_id . '/ride_' . $ride->id)
-                    ->set([
-                        'ride_id' => $ride->id,
-                        'passenger_id' => $ride->passenger_id,
-                        'driver_id' => $ride->driver_id,
-                        'vehicle_type_id' => $ride->vehicle_type_id,
-                        'pickup_latitude' => $ride->pickup_latitude,
-                        'pickup_longitude' => $ride->pickup_longitude,
-                        'dropoff_latitude' => $ride->dropoff_latitude,
-                        'dropoff_longitude' => $ride->dropoff_longitude,
-                        'distance_km' => $ride->distance_km,
-                        'duration_minutes' => $ride->duration_minutes,
-                        'subtotal' => $ride->subtotal,
-                        'discount_amount' => $ride->discount_amount,
-                        'total_fare' => $ride->total_fare,
-                        'status' => $ride->status,
-                        'ride_type' => $ride->ride_type,
-                        'requested_at' => optional($ride->requested_at)->toDateTimeString(),
-                    ]);
+                // Drivers discover new rides via getLatestRides() polling MySQL
+                // directly, not via this broadcast -- this is purely a "current
+                // state" push for the passenger watching their own ride.
+                try {
+                    broadcast(new \App\Events\RideStatusUpdated($ride));
+                } catch (\Throwable $e) {
+                    Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+                }
 
                 app('notificationService')->notifyUsers(
                     [$assignedDriver],
@@ -267,9 +253,11 @@ class RideController extends Controller
                     ['action' => 'sent', 'note' => 'Delivery assigned by admin']
                 );
 
-                $this->firebase
-                    ->getReference('ride_requests/vehicle_type_' . $ride->vehicle_type_id . '/ride_' . $ride->id)
-                    ->remove();
+                try {
+                    broadcast(new \App\Events\RideStatusUpdated($ride));
+                } catch (\Throwable $e) {
+                    Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+                }
 
                 $this->firebase
                     ->getReference('ride_offers/ride_' . $ride->id . '/offer_' . $rideOffer->id)
@@ -341,18 +329,12 @@ class RideController extends Controller
             // from, and ping the driver. Without this the app keeps showing
             // whatever it cached when the ride was accepted.
             if (!$assignedDriver && $ride->driver_id && $ride->ride_type === 'ride') {
-                // Node the passenger app + the driver's status flow watch.
-                $this->firebase
-                    ->getReference('ride_requests/vehicle_type_' . $ride->vehicle_type_id . '/ride_' . $ride->id)
-                    ->update([
-                        'pickup_latitude' => $ride->pickup_latitude,
-                        'pickup_longitude' => $ride->pickup_longitude,
-                        'dropoff_latitude' => $ride->dropoff_latitude,
-                        'dropoff_longitude' => $ride->dropoff_longitude,
-                        'total_fare' => $ride->total_fare,
-                        'status' => $ride->status,
-                        'updated_at' => now()->toDateTimeString(),
-                    ]);
+                // Notify the passenger app + the driver's status flow watch.
+                try {
+                    broadcast(new \App\Events\RideStatusUpdated($ride));
+                } catch (\Throwable $e) {
+                    Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+                }
 
                 // The accepted offer is what the driver app's active-ride banner
                 // actually reads (proposed_price -> the "PKR xxx" it shows). Keep

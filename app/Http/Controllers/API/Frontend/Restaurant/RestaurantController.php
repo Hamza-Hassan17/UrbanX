@@ -566,31 +566,19 @@ class RestaurantController extends Controller
                 Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
             }
 
-            // Now make the delivery visible to riders via Firebase
+            // Drivers discover new/available rides via getLatestRides() polling
+            // MySQL directly (Driver\RideController), not via this broadcast --
+            // this is purely a "current state" push for the customer watching
+            // their own ride, matching what the old Firebase write did in
+            // practice despite its comment.
             $ride = Ride::find($order->ride_id);
 
             if ($ride) {
-                $this->firebase
-                    ->getReference('ride_requests/vehicle_type_' . $ride->vehicle_type_id . '/ride_' . $ride->id)
-                    ->set([
-                        'ride_id'            => $ride->id,
-                        'passenger_id'       => $ride->passenger_id,
-                        'vehicle_type_id'    => $ride->vehicle_type_id,
-                        'pickup_latitude'    => $ride->pickup_latitude,
-                        'pickup_longitude'   => $ride->pickup_longitude,
-                        'dropoff_latitude'   => $ride->dropoff_latitude,
-                        'dropoff_longitude'  => $ride->dropoff_longitude,
-                        'distance_km'        => $ride->distance_km,
-                        'duration_minutes'   => $ride->duration_minutes,
-                        'subtotal'           => $ride->subtotal,
-                        'discount_amount'    => $ride->discount_amount,
-                        'total_fare'         => $ride->total_fare,
-                        'status'             => $ride->status,
-                        'ride_type'          => $ride->ride_type,
-                        'requested_at'       => $ride->requested_at
-                            ? \Carbon\Carbon::parse($ride->requested_at)->toDateTimeString()
-                            : now()->toDateTimeString(),
-                    ]);
+                try {
+                    broadcast(new \App\Events\RideStatusUpdated($ride));
+                } catch (\Throwable $e) {
+                    Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+                }
             }
 
             return response()->json([
