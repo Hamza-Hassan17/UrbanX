@@ -161,19 +161,20 @@ class CustomRideController extends Controller
                 ->get()
                 ->map(function ($order) {
                     $ride = Ride::find($order->ride_id);
-                    // Real live position, read fresh from Firebase on every poll --
-                    // this is the one part of this feature that's genuinely live.
-                    $location = $this->firebase
-                        ->getReference('restaurant_orders/' . $order->id . '/rider_location')
-                        ->getValue();
-
+                    // Real live position -- rider_latitude/rider_longitude are
+                    // updated on every GPS ping by DeliveryController::
+                    // updateRiderLocation() (see that method's RiderLocationUpdated
+                    // broadcast). A WebSocket push has no queryable "current
+                    // value" the way Firebase RTDB's getValue() did, so this
+                    // dashboard poll reads the persisted last-known position
+                    // straight from the order row instead.
                     return [
                         'order_id' => $order->id,
                         'ride_id' => $order->ride_id,
                         'restaurant_name' => $order->restaurant->name ?? null,
                         'customer_name' => $order->customer->name ?? null,
-                        'lat' => $location['latitude'] ?? null,
-                        'lng' => $location['longitude'] ?? null,
+                        'lat' => $order->rider_latitude !== null ? (float) $order->rider_latitude : null,
+                        'lng' => $order->rider_longitude !== null ? (float) $order->rider_longitude : null,
                         'pickup' => $ride ? $ride->pickup_latitude . ', ' . $ride->pickup_longitude : null,
                         'dropoff' => $ride ? $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude : null,
                         'status' => $order->status,

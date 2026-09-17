@@ -463,13 +463,16 @@ class DeliveryController extends Controller
                 ], Response::HTTP_FORBIDDEN);
             }
 
-            $this->firebase
-                ->getReference('restaurant_orders/' . $request->order_id . '/rider_location')
-                ->set([
-                    'latitude'   => (float) $request->latitude,
-                    'longitude'  => (float) $request->longitude,
-                    'updated_at' => now()->toDateTimeString(),
-                ]);
+            $order->rider_latitude = $request->latitude;
+            $order->rider_longitude = $request->longitude;
+            $order->rider_location_updated_at = now();
+            $order->save();
+
+            try {
+                broadcast(new \App\Events\RiderLocationUpdated($order));
+            } catch (\Throwable $e) {
+                Log::error('RiderLocationUpdated broadcast failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+            }
 
             return response()->json([
                 'message' => 'Location updated.'

@@ -23,10 +23,17 @@ class RestaurantOrder extends Model
         'status',
         'delivery_lat',
         'delivery_lang',
+        'rider_latitude',
+        'rider_longitude',
+        'rider_location_updated_at',
         'rider_note',
         'payment_method',
         'payment_status',
         'ride_id',
+    ];
+
+    protected $casts = [
+        'rider_location_updated_at' => 'datetime',
     ];
 
     public function restaurant()
