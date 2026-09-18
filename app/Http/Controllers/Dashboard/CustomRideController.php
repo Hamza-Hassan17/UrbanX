@@ -120,12 +120,20 @@ class CustomRideController extends Controller
         try {
             $activeRideStatuses = ['accepted', 'en_route', 'arrived', 'started'];
 
+            // Open anomalies keyed by ride_id, fetched once rather than
+            // per-row -- Live Ops brief Task 4 (red-flag wrong-direction /
+            // stale-GPS drivers).
+            $openAnomaliesByRide = \App\Models\RideAnomaly::open()
+                ->get()
+                ->groupBy('ride_id')
+                ->map(fn ($group) => $group->pluck('type')->values());
+
             $activeRides = Ride::with(['driver:id,name,phone,lat,lang', 'passenger:id,name,phone'])
                 ->where('ride_type', 'ride')
                 ->whereIn('status', $activeRideStatuses)
                 ->whereNotNull('driver_id')
                 ->get()
-                ->map(function ($ride) {
+                ->map(function ($ride) use ($openAnomaliesByRide) {
                     return [
                         'ride_id' => $ride->id,
                         'driver_id' => $ride->driver_id,
@@ -140,6 +148,7 @@ class CustomRideController extends Controller
                         'dropoff' => $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude,
                         'status' => $ride->status,
                         'ride_type' => 'ride',
+                        'anomalies' => $openAnomaliesByRide->get($ride->id, collect())->values(),
                     ];
                 })
                 ->filter(fn ($r) => $r['lat'] && $r['lng'])
@@ -151,7 +160,7 @@ class CustomRideController extends Controller
                 ->whereIn('status', $activeOrderStatuses)
                 ->whereNotNull('ride_id')
                 ->get()
-                ->map(function ($order) {
+                ->map(function ($order) use ($openAnomaliesByRide) {
                     $ride = Ride::find($order->ride_id);
                     // Real live position -- rider_latitude/rider_longitude are
                     // updated on every GPS ping by DeliveryController::
@@ -171,6 +180,7 @@ class CustomRideController extends Controller
                         'dropoff' => $ride ? $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude : null,
                         'status' => $order->status,
                         'ride_type' => 'delivery',
+                        'anomalies' => $order->ride_id ? $openAnomaliesByRide->get($order->ride_id, collect())->values() : collect(),
                     ];
                 })
                 ->filter(fn ($d) => $d['lat'] && $d['lng'])

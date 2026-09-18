@@ -64,6 +64,12 @@
             width: 16px;
         }
 
+        @keyframes anomaly-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6); }
+            70% { box-shadow: 0 0 0 12px rgba(220, 38, 38, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+
         /* Top row: form | counts | map */
         .dispatch-toprow {
             display: grid;
@@ -1153,6 +1159,20 @@
             iconSize: [40, 40],
             iconAnchor: [20, 20],
         });
+        // Anomaly (Live Ops Task 4) -- wrong-direction or stale-GPS driver,
+        // shown red and pulsing so it stands out from the normal blue/pink
+        // active markers above.
+        const anomalyIcon = L.divIcon({
+            className: 'custom-div-icon',
+            html: '<div style="background-color: #fee2e2; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 3px solid #dc2626; box-shadow: 0 0 10px rgba(220,38,38,0.7); animation: anomaly-pulse 1.2s infinite;"><i class="fas fa-triangle-exclamation" style="color: #dc2626; font-size: 18px;"></i></div>',
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+        });
+
+        const anomalyLabels = {
+            wrong_direction: 'Wrong direction',
+            stale_gps: 'GPS stalled 4+ min',
+        };
 
         function getDriverIcon(driver) {
             const borderColor = driver.status === 'available' ? '#10b981' : '#f59e0b';
@@ -1357,7 +1377,14 @@
                     if (!matches) return;
                 }
 
-                const marker = L.marker([ride.lat, ride.lng], { icon: activeRideIcon })
+                const hasAnomaly = ride.anomalies && ride.anomalies.length > 0;
+                const anomalyHtml = hasAnomaly
+                    ? `<p style="margin: 8px 0 0 0; font-size: 13px; color: #dc2626; font-weight: 600;">
+                            <i class="fas fa-triangle-exclamation"></i> ${ride.anomalies.map(a => anomalyLabels[a] ?? a).join(', ')}
+                       </p>`
+                    : '';
+
+                const marker = L.marker([ride.lat, ride.lng], { icon: hasAnomaly ? anomalyIcon : activeRideIcon })
                     .bindPopup(`
                         <div style="padding: 10px; min-width: 200px;">
                             <h3 style="margin: 0 0 10px 0; color: #1f2937;">Active Ride #${ride.ride_id}</h3>
@@ -1369,6 +1396,7 @@
                             <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
                                 <i class="fas fa-info-circle"></i> Last known driver position, not continuous GPS.
                             </p>
+                            ${anomalyHtml}
                         </div>
                     `)
                     .addTo(map);
@@ -1381,7 +1409,14 @@
             activeDeliveryMarkers = [];
 
             activeDeliveries.forEach(delivery => {
-                const marker = L.marker([delivery.lat, delivery.lng], { icon: activeDeliveryIcon })
+                const hasAnomaly = delivery.anomalies && delivery.anomalies.length > 0;
+                const anomalyHtml = hasAnomaly
+                    ? `<p style="margin: 8px 0 0 0; font-size: 13px; color: #dc2626; font-weight: 600;">
+                            <i class="fas fa-triangle-exclamation"></i> ${delivery.anomalies.map(a => anomalyLabels[a] ?? a).join(', ')}
+                       </p>`
+                    : '';
+
+                const marker = L.marker([delivery.lat, delivery.lng], { icon: hasAnomaly ? anomalyIcon : activeDeliveryIcon })
                     .bindPopup(`
                         <div style="padding: 10px; min-width: 200px;">
                             <h3 style="margin: 0 0 10px 0; color: #1f2937;">Active Delivery — Order #${delivery.order_id}</h3>
@@ -1393,6 +1428,7 @@
                             <p style="margin: 8px 0 0 0; font-size: 12px; color: #9ca3af;">
                                 <i class="fas fa-satellite-dish"></i> Live position.
                             </p>
+                            ${anomalyHtml}
                         </div>
                     `)
                     .addTo(map);

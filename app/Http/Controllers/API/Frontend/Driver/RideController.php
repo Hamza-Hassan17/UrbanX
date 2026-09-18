@@ -747,4 +747,62 @@ class RideController extends Controller
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
+
+    /**
+     * Continuous GPS ping while a taxi ride is active -- previously the only
+     * write to users.lat/lang happened at login/registration, so a taxi
+     * driver's position on the admin's live-tracking map was a one-time
+     * snapshot, not a real trail. This is the taxi-side counterpart to
+     * DeliveryController::updateRiderLocation(), and feeds
+     * RideAnomalyDetector for wrong-direction / stale-GPS flags. The app
+     * should call this every ~15-30s while status is en_route/started.
+     */
+    public function pingLocation(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'ride_id' => 'required|exists:rides,id',
+            'latitude' => 'required|numeric',
+            'longitude' => 'required|numeric',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $driver = $request->user();
+            $ride = Ride::find($request->ride_id);
+
+            if ((int) $ride->driver_id !== (int) $driver->id) {
+                return response()->json([
+                    'message' => 'You are not assigned to this ride.'
+                ], Response::HTTP_FORBIDDEN);
+            }
+
+            // Keep users.lat/lang current too, since other code (nearby-driver
+            // matching, dispatch map's "last known" fallback) already reads it.
+            $driver->lat = $request->latitude;
+            $driver->lang = $request->longitude;
+            $driver->save();
+
+            app(\App\Services\RideAnomalyDetector::class)->recordPing(
+                $ride,
+                $driver,
+                (float) $request->latitude,
+                (float) $request->longitude
+            );
+
+            return response()->json([
+                'message' => 'Location updated successfully.',
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Ping Location failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
 }

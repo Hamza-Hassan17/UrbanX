@@ -466,6 +466,18 @@ class DeliveryController extends Controller
                 Log::error('RiderLocationUpdated broadcast failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
             }
 
+            if ($order->ride_id) {
+                $ride = Ride::find($order->ride_id);
+                if ($ride) {
+                    app(\App\Services\RideAnomalyDetector::class)->recordPing(
+                        $ride,
+                        $request->user(),
+                        (float) $request->latitude,
+                        (float) $request->longitude
+                    );
+                }
+            }
+
             return response()->json([
                 'message' => 'Location updated.'
             ], Response::HTTP_OK);

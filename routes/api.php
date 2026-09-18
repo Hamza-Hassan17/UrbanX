@@ -93,6 +93,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
         //Ride reject
         Route::post('/reject-ride', [DriverRideController::class, 'rejectRide']);
+
+        //Live GPS ping (taxi rides) -- call every ~15-30s while en_route/started
+        Route::post('/location/ping', [DriverRideController::class, 'pingLocation']);
     });
 
     //Customer Routes
