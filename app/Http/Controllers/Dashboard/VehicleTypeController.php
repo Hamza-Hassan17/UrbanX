@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\VehicleType;
+use App\Models\VehicleTypeIcon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
@@ -35,7 +36,8 @@ class VehicleTypeController extends Controller
     {
         $this->authorize('create vehicle type');
         try {
-            return view('dashboard.vehicle-types.create');
+            $icons = VehicleTypeIcon::orderBy('name')->get();
+            return view('dashboard.vehicle-types.create', compact('icons'));
         } catch (\Throwable $th) {
             Log::error('Vehicle Type Create Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
@@ -101,7 +103,8 @@ class VehicleTypeController extends Controller
         $this->authorize('update vehicle type');
         try {
             $vehicleType = VehicleType::findOrFail($id);
-            return view('dashboard.vehicle-types.edit', compact('vehicleType'));
+            $icons = VehicleTypeIcon::orderBy('name')->get();
+            return view('dashboard.vehicle-types.edit', compact('vehicleType', 'icons'));
         } catch (\Throwable $th) {
             Log::error('vehicle type Edit Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");

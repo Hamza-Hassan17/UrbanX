@@ -24,6 +24,7 @@ use App\Http\Controllers\Dashboard\PromoCodeController;
 use App\Http\Controllers\Dashboard\RideController;
 use App\Http\Controllers\Dashboard\ReportController;
 use App\Http\Controllers\Dashboard\VehicleTypeController;
+use App\Http\Controllers\Dashboard\VehicleTypeIconController;
 use App\Http\Controllers\Dashboard\Restaurant\CategoryController as RestaurantCategoryController;
 use App\Http\Controllers\Dashboard\Restaurant\RestaurantsController;
 use App\Http\Controllers\Dashboard\Restaurant\RestaurantVoucherController;
@@ -175,6 +176,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             //VehicleTypeController Routes
             Route::resource('vehicle-types', VehicleTypeController::class);
             Route::get('vehicle-types/status/{id}', [VehicleTypeController::class, 'updateStatus'])->name('vehicle-types.status.update');
+
+            //Vehicle Type Icon Pool (super-admin only)
+            Route::get('vehicle-type-icons', [VehicleTypeIconController::class, 'index'])->name('vehicle-type-icons.index');
+            Route::post('vehicle-type-icons', [VehicleTypeIconController::class, 'store'])->name('vehicle-type-icons.store');
+            Route::delete('vehicle-type-icons/{id}', [VehicleTypeIconController::class, 'destroy'])->name('vehicle-type-icons.destroy');
 
             //Create Notification
             Route::get('/notifications/create', [NotificationController::class, 'create'])->name('notifications.create');

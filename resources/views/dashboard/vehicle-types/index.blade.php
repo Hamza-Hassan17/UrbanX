@@ -13,12 +13,21 @@
     <div class="container-xxl flex-grow-1 container-p-y">
         <!-- Vehicle Types List Table -->
         <div class="card">
-            <div class="card-header">
-                @canany(['create vehicle type'])
-                    <a href="{{ route('dashboard.vehicle-types.create') }}"
-                        class="add-new btn btn-primary waves-effect waves-light">
-                        <i class="ti ti-plus me-0 me-sm-1 ti-xs"></i><span
-                            class="d-none d-sm-inline-block">{{ __('Add New Vehicle Type') }}</span>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div>
+                    @canany(['create vehicle type'])
+                        <a href="{{ route('dashboard.vehicle-types.create') }}"
+                            class="add-new btn btn-primary waves-effect waves-light">
+                            <i class="ti ti-plus me-0 me-sm-1 ti-xs"></i><span
+                                class="d-none d-sm-inline-block">{{ __('Add New Vehicle Type') }}</span>
+                        </a>
+                    @endcan
+                </div>
+                @canany(['manage vehicle type icons'])
+                    <a href="{{ route('dashboard.vehicle-type-icons.index') }}"
+                        class="btn btn-label-secondary waves-effect">
+                        <i class="ti ti-photo me-0 me-sm-1 ti-xs"></i><span
+                            class="d-none d-sm-inline-block">{{ __('Manage Icons') }}</span>
                     </a>
                 @endcan
             </div>

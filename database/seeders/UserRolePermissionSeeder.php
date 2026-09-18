@@ -67,6 +67,7 @@ class UserRolePermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'create vehicle type']);
         Permission::firstOrCreate(['name' => 'update vehicle type']);
         Permission::firstOrCreate(['name' => 'delete vehicle type']);
+        Permission::firstOrCreate(['name' => 'manage vehicle type icons']);
 
         Permission::firstOrCreate(['name' => 'view chauffeur vehicle']);
         Permission::firstOrCreate(['name' => 'create chauffeur vehicle']);

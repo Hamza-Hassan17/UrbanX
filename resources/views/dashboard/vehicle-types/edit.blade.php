@@ -91,27 +91,26 @@
 
                             <div class="d-flex flex-wrap gap-2">
                                 @php
-                                    $icons = [
-                                        'ev-car.svg',
-                                        'limousine.svg',
-                                        'luxury-car.svg',
-                                        'motorcycle.svg',
-                                        'taxi-4.svg',
-                                        'taxi-7.svg',
-                                    ];
                                     $selectedIcon = str_replace('icons/', '', $vehicleType->icon);
                                 @endphp
 
-                                @foreach ($icons as $ic)
+                                @foreach ($icons as $icon)
+                                    @php $filename = str_replace('icons/', '', $icon->path); @endphp
                                     <div class="icon-option border rounded p-2 text-center
-                                        {{ $selectedIcon == $ic ? 'border-primary' : '' }}"
-                                        data-name="{{ $ic }}" style="cursor:pointer; width:80px;">
+                                        {{ $selectedIcon == $filename ? 'border-primary' : '' }}"
+                                        data-name="{{ $filename }}" style="cursor:pointer; width:80px;">
 
-                                        <img src="{{ asset('icons/' . $ic) }}" class="img-fluid"
-                                            alt="{{ $ic }}">
+                                        <img src="{{ asset($icon->path) }}" class="img-fluid"
+                                            alt="{{ $icon->name }}">
                                     </div>
                                 @endforeach
                             </div>
+                            @canany(['manage vehicle type icons'])
+                                <small class="text-muted d-block mt-1">
+                                    {{ __('Need a different icon?') }}
+                                    <a href="{{ route('dashboard.vehicle-type-icons.index') }}">{{ __('Manage icon pool') }}</a>
+                                </small>
+                            @endcan
 
                             @error('icon')
                                 <span class="invalid-feedback" role="alert">
