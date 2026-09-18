@@ -24,6 +24,7 @@
                             <th>{{ __('City') }}</th>
                             <th>{{ __('Created Date') }}</th>
                             <th>{{ __('Status') }}</th>
+                            <th>{{ __('Verification') }}</th>
                             @canany(['delete driver', 'view driver', 'update driver'])<th>{{ __('Action') }}</th>@endcan
                         </tr>
                     </thead>
@@ -53,6 +54,18 @@
                                 <td>
                                     <span
                                         class="badge me-4 bg-label-{{ $driver->is_active == 'active' ? 'success' : 'danger' }}">{{ ucfirst($driver->is_active) }}</span>
+                                </td>
+                                <td>
+                                    @php $verificationStatus = $driver->driverVerification->status ?? 'not_submitted'; @endphp
+                                    @if ($verificationStatus === 'not_submitted')
+                                        <span class="badge bg-label-secondary">{{ __('Not Submitted') }}</span>
+                                    @elseif ($verificationStatus === 'submitted')
+                                        <span class="badge bg-label-warning">{{ __('Pending') }}</span>
+                                    @elseif ($verificationStatus === 'approved')
+                                        <span class="badge bg-label-success">{{ __('Verified') }}</span>
+                                    @elseif ($verificationStatus === 'rejected')
+                                        <span class="badge bg-label-danger">{{ __('Rejected') }}</span>
+                                    @endif
                                 </td>
                                 @canany(['delete driver', 'view driver', 'update driver'])
                                     <td class="d-flex">

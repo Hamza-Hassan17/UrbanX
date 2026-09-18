@@ -62,9 +62,20 @@
                         to also list this under Chauffeur/Rentals.
                     --}}
                     @can(['view driver'])
-                        <li class="menu-item {{ request()->routeIs('dashboard.drivers.*') ? 'active' : '' }}">
+                        <li class="menu-item {{ request()->routeIs('dashboard.drivers.index') ? 'active' : '' }}">
                             <a href="{{route('dashboard.drivers.index')}}" class="menu-link" style="color: #fff !important;">
                                 <div>{{__('Drivers')}}</div>
+                            </a>
+                        </li>
+                        <li class="menu-item {{ request()->routeIs('dashboard.drivers.pending-verifications') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.drivers.pending-verifications')}}" class="menu-link d-flex justify-content-between align-items-center" style="color: #fff !important;">
+                                <div>{{__('Pending Verifications')}}</div>
+                                @php
+                                    $pendingVerificationCount = \App\Models\DriverVerification::where('status', 'submitted')->count();
+                                @endphp
+                                @if ($pendingVerificationCount > 0)
+                                    <span class="badge bg-warning rounded-pill">{{ $pendingVerificationCount }}</span>
+                                @endif
                             </a>
                         </li>
                     @endcan

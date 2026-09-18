@@ -165,6 +165,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('send-mail/setting', [SettingController::class, 'sendTestMail'])->name('setting.send_test_mail');
 
             // User Dashboard Authentication Routes
+            Route::get('drivers/pending-verifications', [DriverController::class, 'pendingVerifications'])->name('drivers.pending-verifications');
             Route::resource('drivers', DriverController::class);
             Route::post('drivers/{id}/verification/approve', [DriverController::class, 'approveVerification'])->name('drivers.verification.approve');
             Route::post('drivers/{id}/verification/reject', [DriverController::class, 'rejectVerification'])->name('drivers.verification.reject');

@@ -16,12 +16,34 @@ class DriverController extends Controller
     {
         $this->authorize('view driver');
         try {
-            $drivers = User::with('profile:id,user_id,phone_number,city')->role('driver')->get();
+            $drivers = User::with('profile:id,user_id,phone_number,city', 'driverVerification')->role('driver')->get();
             return view('dashboard.drivers.index', compact('drivers'));
         } catch (\Throwable $th) {
             Log::error('Drivers Index Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
             throw $th;
+        }
+    }
+
+    /**
+     * Drivers currently awaiting review -- the "inbox" super-admin checks
+     * for new verification submissions, since there's otherwise no way to
+     * tell who's pending without opening every driver's profile.
+     */
+    public function pendingVerifications()
+    {
+        $this->authorize('view driver');
+        try {
+            $drivers = User::with('profile:id,user_id,phone_number,city', 'driverVerification')
+                ->role('driver')
+                ->whereHas('driverVerification', function ($q) {
+                    $q->where('status', 'submitted');
+                })
+                ->get();
+            return view('dashboard.drivers.pending', compact('drivers'));
+        } catch (\Throwable $th) {
+            Log::error('Pending Verifications Index Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
         }
     }
 
