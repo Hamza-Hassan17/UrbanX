@@ -246,19 +246,27 @@
         @endcan
 
         {{-- 8. Reports & Payroll --}}
-        @can(['view report'])
+        @canany(['view report', 'export payroll'])
             <li class="menu-item {{ request()->routeIs('dashboard.reports.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-report-analytics"></i>
                     <div>{{__('Reports & Payroll')}}</div>
                 </a>
                 <ul class="menu-sub">
-                    <li class="menu-item {{ request()->routeIs('dashboard.reports.*') ? 'active' : '' }}">
-                        <a href="{{route('dashboard.reports.index')}}" class="menu-link" style="color: #fff !important;">
-                            <div>{{__('Operator / Driver Job Reports')}}</div>
-                        </a>
-                    </li>
-                    {{-- Weekly Payroll Export -- omitted: needs real scoping (export format, data source) before building. --}}
+                    @can(['view report'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.reports.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.reports.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Operator / Driver Job Reports')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['export payroll'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.payroll.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.payroll.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Payroll')}}</div>
+                            </a>
+                        </li>
+                    @endcan
                 </ul>
             </li>
         @endcan

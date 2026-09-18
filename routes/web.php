@@ -22,6 +22,7 @@ use App\Http\Controllers\Dashboard\User\UserController;
 use App\Http\Controllers\Dashboard\DriverController;
 use App\Http\Controllers\Dashboard\PromoCodeController;
 use App\Http\Controllers\Dashboard\RideController;
+use App\Http\Controllers\Dashboard\PayrollController;
 use App\Http\Controllers\Dashboard\ReportController;
 use App\Http\Controllers\Dashboard\VehicleTypeController;
 use App\Http\Controllers\Dashboard\VehicleTypeIconController;
@@ -220,6 +221,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             //Operator/Driver Reports
             Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
+
+            //Payroll / Accounting Exports
+            Route::get('payroll', [PayrollController::class, 'index'])->name('payroll.index');
+            Route::get('payroll/export-pdf', [PayrollController::class, 'exportPdf'])->name('payroll.export-pdf');
+            Route::get('payroll/export-excel', [PayrollController::class, 'exportExcel'])->name('payroll.export-excel');
+            Route::post('payroll/bulk-send', [PayrollController::class, 'bulkSend'])->name('payroll.bulk-send');
 
             //Restaurant Categories
             Route::resource('restaurant-categories', RestaurantCategoryController::class);
