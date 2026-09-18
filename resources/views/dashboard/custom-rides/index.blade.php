@@ -2220,15 +2220,21 @@
                     (fare !== undefined && fare !== '') ? `Current: Rs ${fare}` : '';
             }
 
-            const canAssignDriver = queue === 'dispatch' && (type === 'ride' || type === 'delivery');
+            // A cancelled ride can also be reassigned to a different driver
+            // (Live Ops Task 6) -- status is force-set to 'requested' below
+            // when the admin actually picks a driver for it, relaunching it.
+            const isCancelled = queue === 'cancelled';
+            const canAssignDriver = (queue === 'dispatch' || isCancelled) && (type === 'ride' || type === 'delivery');
             const isDelivery = type === 'delivery';
             editAssignDriverSelect.value = '';
             editAssignEtaInput.value = '';
             if (canAssignDriver) {
                 editAssignDriverField.style.display = '';
-                editAssignDriverHint.textContent = isDelivery
-                    ? 'Only delivery-capable drivers are listed for a delivery job.'
-                    : 'Only available for unclaimed rides/jobs.';
+                editAssignDriverHint.textContent = isCancelled
+                    ? 'Reassigning will relaunch this cancelled ride and notify the previous driver it was taken back to base.'
+                    : (isDelivery
+                        ? 'Only delivery-capable drivers are listed for a delivery job.'
+                        : 'Only available for unclaimed rides/jobs.');
                 editAssignEtaField.style.display = isDelivery ? '' : 'none';
                 editAssignDriverSelect.innerHTML = '<option value="">-- Leave unassigned --</option>' +
                     drivers
@@ -2329,9 +2335,16 @@
             submitBtn.innerHTML = 'Saving...';
 
             try {
+                const isReassigningCancelled = editRideStatusEl.value === 'cancelled'
+                    && editAssignDriverField.style.display !== 'none'
+                    && editAssignDriverSelect.value;
+
                 const payload = {
                     ride_id: rideId,
-                    status: editRideStatusEl.value,
+                    // Reassigning a cancelled ride relaunches it -- 'requested'
+                    // is the only status a fresh admin-assignment can start
+                    // from (see the parallel Custom Ride / Assign Trip flow).
+                    status: isReassigningCancelled ? 'requested' : editRideStatusEl.value,
                 };
 
                 // Only include pickup/dropoff if the admin actually picked a new one.

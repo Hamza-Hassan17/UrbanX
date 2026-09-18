@@ -152,14 +152,29 @@ class RideController extends Controller
 
             $assignedDriver = null;
             $assignedRestaurantOrder = null;
+            $bumpedDriver = null;
             if ($request->filled('driver_id')) {
-                if ($ride->driver_id) {
+                // Reassigning a cancelled ride to a different driver (Live Ops
+                // Task 6) is the one case where an existing driver_id is
+                // expected and allowed to be overwritten -- everywhere else,
+                // an already-assigned ride blocks a second assignment as a
+                // race-condition guard. The original driver is notified their
+                // ride was pulled, same as a "taken back to base" message.
+                // getOriginal(), not the live attribute -- $ride->status was
+                // already overwritten to the new status above.
+                $wasCancelled = $ride->getOriginal('status') === 'cancelled';
+
+                if ($ride->driver_id && !$wasCancelled) {
                     DB::rollBack();
                     $message = 'This ride already has a driver assigned.';
                     if ($wantsJson) {
                         return response()->json(['message' => $message], 422);
                     }
                     return redirect()->back()->with('error', $message);
+                }
+
+                if ($wasCancelled && $ride->driver_id && (int) $ride->driver_id !== (int) $request->driver_id) {
+                    $bumpedDriver = User::find($ride->driver_id);
                 }
 
                 // For a delivery job, "claimed" is gated by restaurant_orders.status
@@ -204,6 +219,17 @@ class RideController extends Controller
             $ride->status_updated_by_role = 'admin';
 
             $ride->save();
+
+            if ($bumpedDriver) {
+                app('notificationService')->notifyUsers(
+                    [$bumpedDriver],
+                    'Ride Reassigned',
+                    'This ride has been taken back to base and reassigned to another driver.',
+                    'rides',
+                    $ride->id,
+                    'ride_details'
+                );
+            }
 
             if ($assignedDriver && $ride->ride_type === 'ride') {
                 // Drivers discover new rides via getLatestRides() polling MySQL
