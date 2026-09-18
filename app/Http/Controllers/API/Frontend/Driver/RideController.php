@@ -97,11 +97,9 @@ class RideController extends Controller
         try {
             $driver = $request->user();
 
-            // TEMP: verification gate disabled 2026-09-19, see notifyNearbyDrivers()
-            // for context -- re-enable before shipping.
-            // if ($driver->driverVerification?->status !== 'approved') {
-            //     return response()->json(['rides' => []], 200);
-            // }
+            if ($driver->driverVerification?->status !== 'approved') {
+                return response()->json(['rides' => []], 200);
+            }
 
             // -------------------------
             // Time windows
@@ -468,13 +466,11 @@ class RideController extends Controller
             ], Response::HTTP_BAD_REQUEST);
         }
 
-        // TEMP: verification gate disabled 2026-09-19, see notifyNearbyDrivers()
-        // for context -- re-enable before shipping.
-        // if (auth()->user()->driverVerification?->status !== 'approved') {
-        //     return response()->json([
-        //         'message' => 'Your account is not verified yet.'
-        //     ], Response::HTTP_FORBIDDEN);
-        // }
+        if (auth()->user()->driverVerification?->status !== 'approved') {
+            return response()->json([
+                'message' => 'Your account is not verified yet.'
+            ], Response::HTTP_FORBIDDEN);
+        }
 
         DB::beginTransaction();
 
@@ -563,15 +559,12 @@ class RideController extends Controller
         try {
             $radiusKm = 5;
 
-            // TEMP: verification gate disabled 2026-09-19, see
-            // Customer\RideController::notifyNearbyDrivers() for context --
-            // re-enable before shipping.
             $driverIds = DriverVehicle::where('vehicle_type_id', $ride->vehicle_type_id)
                 ->join('users', 'users.id', '=', 'driver_vehicles.driver_id')
-                // ->join('driver_verifications', function ($join) {
-                //     $join->on('driver_verifications.driver_id', '=', 'driver_vehicles.driver_id')
-                //         ->where('driver_verifications.status', '=', 'approved');
-                // })
+                ->join('driver_verifications', function ($join) {
+                    $join->on('driver_verifications.driver_id', '=', 'driver_vehicles.driver_id')
+                        ->where('driver_verifications.status', '=', 'approved');
+                })
                 ->whereNotNull('users.lat')
                 ->whereNotNull('users.lang')
                 ->where('driver_vehicles.driver_id', '!=', $acceptedByDriverId)
