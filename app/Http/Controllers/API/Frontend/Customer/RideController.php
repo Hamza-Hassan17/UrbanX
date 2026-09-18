@@ -4,6 +4,7 @@ namespace App\Http\Controllers\API\Frontend\Customer;
 
 use App\Http\Controllers\Controller;
 use App\Models\DriverReview;
+use App\Models\DriverVehicle;
 use App\Models\PromoCode;
 use App\Models\RideExtraCharge;
 use App\Models\Ride;
@@ -379,6 +380,8 @@ class RideController extends Controller
                 Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
             }
 
+            $this->notifyNearbyDrivers($ride);
+
             return response()->json([
                 'ride_id' => $ride->id,
                 'message' => 'Ride requested successfully!',
@@ -388,6 +391,49 @@ class RideController extends Controller
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Push-based complement to Driver\RideController::getLatestRides() --
+     * broadcasts to every driver of the matching vehicle type within 5km of
+     * pickup, same distance formula and vehicle-type filter the poll already
+     * uses. This does not replace that endpoint: the driver app must keep
+     * polling as a fallback in case a push is dropped (app backgrounded,
+     * socket reconnecting, etc). A failure here must never fail the ride
+     * request itself, since polling still works without it.
+     */
+    private function notifyNearbyDrivers(Ride $ride): void
+    {
+        try {
+            $radiusKm = 5;
+
+            $driverIds = DriverVehicle::where('vehicle_type_id', $ride->vehicle_type_id)
+                ->join('users', 'users.id', '=', 'driver_vehicles.driver_id')
+                ->whereNotNull('users.lat')
+                ->whereNotNull('users.lang')
+                ->selectRaw("
+                    driver_vehicles.driver_id,
+                    (6371 * acos(
+                        cos(radians(?)) *
+                        cos(radians(users.lat)) *
+                        cos(radians(users.lang) - radians(?)) +
+                        sin(radians(?)) *
+                        sin(radians(users.lat))
+                    )) AS distance
+                ", [
+                    $ride->pickup_latitude,
+                    $ride->pickup_longitude,
+                    $ride->pickup_latitude,
+                ])
+                ->havingRaw('distance <= ?', [$radiusKm])
+                ->pluck('driver_id');
+
+            foreach ($driverIds as $driverId) {
+                broadcast(new \App\Events\NewRideRequested($ride, (int) $driverId));
+            }
+        } catch (\Throwable $e) {
+            Log::error('NewRideRequested broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
         }
     }
 

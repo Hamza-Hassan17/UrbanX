@@ -21,6 +21,16 @@ Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
 });
 
 /**
+ * A driver's own inbox for push-based "new ride requested" notifications
+ * (NewRideRequested). Strictly the owning driver -- never shared, since two
+ * drivers being offered the same ride happens via separate broadcasts, one
+ * per eligible driver, not a shared pool channel.
+ */
+Broadcast::channel('driver.{id}', function ($user, $id) {
+    return (int) $user->id === (int) $id;
+});
+
+/**
  * The admin panel notification bell -- strictly the owning user's own
  * notifications channel.
  */
