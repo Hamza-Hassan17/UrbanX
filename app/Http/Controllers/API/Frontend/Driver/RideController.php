@@ -440,6 +440,145 @@ class RideController extends Controller
         }
     }
 
+    /**
+     * Fixed-price direct-accept: the app is Uber-style, not a bidding
+     * marketplace, so there is no proposed_price/counter-offer step here --
+     * the driver simply claims the ride at the fare already shown to the
+     * passenger at request time. Locks the row so that if two drivers who
+     * both got the NewRideRequested push tap Accept at the same moment,
+     * only the first commits and the second gets a clean "no longer
+     * available" instead of silently overwriting the assignment.
+     */
+    public function acceptRide(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'ride_id' => 'required|exists:rides,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        DB::beginTransaction();
+
+        try {
+            $ride = Ride::where('id', $request->ride_id)->lockForUpdate()->first();
+
+            if (!$ride || $ride->status !== 'requested') {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Ride is no longer available.'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $rideOffer = new RideOffer();
+            $rideOffer->ride_id = $ride->id;
+            $rideOffer->driver_id = auth()->id();
+            $rideOffer->proposed_price = $ride->total_fare;
+            $rideOffer->eta_minutes = 0;
+            $rideOffer->note = 'Direct accept (fixed price)';
+            $rideOffer->offered_at = now();
+            $rideOffer->accepted_at = now();
+            $rideOffer->status = 'accepted';
+            $rideOffer->save();
+
+            $ride->driver_id = auth()->id();
+            $ride->status = 'accepted';
+            $ride->accepted_at = now();
+            $ride->status_updated_by = auth()->id();
+            $ride->status_updated_by_role = 'driver';
+            $ride->save();
+
+            RideDriverLog::updateOrCreate(
+                [
+                    'ride_id' => $ride->id,
+                    'driver_id' => auth()->id(),
+                ],
+                [
+                    'action' => 'accepted',
+                    'note'   => 'Ride accepted by driver',
+                ]
+            );
+
+            DB::commit();
+
+            try {
+                broadcast(new \App\Events\RideStatusUpdated($ride));
+                broadcast(new \App\Events\RideOfferCreated($rideOffer));
+                broadcast(new \App\Events\RideOfferStatusUpdated($rideOffer));
+            } catch (\Throwable $e) {
+                Log::error('Ride accept broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+            }
+
+            $this->notifyRideNoLongerAvailable($ride, auth()->id());
+
+            $passenger = $ride->passenger;
+            app('notificationService')->notifyUsers(
+                [$passenger],
+                'Driver Assigned',
+                'A driver has accepted your ride request.',
+                'rides',
+                $ride->id,
+                'ride_details'
+            );
+
+            return response()->json([
+                'message' => 'Ride accepted successfully.',
+                'ride' => $ride,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            Log::error('API Accept Ride failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Tells the other drivers who received NewRideRequested for this ride
+     * (same vehicle-type + 5km eligibility query used to send it) that it's
+     * been claimed, so their popups dismiss. Best-effort: failure here must
+     * never undo the accept that already committed.
+     */
+    private function notifyRideNoLongerAvailable(Ride $ride, int $acceptedByDriverId): void
+    {
+        try {
+            $radiusKm = 5;
+
+            $driverIds = DriverVehicle::where('vehicle_type_id', $ride->vehicle_type_id)
+                ->join('users', 'users.id', '=', 'driver_vehicles.driver_id')
+                ->whereNotNull('users.lat')
+                ->whereNotNull('users.lang')
+                ->where('driver_vehicles.driver_id', '!=', $acceptedByDriverId)
+                ->selectRaw("
+                    driver_vehicles.driver_id,
+                    (6371 * acos(
+                        cos(radians(?)) *
+                        cos(radians(users.lat)) *
+                        cos(radians(users.lang) - radians(?)) +
+                        sin(radians(?)) *
+                        sin(radians(users.lat))
+                    )) AS distance
+                ", [
+                    $ride->pickup_latitude,
+                    $ride->pickup_longitude,
+                    $ride->pickup_latitude,
+                ])
+                ->havingRaw('distance <= ?', [$radiusKm])
+                ->pluck('driver_id');
+
+            foreach ($driverIds as $driverId) {
+                broadcast(new \App\Events\RideNoLongerAvailable($ride->id, (int) $driverId));
+            }
+        } catch (\Throwable $e) {
+            Log::error('RideNoLongerAvailable broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+        }
+    }
+
     public function rejectRide(Request $request)
     {
         $rideDriverLog = RideDriverLog::where('ride_id', $request->ride_id)
