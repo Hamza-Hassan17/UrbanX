@@ -15,6 +15,7 @@
           "laravel/socialite": "^5.18",
           "laravel/tinker": "^2.8",
           "laravel/ui": "^4.6",
+          "maatwebsite/excel": "^3.1",
           "pusher/pusher-php-server": "^7.3",
           "spatie/laravel-permission": "^6.16",
           "vonage/client": "^4.3",
