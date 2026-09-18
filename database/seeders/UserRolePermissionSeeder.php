@@ -190,7 +190,7 @@ class UserRolePermissionSeeder extends Seeder
         // Edit ride fare -- the RBAC matrix scoped this to Super Admin + Finance,
         // but the product owner asked for Admin to be able to adjust the amount
         // from the Edit Ride modal too. Deliberate departure from the brief.
-        $adminRole->givePermissionTo(['edit ride payment', 'update ride']);
+        $adminRole->givePermissionTo(['edit ride payment', 'update ride', 'assign ride', 'reassign ride']);
         // Complaints & reviews, Announcements = Full for Admin.
         $adminRole->givePermissionTo(['view complain', 'create complain', 'update complain', 'delete complain']);
         $adminRole->givePermissionTo(['view announcement', 'create announcement', 'update announcement', 'delete announcement']);

@@ -96,6 +96,15 @@ class RideController extends Controller
         // as "Something went wrong".
         if ($request->filled('driver_id')) {
             $this->authorize('assign ride');
+
+            // Reassigning a CANCELLED ride's driver (Live Ops Task 6) is a
+            // distinct, more sensitive action than assigning an unclaimed
+            // dispatch-queue ride -- it overrides a completed decision rather
+            // than filling a gap, so it's gated separately.
+            $existingRide = Ride::find($id);
+            if ($existingRide && $existingRide->status === 'cancelled' && $existingRide->driver_id) {
+                $this->authorize('reassign ride');
+            }
         }
 
         // Editing the fare is a separate capability again -- 'update ride' lets
