@@ -410,6 +410,10 @@ class RideController extends Controller
 
             $driverIds = DriverVehicle::where('vehicle_type_id', $ride->vehicle_type_id)
                 ->join('users', 'users.id', '=', 'driver_vehicles.driver_id')
+                ->join('driver_verifications', function ($join) {
+                    $join->on('driver_verifications.driver_id', '=', 'driver_vehicles.driver_id')
+                        ->where('driver_verifications.status', '=', 'approved');
+                })
                 ->whereNotNull('users.lat')
                 ->whereNotNull('users.lang')
                 ->selectRaw("

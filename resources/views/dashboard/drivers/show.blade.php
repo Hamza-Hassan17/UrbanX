@@ -26,6 +26,16 @@
                                 <div class="user-info text-center">
                                     <h5>{{ $driver->name }}</h5>
                                     <span class="badge bg-label-secondary">Driver</span>
+                                    @php $verification = $driver->driverVerification; @endphp
+                                    @if (!$verification || $verification->status === 'not_submitted')
+                                        <span class="badge bg-label-secondary">Not Submitted</span>
+                                    @elseif ($verification->status === 'submitted')
+                                        <span class="badge bg-label-warning">Pending Review</span>
+                                    @elseif ($verification->status === 'approved')
+                                        <span class="badge bg-label-success">Verified</span>
+                                    @elseif ($verification->status === 'rejected')
+                                        <span class="badge bg-label-danger">Rejected</span>
+                                    @endif
                                 </div>
                             </div>
                         </div>
@@ -114,7 +124,7 @@
                                         <th>Plate Number</th>
                                         <td>{{ $driver->driverVehicle->vehicle_plate_number ?? '—' }}</td>
                                     </tr>
-                                    @if ($driver->driverVehicle->vehicle_images)
+                                    @if ($driver->driverVehicle->vehicle_images && json_decode($driver->driverVehicle->vehicle_images, true))
                                         <tr>
                                             <th>Images</th>
                                             <td>
@@ -122,6 +132,25 @@
                                                     <img src="{{ asset('storage/' . $image) }}" alt="Vehicle Image"
                                                         class="rounded border me-2 mb-2" width="100">
                                                 @endforeach
+                                            </td>
+                                        </tr>
+                                    @endif
+                                    @if ($driver->driverVehicle->registration_paper)
+                                        <tr>
+                                            <th>Registration Paper</th>
+                                            <td>
+                                                <img src="{{ asset('storage/' . $driver->driverVehicle->registration_paper) }}"
+                                                    alt="Registration Paper" class="rounded border" width="100">
+                                            </td>
+                                        </tr>
+                                    @endif
+                                    @if ($driver->driverVehicle->vehicle_video)
+                                        <tr>
+                                            <th>Vehicle Video</th>
+                                            <td>
+                                                <video controls width="240" class="rounded border">
+                                                    <source src="{{ asset('storage/' . $driver->driverVehicle->vehicle_video) }}">
+                                                </video>
                                             </td>
                                         </tr>
                                     @endif
@@ -199,8 +228,70 @@
                             <p class="text-muted">No CNIC details available.</p>
                         @endif
 
+                        <hr>
+
+                        {{-- Selfie --}}
+                        <h6 class="fw-bold mt-3">Selfie</h6>
+                        @if ($driver->driverSelfie)
+                            <img src="{{ asset('storage/' . $driver->driverSelfie->picture) }}" alt="Selfie"
+                                class="rounded border" width="100">
+                        @else
+                            <p class="text-muted">No selfie submitted.</p>
+                        @endif
+
                     </div>
                 </div>
+
+                {{-- Verification Review --}}
+                @can(['update driver'])
+                    <div class="card mb-6">
+                        <h5 class="card-header">Verification Review</h5>
+                        <div class="card-body pt-1">
+                            @if ($verification && $verification->status === 'rejected' && $verification->rejection_reason)
+                                <div class="alert alert-danger">
+                                    <strong>Last rejection reason:</strong> {{ $verification->rejection_reason }}
+                                </div>
+                            @endif
+                            <div class="d-flex gap-2">
+                                <form action="{{ route('dashboard.drivers.verification.approve', $driver->id) }}" method="POST">
+                                    @csrf
+                                    <button type="submit" class="btn btn-success"
+                                        {{ !$verification || $verification->status !== 'submitted' ? 'disabled' : '' }}>
+                                        Approve
+                                    </button>
+                                </form>
+                                <button type="button" class="btn btn-danger" data-bs-toggle="modal"
+                                    data-bs-target="#rejectVerificationModal"
+                                    {{ !$verification || $verification->status !== 'submitted' ? 'disabled' : '' }}>
+                                    Reject / Request Resubmission
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="modal fade" id="rejectVerificationModal" tabindex="-1" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <form action="{{ route('dashboard.drivers.verification.reject', $driver->id) }}" method="POST">
+                                @csrf
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Reject Verification</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <label class="form-label">Reason (shown to the driver)</label>
+                                        <textarea name="rejection_reason" class="form-control" rows="3" required
+                                            placeholder="e.g. Vehicle registration paper is unclear, please resubmit."></textarea>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">Cancel</button>
+                                        <button type="submit" class="btn btn-danger">Reject</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                @endcan
             </div>
             <!--/ User Content -->
         </div>

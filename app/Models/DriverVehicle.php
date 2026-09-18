@@ -19,6 +19,8 @@ class DriverVehicle extends Model
         'vehicle_year',
         'vehicle_plate_number',
         'vehicle_images',
+        'registration_paper',
+        'vehicle_video',
     ];
 
     public function driver()

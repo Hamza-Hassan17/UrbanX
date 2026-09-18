@@ -5,7 +5,9 @@ namespace App\Http\Controllers\API\Frontend;
 use App\Http\Controllers\Controller;
 use App\Models\DriverCnic;
 use App\Models\DriverLicense;
+use App\Models\DriverSelfie;
 use App\Models\DriverVehicle;
+use App\Models\DriverVerification;
 use App\Models\Profile;
 use App\Models\VehicleType;
 use App\Models\User;
@@ -83,8 +85,10 @@ class DriverDetailsController extends Controller
             'vehicle_color' => 'nullable|string',
             'vehicle_year' => 'nullable|string',
             'vehicle_plate_number' => 'nullable|string',
-            'vehicle_images' => 'nullable|array',
+            'vehicle_images' => 'required|array|size:4',
             'vehicle_images.*' => 'image|mimes:jpeg,png,jpg,gif,svg|max_size',
+            'registration_paper' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max_size',
+            'vehicle_video' => 'required|mimes:mp4,mov,avi|max_size',
         ]);
 
         if ($validator->fails()) {
@@ -127,6 +131,15 @@ class DriverDetailsController extends Controller
             }
 
             $driverVehicle->vehicle_images = json_encode($images);
+
+            if ($request->hasFile('registration_paper')) {
+                $driverVehicle->registration_paper = $request->file('registration_paper')->store('uploads/vehicle-registration', 'public');
+            }
+
+            if ($request->hasFile('vehicle_video')) {
+                $driverVehicle->vehicle_video = $request->file('vehicle_video')->store('uploads/vehicle-videos', 'public');
+            }
+
             $driverVehicle->save();
 
             return response()->json([
@@ -141,6 +154,8 @@ class DriverDetailsController extends Controller
                     'vehicle_year' => $driverVehicle->vehicle_year,
                     'vehicle_plate_number' => $driverVehicle->vehicle_plate_number,
                     'vehicle_images' => $images,
+                    'registration_paper' => $driverVehicle->registration_paper ? Storage::url($driverVehicle->registration_paper) : null,
+                    'vehicle_video' => $driverVehicle->vehicle_video ? Storage::url($driverVehicle->vehicle_video) : null,
                 ]
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
@@ -449,6 +464,13 @@ class DriverDetailsController extends Controller
 
         try {
             $user = $request->user();
+
+            if ($request->driver_status === 'available' && $user->driverVerification?->status !== 'approved') {
+                return response()->json([
+                    'message' => 'You cannot go online until your verification is approved.',
+                ], Response::HTTP_FORBIDDEN);
+            }
+
             $user->driver_status = $request->driver_status;
             $user->save();
 
@@ -458,6 +480,125 @@ class DriverDetailsController extends Controller
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Update Driver Status failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function updateSelfie(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'picture' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max_size',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $user = $request->user();
+
+            $driverSelfie = DriverSelfie::where('driver_id', $user->id)->first();
+
+            if (!$driverSelfie) {
+                $driverSelfie = new DriverSelfie();
+                $driverSelfie->driver_id = $user->id;
+            }
+
+            $driverSelfie->picture = $request->file('picture')->store('uploads/selfie-images', 'public');
+            $driverSelfie->save();
+
+            return response()->json([
+                'message' => 'Selfie updated successfully',
+                'selfie' => [
+                    'picture' => Storage::url($driverSelfie->picture),
+                ]
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Update Selfie failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Marks the driver's verification as submitted for admin review. Requires
+     * every document (CNIC, license, vehicle incl. registration paper +
+     * video, selfie) to already be uploaded via their own endpoints -- this
+     * endpoint doesn't accept files itself, it just flips the gate once
+     * everything else is in place.
+     */
+    public function submitVerification(Request $request)
+    {
+        try {
+            $user = $request->user();
+
+            $missing = [];
+            if (!$user->driverCnic || !$user->driverCnic->front_picture || !$user->driverCnic->back_picture) {
+                $missing[] = 'cnic';
+            }
+            if (!$user->driverLicense || !$user->driverLicense->front_picture || !$user->driverLicense->back_picture) {
+                $missing[] = 'license';
+            }
+            if (!$user->driverSelfie || !$user->driverSelfie->picture) {
+                $missing[] = 'selfie';
+            }
+            $vehicle = $user->driverVehicle;
+            $vehicleImageCount = $vehicle && $vehicle->vehicle_images ? count(json_decode($vehicle->vehicle_images, true) ?: []) : 0;
+            if (!$vehicle || $vehicleImageCount < 4 || !$vehicle->registration_paper || !$vehicle->vehicle_video) {
+                $missing[] = 'vehicle';
+            }
+
+            if (!empty($missing)) {
+                return response()->json([
+                    'message' => 'Please complete all required documents before submitting.',
+                    'missing' => $missing,
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $verification = DriverVerification::firstOrNew(['driver_id' => $user->id]);
+            $verification->driver_id = $user->id;
+            $verification->status = 'submitted';
+            $verification->rejection_reason = null;
+            $verification->submitted_at = now();
+            $verification->reviewed_by = null;
+            $verification->reviewed_at = null;
+            $verification->save();
+
+            return response()->json([
+                'message' => 'Verification submitted successfully.',
+                'status' => $verification->status,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Submit Verification failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Backs the driver app's "waiting for approval" screen.
+     */
+    public function getVerificationStatus(Request $request)
+    {
+        try {
+            $user = $request->user();
+            $verification = $user->driverVerification;
+
+            return response()->json([
+                'status' => $verification->status ?? 'not_submitted',
+                'rejection_reason' => $verification->rejection_reason ?? null,
+                'submitted_at' => $verification?->submitted_at?->toIso8601String(),
+                'reviewed_at' => $verification?->reviewed_at?->toIso8601String(),
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Get Verification Status failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);

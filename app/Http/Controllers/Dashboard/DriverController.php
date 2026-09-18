@@ -48,12 +48,62 @@ class DriverController extends Controller
     {
         $this->authorize('view driver');
         try {
-            $driver = User::with('driverCnic', 'driverLicense', 'driverVehicle.vehicleType', 'profile')->findOrFail($id);
+            $driver = User::with('driverCnic', 'driverLicense', 'driverSelfie', 'driverVehicle.vehicleType', 'driverVerification', 'profile')->findOrFail($id);
             return view('dashboard.drivers.show', compact('driver'));
         } catch (\Throwable $th) {
             Log::error('Drivers Show Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
             throw $th;
+        }
+    }
+
+    /**
+     * Approve/Reject/Resubmission are the only admin actions on a
+     * verification per the spec -- there is no separate audit-log table,
+     * the driver_verifications row itself is overwritten each cycle
+     * (submitted -> approved|rejected -> re-submitted -> ...).
+     */
+    public function approveVerification(string $id)
+    {
+        $this->authorize('update driver');
+        try {
+            $driver = User::findOrFail($id);
+            $verification = $driver->driverVerification()->firstOrCreate(['driver_id' => $driver->id]);
+            $verification->status = 'approved';
+            $verification->rejection_reason = null;
+            $verification->reviewed_by = auth()->id();
+            $verification->reviewed_at = now();
+            $verification->save();
+
+            return redirect()->back()->with('success', 'Driver verification approved.');
+        } catch (\Throwable $th) {
+            Log::error('Driver Verification Approve Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
+        }
+    }
+
+    public function rejectVerification(Request $request, string $id)
+    {
+        $this->authorize('update driver');
+        $request->validate([
+            'rejection_reason' => 'required|string|max:1000',
+        ]);
+        try {
+            $driver = User::findOrFail($id);
+            $verification = $driver->driverVerification()->firstOrCreate(['driver_id' => $driver->id]);
+            $verification->status = 'rejected';
+            $verification->rejection_reason = $request->rejection_reason;
+            $verification->reviewed_by = auth()->id();
+            $verification->reviewed_at = now();
+            $verification->save();
+
+            $driver->driver_status = 'busy';
+            $driver->save();
+
+            return redirect()->back()->with('success', 'Driver verification rejected.');
+        } catch (\Throwable $th) {
+            Log::error('Driver Verification Reject Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
         }
     }
 

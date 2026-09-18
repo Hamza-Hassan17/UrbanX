@@ -69,6 +69,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/cnic', [DriverDetailsController::class, 'getCNICDetails']);
         Route::post('/cnic/update', [DriverDetailsController::class, 'updateCNICDetails']);
 
+        //Driver Selfie
+        Route::post('/selfie/update', [DriverDetailsController::class, 'updateSelfie']);
+
+        //Driver Verification (KYC)
+        Route::post('/verification/submit', [DriverDetailsController::class, 'submitVerification']);
+        Route::get('/verification/status', [DriverDetailsController::class, 'getVerificationStatus']);
+
         //Ride Offers
         Route::get('/get-rides', [DriverRideController::class, 'getLatestRides']);
         Route::get('/get-single-ride/{ride_id}', [DriverRideController::class, 'getSingleRideDetails']);

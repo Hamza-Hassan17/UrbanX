@@ -165,6 +165,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             // User Dashboard Authentication Routes
             Route::resource('drivers', DriverController::class);
+            Route::post('drivers/{id}/verification/approve', [DriverController::class, 'approveVerification'])->name('drivers.verification.approve');
+            Route::post('drivers/{id}/verification/reject', [DriverController::class, 'rejectVerification'])->name('drivers.verification.reject');
 
             //PromoCode Routes
             Route::resource('promo-codes', PromoCodeController::class);
