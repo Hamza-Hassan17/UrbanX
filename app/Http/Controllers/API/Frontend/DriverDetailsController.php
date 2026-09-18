@@ -465,11 +465,14 @@ class DriverDetailsController extends Controller
         try {
             $user = $request->user();
 
-            if ($request->driver_status === 'available' && $user->driverVerification?->status !== 'approved') {
-                return response()->json([
-                    'message' => 'You cannot go online until your verification is approved.',
-                ], Response::HTTP_FORBIDDEN);
-            }
+            // TEMP: verification gate disabled 2026-09-19, see
+            // Customer\RideController::notifyNearbyDrivers() for context --
+            // re-enable before shipping.
+            // if ($request->driver_status === 'available' && $user->driverVerification?->status !== 'approved') {
+            //     return response()->json([
+            //         'message' => 'You cannot go online until your verification is approved.',
+            //     ], Response::HTTP_FORBIDDEN);
+            // }
 
             $user->driver_status = $request->driver_status;
             $user->save();
