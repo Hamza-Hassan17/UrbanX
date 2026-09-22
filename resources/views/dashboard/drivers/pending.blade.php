@@ -15,7 +15,7 @@
         <div class="card">
             <h5 class="card-header">{{ __('Drivers Awaiting Verification') }}</h5>
             <div class="card-datatable table-responsive">
-                <table class="table border-top custom-datatables">
+                <table class="table border-top {{ $drivers->isNotEmpty() ? 'custom-datatables' : '' }}">
                     <thead>
                         <tr>
                             <th>{{ __('Sr.') }}</th>
