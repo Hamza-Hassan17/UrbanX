@@ -88,7 +88,7 @@ class DriverDetailsController extends Controller
             'vehicle_images' => 'required|array|size:4',
             'vehicle_images.*' => 'image|mimes:jpeg,png,jpg,gif,svg|max_size',
             'registration_paper' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max_size',
-            'vehicle_video' => 'required|mimes:mp4,mov,avi|max_size',
+            'vehicle_video' => 'nullable|mimes:mp4,mov,avi|max_size',
         ]);
 
         if ($validator->fails()) {
@@ -553,7 +553,7 @@ class DriverDetailsController extends Controller
             }
             $vehicle = $user->driverVehicle;
             $vehicleImageCount = $vehicle && $vehicle->vehicle_images ? count(json_decode($vehicle->vehicle_images, true) ?: []) : 0;
-            if (!$vehicle || $vehicleImageCount < 4 || !$vehicle->registration_paper || !$vehicle->vehicle_video) {
+            if (!$vehicle || $vehicleImageCount < 4 || !$vehicle->registration_paper) {
                 $missing[] = 'vehicle';
             }
 
