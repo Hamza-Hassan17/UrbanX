@@ -126,6 +126,7 @@ class RideController extends Controller
             // -------------------------
             $assignedRide = Ride::where('status', 'requested')
                 ->where('driver_id', $driver->id)
+                ->where('requested_at', '>=', $tenMinutesAgo)
                 ->latest('requested_at')
                 ->first();
 
