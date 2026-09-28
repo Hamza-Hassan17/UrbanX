@@ -786,12 +786,16 @@ class RideController extends Controller
      * snapshot, not a real trail. This is the taxi-side counterpart to
      * DeliveryController::updateRiderLocation(), and feeds
      * RideAnomalyDetector for wrong-direction / stale-GPS flags. The app
-     * should call this every ~15-30s while status is en_route/started.
+     * should call this every ~15-30s while status is en_route/started, and
+     * every ~10-15s while online and idle (omit ride_id in that case) --
+     * idle pings drive nearby.drivers for anyone currently searching nearby,
+     * and keep driver-matching's "last known position" fresh instead of
+     * stale from login time.
      */
     public function pingLocation(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'ride_id' => 'required|exists:rides,id',
+            'ride_id' => 'nullable|exists:rides,id',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
             'heading' => 'nullable|numeric|min:0|max:359',
@@ -807,9 +811,9 @@ class RideController extends Controller
 
         try {
             $driver = $request->user();
-            $ride = Ride::find($request->ride_id);
+            $ride = $request->filled('ride_id') ? Ride::find($request->ride_id) : null;
 
-            if ((int) $ride->driver_id !== (int) $driver->id) {
+            if ($ride && (int) $ride->driver_id !== (int) $driver->id) {
                 return response()->json([
                     'message' => 'You are not assigned to this ride.'
                 ], Response::HTTP_FORBIDDEN);
@@ -826,53 +830,64 @@ class RideController extends Controller
             $driver->lang = $longitude;
             $driver->save();
 
-            app(\App\Services\RideAnomalyDetector::class)->recordPing(
-                $ride,
-                $driver,
-                $latitude,
-                $longitude,
-                $heading,
-                $speedKmh
-            );
-
-            // Live position for whoever's watching this ride (rider + admin).
-            broadcast(new \App\Events\DriverLocationUpdated($ride, $latitude, $longitude, $heading, $speedKmh));
-
-            // Auto-detect arrival at pickup so the driver doesn't have to
-            // remember to tap "Arrived" -- mirrors updateRideStatus()'s
-            // en_route -> arrived transition and its notify/broadcast calls.
-            if ($ride->status === 'en_route'
-                && $ride->pickup_latitude !== null
-                && $ride->pickup_longitude !== null
-            ) {
-                $distanceMeters = $this->haversineMeters(
+            if ($ride) {
+                app(\App\Services\RideAnomalyDetector::class)->recordPing(
+                    $ride,
+                    $driver,
                     $latitude,
                     $longitude,
-                    (float) $ride->pickup_latitude,
-                    (float) $ride->pickup_longitude
+                    $heading,
+                    $speedKmh
                 );
 
-                if ($distanceMeters <= 200) {
-                    $ride->status = 'arrived';
-                    $ride->arrived_at = now();
-                    $ride->status_updated_by = $driver->id;
-                    $ride->status_updated_by_role = 'driver';
-                    $ride->save();
+                // Live position for whoever's watching this ride (rider + admin).
+                broadcast(new \App\Events\DriverLocationUpdated($ride, $latitude, $longitude, $heading, $speedKmh));
 
-                    app('notificationService')->notifyUsers(
-                        [$ride->passenger],
-                        'Driver Arrived',
-                        'Your driver has arrived at the pickup location.',
-                        'rides',
-                        $ride->id,
-                        'ride_details'
+                // Auto-detect arrival at pickup so the driver doesn't have to
+                // remember to tap "Arrived" -- mirrors updateRideStatus()'s
+                // en_route -> arrived transition and its notify/broadcast calls.
+                if ($ride->status === 'en_route'
+                    && $ride->pickup_latitude !== null
+                    && $ride->pickup_longitude !== null
+                ) {
+                    $distanceMeters = $this->haversineMeters(
+                        $latitude,
+                        $longitude,
+                        (float) $ride->pickup_latitude,
+                        (float) $ride->pickup_longitude
                     );
 
-                    try {
-                        broadcast(new \App\Events\RideStatusUpdated($ride));
-                    } catch (\Throwable $th) {
-                        Log::error('Broadcast RideStatusUpdated (auto-arrived) failed', ['error' => $th->getMessage()]);
+                    if ($distanceMeters <= 200) {
+                        $ride->status = 'arrived';
+                        $ride->arrived_at = now();
+                        $ride->status_updated_by = $driver->id;
+                        $ride->status_updated_by_role = 'driver';
+                        $ride->save();
+
+                        app('notificationService')->notifyUsers(
+                            [$ride->passenger],
+                            'Driver Arrived',
+                            'Your driver has arrived at the pickup location.',
+                            'rides',
+                            $ride->id,
+                            'ride_details'
+                        );
+
+                        try {
+                            broadcast(new \App\Events\RideStatusUpdated($ride));
+                        } catch (\Throwable $th) {
+                            Log::error('Broadcast RideStatusUpdated (auto-arrived) failed', ['error' => $th->getMessage()]);
+                        }
                     }
+                }
+            } else {
+                // Idle ping (no active ride) -- update nearby.drivers for
+                // anyone currently searching nearby in this driver's vehicle
+                // type, throttled per-ride so a burst of idle pings from many
+                // drivers doesn't spam the channel faster than ~every 8s.
+                $vehicleTypeId = DriverVehicle::where('driver_id', $driver->id)->value('vehicle_type_id');
+                if ($vehicleTypeId) {
+                    $this->broadcastNearbyDriversForSearchingRides($latitude, $longitude, $vehicleTypeId);
                 }
             }
 
@@ -884,6 +899,82 @@ class RideController extends Controller
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Finds any ride currently searching (status='requested', unassigned)
+     * within 5km of this idle ping that wants the same vehicle type, and
+     * (throttled to ~once per 8s per ride, via cache) broadcasts an
+     * anonymized, capped, rounded snapshot of nearby drivers for it.
+     */
+    private function broadcastNearbyDriversForSearchingRides(float $driverLat, float $driverLng, int $vehicleTypeId): void
+    {
+        try {
+            $radiusKm = 5;
+
+            $searchingRides = Ride::where('status', 'requested')
+                ->whereNull('driver_id')
+                ->where('vehicle_type_id', $vehicleTypeId)
+                ->selectRaw("
+                    rides.*,
+                    (6371 * acos(
+                        cos(radians(?)) *
+                        cos(radians(pickup_latitude)) *
+                        cos(radians(pickup_longitude) - radians(?)) +
+                        sin(radians(?)) *
+                        sin(radians(pickup_latitude))
+                    )) AS distance
+                ", [$driverLat, $driverLng, $driverLat])
+                ->havingRaw('distance <= ?', [$radiusKm])
+                ->get();
+
+            foreach ($searchingRides as $ride) {
+                $cacheKey = "nearby_drivers_broadcast_ride_{$ride->id}";
+                if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
+                    continue;
+                }
+                \Illuminate\Support\Facades\Cache::put($cacheKey, true, 8);
+
+                $nearbyDrivers = DriverVehicle::where('vehicle_type_id', $ride->vehicle_type_id)
+                    ->join('users', 'users.id', '=', 'driver_vehicles.driver_id')
+                    ->whereNotNull('users.lat')
+                    ->whereNotNull('users.lang')
+                    ->selectRaw("
+                        users.lat, users.lang,
+                        (6371 * acos(
+                            cos(radians(?)) *
+                            cos(radians(users.lat)) *
+                            cos(radians(users.lang) - radians(?)) +
+                            sin(radians(?)) *
+                            sin(radians(users.lat))
+                        )) AS distance
+                    ", [$ride->pickup_latitude, $ride->pickup_longitude, $ride->pickup_latitude])
+                    ->havingRaw('distance <= ?', [$radiusKm])
+                    ->orderBy('distance')
+                    ->limit(10)
+                    ->get();
+
+                if ($nearbyDrivers->isEmpty()) {
+                    continue;
+                }
+
+                // Straight-line distance / average city speed -- same
+                // fallback formula the brief specifies for when a routing
+                // provider call isn't worth making (this is a coarse,
+                // anonymized estimate, not a per-ride live ETA).
+                $averageSpeedKmh = 30;
+                $nearestEtaMin = max(1, (int) round(($nearbyDrivers->first()->distance / $averageSpeedKmh) * 60));
+
+                $points = $nearbyDrivers->map(fn ($d) => [
+                    'lat' => round((float) $d->lat, 3),
+                    'lng' => round((float) $d->lang, 3),
+                ])->values()->all();
+
+                broadcast(new \App\Events\NearbyDriversUpdated($ride, $points, $nearestEtaMin));
+            }
+        } catch (\Throwable $e) {
+            Log::error('NearbyDriversUpdated broadcast failed', ['error' => $e->getMessage()]);
         }
     }
 
