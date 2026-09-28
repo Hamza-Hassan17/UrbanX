@@ -73,6 +73,51 @@
     </div>
 </div>
 
+@canany(['view driver', 'view support requests'])
+    @php
+        $dashboardPendingVerifications = auth()->user()->can('view driver')
+            ? \App\Models\DriverVerification::where('status', 'submitted')->count()
+            : 0;
+        $dashboardPendingSupportRequests = auth()->user()->can('view support requests')
+            ? \App\Models\SupportRequest::where('status', 'pending')->count()
+            : 0;
+    @endphp
+    @if ($dashboardPendingVerifications > 0 || $dashboardPendingSupportRequests > 0)
+        <div class="row g-4 mt-1">
+            @if ($dashboardPendingVerifications > 0)
+                <div class="col-md-6">
+                    <a href="{{ route('dashboard.drivers.pending-verifications') }}" class="text-decoration-none">
+                        <div class="card border-0 bg-label-warning">
+                            <div class="card-body d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ __('Pending Driver Verifications') }}</h6>
+                                    <small>{{ __('Awaiting KYC document review') }}</small>
+                                </div>
+                                <h3 class="fw-bold mb-0">{{ $dashboardPendingVerifications }}</h3>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            @endif
+            @if ($dashboardPendingSupportRequests > 0)
+                <div class="col-md-6">
+                    <a href="{{ route('dashboard.support-requests.index', ['status' => 'pending']) }}" class="text-decoration-none">
+                        <div class="card border-0 bg-label-info">
+                            <div class="card-body d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="mb-1">{{ __('Pending Support Requests') }}</h6>
+                                    <small>{{ __('Drivers awaiting a response') }}</small>
+                                </div>
+                                <h3 class="fw-bold mb-0">{{ $dashboardPendingSupportRequests }}</h3>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            @endif
+        </div>
+    @endif
+@endcanany
+
 <!-- Charts Row -->
 <div class="row g-4 mt-1">
     <!-- Ride Requests Chart -->

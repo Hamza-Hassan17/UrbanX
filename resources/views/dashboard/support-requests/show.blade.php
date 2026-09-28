@@ -1,0 +1,139 @@
+@extends('layouts.master')
+
+@section('title', __('Support Request'))
+
+@section('breadcrumb-items')
+    <li class="breadcrumb-item"><a href="{{ route('dashboard.support-requests.index') }}">{{ __('Support Requests') }}</a></li>
+    <li class="breadcrumb-item active">#{{ $supportRequest->id }}</li>
+@endsection
+
+@section('content')
+    <div class="container-xxl flex-grow-1 container-p-y">
+        <div class="card mb-4">
+            <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
+                <div>
+                    <h5 class="mb-1">{{ $supportRequest->subject }}</h5>
+                    <small class="text-muted">
+                        {{ __('From') }} {{ $supportRequest->driver->name ?? 'N/A' }}
+                        &middot; {{ $supportRequest->created_at->format('M d, Y h:i A') }}
+                    </small>
+                </div>
+                <div class="d-flex gap-2">
+                    @php
+                        $badgeClass = [
+                            'pending' => 'bg-label-warning',
+                            'approved' => 'bg-label-success',
+                            'rejected' => 'bg-label-danger',
+                            'closed' => 'bg-label-secondary',
+                        ][$supportRequest->status] ?? 'bg-label-secondary';
+                    @endphp
+                    <span id="status-badge" class="badge {{ $badgeClass }} align-self-center">{{ ucfirst($supportRequest->status) }}</span>
+
+                    @can(['manage support requests'])
+                        @if ($supportRequest->status === 'pending')
+                            <form action="{{ route('dashboard.support-requests.approve', $supportRequest->id) }}" method="POST">
+                                @csrf
+                                <button type="submit" class="btn btn-success btn-sm">{{ __('Approve') }}</button>
+                            </form>
+                            <button type="button" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#rejectModal">{{ __('Reject') }}</button>
+                        @elseif ($supportRequest->status === 'approved')
+                            <form action="{{ route('dashboard.support-requests.close', $supportRequest->id) }}" method="POST">
+                                @csrf
+                                <button type="submit" class="btn btn-label-secondary btn-sm">{{ __('Close') }}</button>
+                            </form>
+                        @endif
+                    @endcan
+                </div>
+            </div>
+
+            @if ($supportRequest->status === 'rejected' && $supportRequest->rejection_reason)
+                <div class="card-body pt-0">
+                    <div class="alert alert-danger mb-0">{{ __('Rejection reason:') }} {{ $supportRequest->rejection_reason }}</div>
+                </div>
+            @endif
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0">{{ __('Conversation') }}</h6>
+            </div>
+            <div class="card-body">
+                <div id="messages-list" style="max-height: 420px; overflow-y: auto;">
+                    @forelse ($supportRequest->messages as $message)
+                        <div class="mb-3 d-flex {{ $message->sender_role === 'admin' ? 'justify-content-end' : 'justify-content-start' }}">
+                            <div class="p-3 rounded {{ $message->sender_role === 'admin' ? 'bg-label-primary' : 'bg-label-secondary' }}" style="max-width: 70%;">
+                                <div class="small fw-bold mb-1">{{ $message->sender->name ?? ucfirst($message->sender_role) }}</div>
+                                <div>{{ $message->message }}</div>
+                                <div class="small text-muted mt-1">{{ $message->created_at->format('M d, h:i A') }}</div>
+                            </div>
+                        </div>
+                    @empty
+                        <p class="text-muted text-center">{{ __('No messages yet.') }}</p>
+                    @endforelse
+                </div>
+
+                @can(['manage support requests'])
+                    @if ($supportRequest->status === 'approved')
+                        <form action="{{ route('dashboard.support-requests.reply', $supportRequest->id) }}" method="POST" class="d-flex gap-2 mt-3">
+                            @csrf
+                            <input type="text" name="message" class="form-control" placeholder="{{ __('Type a reply...') }}" required>
+                            <button type="submit" class="btn btn-primary">{{ __('Send') }}</button>
+                        </form>
+                    @else
+                        <p class="text-muted mt-3 mb-0">{{ __('Approve this request to start replying.') }}</p>
+                    @endif
+                @endcan
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <form action="{{ route('dashboard.support-requests.reject', $supportRequest->id) }}" method="POST">
+                @csrf
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">{{ __('Reject Support Request') }}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <label class="form-label">{{ __('Reason (shown to the driver)') }}</label>
+                        <textarea name="rejection_reason" class="form-control" rows="3" required></textarea>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">{{ __('Cancel') }}</button>
+                        <button type="submit" class="btn btn-danger">{{ __('Reject') }}</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+@endsection
+
+@section('script')
+    <script>
+        $(document).ready(function() {
+            if (window.Echo) {
+                window.Echo.private('support-request.{{ $supportRequest->id }}')
+                    .listen('.support.message', function(e) {
+                        const isAdmin = e.sender_role === 'admin';
+                        const bubble = $('<div>')
+                            .addClass('mb-3 d-flex ' + (isAdmin ? 'justify-content-end' : 'justify-content-start'))
+                            .html(
+                                '<div class="p-3 rounded ' + (isAdmin ? 'bg-label-primary' : 'bg-label-secondary') + '" style="max-width: 70%;">' +
+                                '<div class="small fw-bold mb-1">' + (isAdmin ? 'Admin' : 'Driver') + '</div>' +
+                                '<div></div>' +
+                                '<div class="small text-muted mt-1">just now</div>' +
+                                '</div>'
+                            );
+                        bubble.find('div div:eq(1)').text(e.message);
+                        $('#messages-list').append(bubble);
+                        $('#messages-list').scrollTop($('#messages-list')[0].scrollHeight);
+                    })
+                    .listen('.support.request.status', function(e) {
+                        location.reload();
+                    });
+            }
+        });
+    </script>
+@endsection

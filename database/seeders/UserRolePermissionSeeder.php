@@ -69,6 +69,9 @@ class UserRolePermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'delete vehicle type']);
         Permission::firstOrCreate(['name' => 'manage vehicle type icons']);
 
+        Permission::firstOrCreate(['name' => 'view support requests']);
+        Permission::firstOrCreate(['name' => 'manage support requests']);
+
         Permission::firstOrCreate(['name' => 'view chauffeur vehicle']);
         Permission::firstOrCreate(['name' => 'create chauffeur vehicle']);
         Permission::firstOrCreate(['name' => 'update chauffeur vehicle']);
@@ -194,6 +197,8 @@ class UserRolePermissionSeeder extends Seeder
         // Complaints & reviews, Announcements = Full for Admin.
         $adminRole->givePermissionTo(['view complain', 'create complain', 'update complain', 'delete complain']);
         $adminRole->givePermissionTo(['view announcement', 'create announcement', 'update announcement', 'delete announcement']);
+        // Driver support requests (approve/reject/reply) = Full for Admin.
+        $adminRole->givePermissionTo(['view support requests', 'manage support requests']);
 
         // give permissions to dispatcher role.
         // Users/drivers/restaurants = View only.
@@ -205,6 +210,9 @@ class UserRolePermissionSeeder extends Seeder
         $dispatcherRole->givePermissionTo(['view live tracking', 'view anomaly alert']);
         // Ride reassignment (status/driver) = Full.
         $dispatcherRole->givePermissionTo(['view ride', 'update ride', 'reassign ride']);
+        // Driver support requests (approve/reject/reply) = Full for dispatcher
+        // too -- "operators" in the feature request maps to this role.
+        $dispatcherRole->givePermissionTo(['view support requests', 'manage support requests']);
         // Operator/driver job-count reporting = Own (scoped to the dispatcher's
         // own activity row -- enforced in ReportController, not via a separate
         // permission).

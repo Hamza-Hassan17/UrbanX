@@ -23,6 +23,7 @@ use App\Http\Controllers\Dashboard\DriverController;
 use App\Http\Controllers\Dashboard\PromoCodeController;
 use App\Http\Controllers\Dashboard\RideController;
 use App\Http\Controllers\Dashboard\PayrollController;
+use App\Http\Controllers\Dashboard\SupportRequestController;
 use App\Http\Controllers\Dashboard\ReportController;
 use App\Http\Controllers\Dashboard\VehicleTypeController;
 use App\Http\Controllers\Dashboard\VehicleTypeIconController;
@@ -227,6 +228,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('payroll/export-pdf', [PayrollController::class, 'exportPdf'])->name('payroll.export-pdf');
             Route::get('payroll/export-excel', [PayrollController::class, 'exportExcel'])->name('payroll.export-excel');
             Route::post('payroll/bulk-send', [PayrollController::class, 'bulkSend'])->name('payroll.bulk-send');
+
+            //Driver Support Requests
+            Route::get('support-requests', [SupportRequestController::class, 'index'])->name('support-requests.index');
+            Route::get('support-requests/{id}', [SupportRequestController::class, 'show'])->name('support-requests.show');
+            Route::post('support-requests/{id}/approve', [SupportRequestController::class, 'approve'])->name('support-requests.approve');
+            Route::post('support-requests/{id}/reject', [SupportRequestController::class, 'reject'])->name('support-requests.reject');
+            Route::post('support-requests/{id}/close', [SupportRequestController::class, 'close'])->name('support-requests.close');
+            Route::post('support-requests/{id}/reply', [SupportRequestController::class, 'reply'])->name('support-requests.reply');
 
             //Restaurant Categories
             Route::resource('restaurant-categories', RestaurantCategoryController::class);

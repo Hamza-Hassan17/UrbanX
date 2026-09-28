@@ -573,6 +573,16 @@ class DriverDetailsController extends Controller
             $verification->reviewed_at = null;
             $verification->save();
 
+            $admins = \App\Models\User::role(\App\Http\Controllers\Dashboard\User\UserController::ADMIN_PANEL_ROLES)->get();
+            app('notificationService')->notifyUsers(
+                $admins,
+                'New Driver Verification Request',
+                "{$user->name} submitted documents for KYC verification.",
+                'drivers',
+                $user->id,
+                'pending_verifications'
+            );
+
             return response()->json([
                 'message' => 'Verification submitted successfully.',
                 'status' => $verification->status,

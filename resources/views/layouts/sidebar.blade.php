@@ -281,6 +281,21 @@
             </li>
         @endcan
 
+        {{-- 9b. Driver Support Requests --}}
+        @can(['view support requests'])
+            <li class="menu-item {{ request()->routeIs('dashboard.support-requests.*') ? 'active' : '' }}">
+                <a href="{{ route('dashboard.support-requests.index') }}" class="menu-link d-flex justify-content-between align-items-center" style="color: #fff !important;">
+                    <div><i class="menu-icon tf-icons ti ti-message-2"></i>{{__('Support Requests')}}</div>
+                    @php
+                        $pendingSupportRequestCount = \App\Models\SupportRequest::where('status', 'pending')->count();
+                    @endphp
+                    @if ($pendingSupportRequestCount > 0)
+                        <span class="badge bg-warning rounded-pill">{{ $pendingSupportRequestCount }}</span>
+                    @endif
+                </a>
+            </li>
+        @endcan
+
         {{-- 10. Reviews -- omitted: no dashboard controller/view exists for DriverReview or RestaurantReview yet. --}}
 
         {{-- 11. Announcements --}}

@@ -3,6 +3,7 @@
 use App\Models\RestaurantOrder;
 use App\Models\Ride;
 use App\Models\RideOffer;
+use App\Models\SupportRequest;
 use Illuminate\Support\Facades\Broadcast;
 
 /*
@@ -115,4 +116,33 @@ Broadcast::channel('ride-offer.{offerId}', function ($user, $offerId) {
     }
 
     return $user->hasRole(['admin', 'super-admin', 'dispatcher']);
+});
+
+/**
+ * Admin-panel-wide live feed (currently: new support requests). Gated on the
+ * actual permission rather than a fixed role list, since who should see this
+ * is a permission concern (support-request visibility), not a role concern.
+ */
+Broadcast::channel('admin.live', function ($user) {
+    return $user->can('view support requests');
+});
+
+/**
+ * One driver's support thread -- the driver who opened it, plus anyone with
+ * permission to handle support requests. Unlike ride.{id}'s three-way split,
+ * there's no "assigned agent" concept here (any admin/operator can respond),
+ * so the same permission check covers every staff subscriber.
+ */
+Broadcast::channel('support-request.{id}', function ($user, $id) {
+    $supportRequest = SupportRequest::find($id);
+
+    if (!$supportRequest) {
+        return false;
+    }
+
+    if ((int) $supportRequest->driver_id === (int) $user->id) {
+        return true;
+    }
+
+    return $user->can('view support requests');
 });

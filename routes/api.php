@@ -13,6 +13,7 @@ use App\Http\Controllers\API\Frontend\ProfileController;
 use App\Http\Controllers\API\Frontend\Restaurant\CustomerController;
 use App\Http\Controllers\API\Frontend\Restaurant\DeliveryController;
 use App\Http\Controllers\API\Frontend\Restaurant\RestaurantController;
+use App\Http\Controllers\API\Frontend\Driver\SupportController as DriverSupportController;
 use App\Http\Controllers\Dashboard\HomeController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -99,6 +100,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
         //Live GPS ping (taxi rides) -- call every ~15-30s while en_route/started
         Route::post('/location/ping', [DriverRideController::class, 'pingLocation']);
+
+        //Support Requests -- driver can't send messages until an admin approves the request
+        Route::post('/support/request', [DriverSupportController::class, 'store']);
+        Route::get('/support/requests', [DriverSupportController::class, 'index']);
+        Route::get('/support/requests/{id}/messages', [DriverSupportController::class, 'messages']);
+        Route::post('/support/requests/{id}/messages', [DriverSupportController::class, 'sendMessage']);
     });
 
     //Customer Routes
