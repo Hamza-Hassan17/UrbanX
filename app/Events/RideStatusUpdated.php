@@ -43,6 +43,32 @@ class RideStatusUpdated implements ShouldBroadcastNow
 
     public function broadcastWith()
     {
+        // Free-wait window before waiting charges would apply, shown as a
+        // countdown once the driver taps/auto-detects "arrived". 5 minutes
+        // is a placeholder default -- move to a config/DB rate table if this
+        // needs to vary by city or vehicle type later.
+        $freeWaitMinutes = 5;
+
+        $driver = null;
+        if ($this->ride->driver_id && $this->ride->status !== 'requested') {
+            $driverUser = $this->ride->driver;
+            $vehicle = $driverUser?->driverVehicle;
+
+            if ($driverUser) {
+                $driver = [
+                    'id' => $driverUser->id,
+                    'name' => $driverUser->name,
+                    'phone_masked' => $this->maskPhone($driverUser->profile?->phone_number),
+                    'vehicle' => $vehicle ? [
+                        'make' => $vehicle->vehicle_make,
+                        'model' => $vehicle->vehicle_model,
+                        'color' => $vehicle->vehicle_color,
+                        'plate' => $vehicle->vehicle_plate_number,
+                    ] : null,
+                ];
+            }
+        }
+
         return [
             'ride_id' => $this->ride->id,
             'passenger_id' => $this->ride->passenger_id,
@@ -61,10 +87,31 @@ class RideStatusUpdated implements ShouldBroadcastNow
             'total_fare' => $this->ride->total_fare !== null ? (float) $this->ride->total_fare : null,
             'status' => $this->ride->status,
             'ride_type' => $this->ride->ride_type,
+            'cancelled_by' => $this->ride->status === 'cancelled' ? $this->ride->status_updated_by_role : null,
             'cancel_reason' => $this->ride->cancel_reason,
+            'free_wait_until' => $this->ride->status === 'arrived' && $this->ride->arrived_at
+                ? $this->ride->arrived_at->copy()->addMinutes($freeWaitMinutes)->timestamp
+                : null,
+            'driver' => $driver,
             'requested_at' => $this->ride->requested_at?->toIso8601String(),
+            'accepted_at' => $this->ride->accepted_at?->toIso8601String(),
+            'arrived_at' => $this->ride->arrived_at?->toIso8601String(),
             'started_at' => $this->ride->started_at?->toIso8601String(),
             'completed_at' => $this->ride->completed_at?->toIso8601String(),
         ];
+    }
+
+    private function maskPhone(?string $phone): ?string
+    {
+        if (!$phone) {
+            return null;
+        }
+
+        $length = strlen($phone);
+        if ($length <= 4) {
+            return $phone;
+        }
+
+        return substr($phone, 0, $length - 4) . str_repeat('x', 3) . substr($phone, -1);
     }
 }

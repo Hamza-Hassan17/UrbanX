@@ -27,13 +27,15 @@ class RideAnomalyDetector
     private const WRONG_DIRECTION_CONSECUTIVE_PINGS = 3;
     private const STALE_GPS_MINUTES = 4;
 
-    public function recordPing(Ride $ride, User $driver, float $latitude, float $longitude): RideLocationPing
+    public function recordPing(Ride $ride, User $driver, float $latitude, float $longitude, ?float $heading = null, ?float $speedKmh = null): RideLocationPing
     {
         $ping = RideLocationPing::create([
             'ride_id' => $ride->id,
             'driver_id' => $driver->id,
             'latitude' => $latitude,
             'longitude' => $longitude,
+            'heading' => $heading,
+            'speed_kmh' => $speedKmh,
         ]);
 
         $this->checkWrongDirection($ride, $driver);

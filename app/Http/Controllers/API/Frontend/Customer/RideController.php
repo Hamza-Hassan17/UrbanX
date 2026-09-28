@@ -446,6 +446,40 @@ class RideController extends Controller
         }
     }
 
+    private function dismissOfferForNearbyDrivers(Ride $ride): void
+    {
+        try {
+            $radiusKm = 5;
+
+            $driverIds = DriverVehicle::where('vehicle_type_id', $ride->vehicle_type_id)
+                ->join('users', 'users.id', '=', 'driver_vehicles.driver_id')
+                ->whereNotNull('users.lat')
+                ->whereNotNull('users.lang')
+                ->selectRaw("
+                    driver_vehicles.driver_id,
+                    (6371 * acos(
+                        cos(radians(?)) *
+                        cos(radians(users.lat)) *
+                        cos(radians(users.lang) - radians(?)) +
+                        sin(radians(?)) *
+                        sin(radians(users.lat))
+                    )) AS distance
+                ", [
+                    $ride->pickup_latitude,
+                    $ride->pickup_longitude,
+                    $ride->pickup_latitude,
+                ])
+                ->havingRaw('distance <= ?', [$radiusKm])
+                ->pluck('driver_id');
+
+            foreach ($driverIds as $driverId) {
+                broadcast(new \App\Events\RideNoLongerAvailable($ride->id, (int) $driverId));
+            }
+        } catch (\Throwable $e) {
+            Log::error('RideNoLongerAvailable (cancel) broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+        }
+    }
+
     public function rideOffers(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -816,6 +850,14 @@ class RideController extends Controller
                     $ride->id,
                     'ride_details'
                 );
+            } else {
+                // No driver had accepted yet, but several nearby drivers may
+                // still be looking at this ride's offer popup (pushed via
+                // notifyNearbyDrivers() at request time) -- dismiss it for
+                // all of them the same way an accepted-by-someone-else offer
+                // does, using the same eligibility query so it reaches
+                // exactly whoever could have received the original offer.
+                $this->dismissOfferForNearbyDrivers($ride);
             }
 
             return response()->json([

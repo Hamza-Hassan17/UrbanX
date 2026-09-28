@@ -13,6 +13,8 @@ class Ride extends Model
         'started_at'   => 'datetime',
         'completed_at' => 'datetime',
         'requested_at' => 'datetime',
+        'accepted_at'  => 'datetime',
+        'arrived_at'   => 'datetime',
     ];
 
 
@@ -35,6 +37,7 @@ class Ride extends Model
         'ride_type',
         'requested_at',
         'accepted_at',
+        'arrived_at',
         'started_at',
         'completed_at',
         'cancelled_at',

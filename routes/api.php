@@ -51,6 +51,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/get-complains', [ComplainController::class, 'getComplains']);
     Route::post('/submit-complain', [ComplainController::class, 'submitComplain']);
 
+    //Ride Live Tracking (rider or assigned driver) -- REST fallback when the socket is disconnected
+    Route::get('/rides/{id}/live', [DriverRideController::class, 'liveStatus']);
+
     //Driver Routes
     Route::group(['prefix' => 'driver'], function () {
         //Driver Vehicle

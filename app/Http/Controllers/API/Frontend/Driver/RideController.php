@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\DriverVehicle;
 use App\Models\Ride;
 use App\Models\RideDriverLog;
+use App\Models\RideLocationPing;
 use App\Models\RideOffer;
 use App\Models\User;
 use App\Models\VehicleType;
@@ -648,7 +649,9 @@ class RideController extends Controller
 
             $ride->status = $request->status;
 
-            if ($request->status === 'started') {
+            if ($request->status === 'arrived') {
+                $ride->arrived_at = now();
+            } elseif ($request->status === 'started') {
                 $ride->started_at = now();
             } elseif ($request->status === 'completed') {
                 $ride->completed_at = now();
@@ -764,6 +767,8 @@ class RideController extends Controller
             'ride_id' => 'required|exists:rides,id',
             'latitude' => 'required|numeric',
             'longitude' => 'required|numeric',
+            'heading' => 'nullable|numeric|min:0|max:359',
+            'speed_kmh' => 'nullable|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -783,24 +788,157 @@ class RideController extends Controller
                 ], Response::HTTP_FORBIDDEN);
             }
 
+            $latitude = (float) $request->latitude;
+            $longitude = (float) $request->longitude;
+            $heading = $request->filled('heading') ? (float) $request->heading : null;
+            $speedKmh = $request->filled('speed_kmh') ? (float) $request->speed_kmh : null;
+
             // Keep users.lat/lang current too, since other code (nearby-driver
             // matching, dispatch map's "last known" fallback) already reads it.
-            $driver->lat = $request->latitude;
-            $driver->lang = $request->longitude;
+            $driver->lat = $latitude;
+            $driver->lang = $longitude;
             $driver->save();
 
             app(\App\Services\RideAnomalyDetector::class)->recordPing(
                 $ride,
                 $driver,
-                (float) $request->latitude,
-                (float) $request->longitude
+                $latitude,
+                $longitude,
+                $heading,
+                $speedKmh
             );
+
+            // Live position for whoever's watching this ride (rider + admin).
+            broadcast(new \App\Events\DriverLocationUpdated($ride, $latitude, $longitude, $heading, $speedKmh));
+
+            // Auto-detect arrival at pickup so the driver doesn't have to
+            // remember to tap "Arrived" -- mirrors updateRideStatus()'s
+            // en_route -> arrived transition and its notify/broadcast calls.
+            if ($ride->status === 'en_route'
+                && $ride->pickup_latitude !== null
+                && $ride->pickup_longitude !== null
+            ) {
+                $distanceMeters = $this->haversineMeters(
+                    $latitude,
+                    $longitude,
+                    (float) $ride->pickup_latitude,
+                    (float) $ride->pickup_longitude
+                );
+
+                if ($distanceMeters <= 200) {
+                    $ride->status = 'arrived';
+                    $ride->arrived_at = now();
+                    $ride->status_updated_by = $driver->id;
+                    $ride->status_updated_by_role = 'driver';
+                    $ride->save();
+
+                    app('notificationService')->notifyUsers(
+                        [$ride->passenger],
+                        'Driver Arrived',
+                        'Your driver has arrived at the pickup location.',
+                        'rides',
+                        $ride->id,
+                        'ride_details'
+                    );
+
+                    try {
+                        broadcast(new \App\Events\RideStatusUpdated($ride));
+                    } catch (\Throwable $th) {
+                        Log::error('Broadcast RideStatusUpdated (auto-arrived) failed', ['error' => $th->getMessage()]);
+                    }
+                }
+            }
 
             return response()->json([
                 'message' => 'Location updated successfully.',
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Ping Location failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Great-circle distance in meters -- used to auto-detect arrival at
+     * pickup from a continuous GPS ping, distinct from the SQL-side
+     * haversine used for driver-matching queries elsewhere in this class.
+     */
+    private function haversineMeters(float $lat1, float $lon1, float $lat2, float $lon2): float
+    {
+        $earthRadiusMeters = 6371000;
+        $latDelta = deg2rad($lat2 - $lat1);
+        $lonDelta = deg2rad($lon2 - $lon1);
+
+        $a = sin($latDelta / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($lonDelta / 2) ** 2;
+
+        return $earthRadiusMeters * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
+
+    /**
+     * REST fallback for GET /api/rides/{id}/live -- used when the socket is
+     * disconnected, and once on reconnect/app-resume to resync state. Mirrors
+     * the shape of driver.location + RideStatusUpdated's payload so the app
+     * can render the same UI from either source.
+     */
+    public function liveStatus(Request $request, $id)
+    {
+        try {
+            $user = $request->user();
+            $ride = Ride::find($id);
+
+            if (!$ride) {
+                return response()->json(['message' => 'Ride not found.'], Response::HTTP_NOT_FOUND);
+            }
+
+            $isPassenger = (int) $ride->passenger_id === (int) $user->id;
+            $isDriver = (int) $ride->driver_id === (int) $user->id;
+
+            if (!$isPassenger && !$isDriver) {
+                return response()->json(['message' => 'Not authorized to view this ride.'], Response::HTTP_FORBIDDEN);
+            }
+
+            $lastPing = RideLocationPing::where('ride_id', $ride->id)
+                ->orderByDesc('id')
+                ->first();
+
+            $driver = $ride->driver;
+
+            return response()->json([
+                'status' => $ride->status,
+                'driver_location' => $lastPing ? [
+                    'lat' => (float) $lastPing->latitude,
+                    'lng' => (float) $lastPing->longitude,
+                    'heading' => $lastPing->heading !== null ? (float) $lastPing->heading : null,
+                    'speed_kmh' => $lastPing->speed_kmh !== null ? (float) $lastPing->speed_kmh : null,
+                    'ts' => $lastPing->created_at->timestamp,
+                ] : ($driver ? [
+                    'lat' => $driver->lat !== null ? (float) $driver->lat : null,
+                    'lng' => $driver->lang !== null ? (float) $driver->lang : null,
+                    'heading' => null,
+                    'speed_kmh' => null,
+                    'ts' => null,
+                ] : null),
+                'pickup' => [
+                    'latitude' => $ride->pickup_latitude,
+                    'longitude' => $ride->pickup_longitude,
+                ],
+                'dropoff' => [
+                    'latitude' => $ride->dropoff_latitude,
+                    'longitude' => $ride->dropoff_longitude,
+                ],
+                'distance_km' => $ride->distance_km,
+                'duration_minutes' => $ride->duration_minutes,
+                'total_fare' => $ride->total_fare !== null ? (float) $ride->total_fare : null,
+                'driver' => $driver ? [
+                    'id' => $driver->id,
+                    'name' => $driver->name,
+                ] : null,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Ride Live Status failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);

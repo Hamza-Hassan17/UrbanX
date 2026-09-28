@@ -16,6 +16,8 @@ class RideLocationPing extends Model
         'driver_id',
         'latitude',
         'longitude',
+        'heading',
+        'speed_kmh',
     ];
 
     protected $casts = [
