@@ -88,6 +88,12 @@
                                                     title="{{ __('View Driver Details') }}">
                                                     <i class="ti ti-eye ti-md"></i>
                                                 </a>
+                                                <a href="{{ route('dashboard.drivers.show', $driver->id) }}#documents"
+                                                    class="btn btn-icon btn-text-info waves-effect waves-light rounded-pill me-1"
+                                                    data-bs-toggle="tooltip" data-bs-placement="top"
+                                                    title="{{ __('View Documents') }}">
+                                                    <i class="ti ti-files ti-md"></i>
+                                                </a>
                                             </span>
                                         @endcan
                                         @can(['update driver'])

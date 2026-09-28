@@ -87,7 +87,7 @@
 
             <!-- User Content -->
             <div class="col-xl-8 col-lg-7 order-0 order-md-1">
-                <div class="card mb-6">
+                <div class="card mb-6" id="documents">
                     <h5 class="card-header">Driver Details</h5>
                     <div class="card-body pt-1">
 

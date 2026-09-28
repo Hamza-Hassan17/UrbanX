@@ -26,7 +26,7 @@
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">{{ __('Drivers') }}</label>
-                        <select name="driver_ids[]" class="form-control" multiple style="height: 42px;">
+                        <select name="driver_ids[]" class="select2 form-select" multiple>
                             @foreach ($drivers as $driver)
                                 <option value="{{ $driver->id }}" {{ in_array($driver->id, request('driver_ids', [])) ? 'selected' : '' }}>
                                     {{ $driver->name }} @if($driver->is_active !== 'active') ({{ __('inactive') }}) @endif
