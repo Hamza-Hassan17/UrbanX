@@ -880,6 +880,10 @@ class RideController extends Controller
                         }
                     }
                 }
+
+                if (in_array($ride->status, ['en_route', 'started'], true)) {
+                    $this->broadcastProgress($ride, $latitude, $longitude);
+                }
             } else {
                 // Idle ping (no active ride) -- update nearby.drivers for
                 // anyone currently searching nearby in this driver's vehicle
@@ -975,6 +979,74 @@ class RideController extends Controller
             }
         } catch (\Throwable $e) {
             Log::error('NearbyDriversUpdated broadcast failed', ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Recalculates and broadcasts ETA/remaining-distance/travelled-distance/
+     * elapsed-time for an active ride, throttled to ~once per 20s per ride
+     * (routing-provider calls are relatively expensive; the brief specifies
+     * 20-30s as the recalculation cadence, with apps interpolating locally
+     * between updates). Travelled distance for the to_dropoff phase is
+     * computed server-side by summing haversine distances between accepted
+     * GPS pings since the ride started -- never trusts a client-reported
+     * distance.
+     */
+    private function broadcastProgress(Ride $ride, float $currentLat, float $currentLng): void
+    {
+        $cacheKey = "ride_progress_throttle_ride_{$ride->id}";
+        if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
+            return;
+        }
+        \Illuminate\Support\Facades\Cache::put($cacheKey, true, 20);
+
+        try {
+            $phase = $ride->status === 'started' ? 'to_dropoff' : 'to_pickup';
+            $targetLat = $phase === 'to_dropoff' ? $ride->dropoff_latitude : $ride->pickup_latitude;
+            $targetLng = $phase === 'to_dropoff' ? $ride->dropoff_longitude : $ride->pickup_longitude;
+
+            if ($targetLat === null || $targetLng === null) {
+                return;
+            }
+
+            $routingService = app(\App\Services\RoutingService::class);
+            $route = $routingService->route($currentLat, $currentLng, (float) $targetLat, (float) $targetLng);
+
+            if (!$route) {
+                $route = $routingService->fallbackEstimate($currentLat, $currentLng, (float) $targetLat, (float) $targetLng);
+            }
+
+            $travelledKm = 0.0;
+            $elapsedMin = 0;
+
+            if ($phase === 'to_dropoff' && $ride->started_at) {
+                $elapsedMin = (int) $ride->started_at->diffInMinutes(now());
+
+                $pings = RideLocationPing::where('ride_id', $ride->id)
+                    ->where('created_at', '>=', $ride->started_at)
+                    ->orderBy('id')
+                    ->get(['latitude', 'longitude']);
+
+                for ($i = 1; $i < $pings->count(); $i++) {
+                    $travelledKm += $this->haversineMeters(
+                        (float) $pings[$i - 1]->latitude,
+                        (float) $pings[$i - 1]->longitude,
+                        (float) $pings[$i]->latitude,
+                        (float) $pings[$i]->longitude
+                    ) / 1000;
+                }
+            }
+
+            broadcast(new \App\Events\RideProgressUpdated(
+                $ride,
+                $phase,
+                (int) $route['duration_min'],
+                (float) $route['distance_km'],
+                round($travelledKm, 2),
+                $elapsedMin
+            ));
+        } catch (\Throwable $e) {
+            Log::error('RideProgressUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
         }
     }
 

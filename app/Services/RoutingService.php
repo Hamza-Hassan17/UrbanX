@@ -43,4 +43,29 @@ class RoutingService
             return null;
         }
     }
+
+    /**
+     * Straight-line distance x1.3 and an average-speed ETA -- the brief's
+     * specified fallback for when the routing provider is unavailable, so a
+     * ride never stalls just because OSRM is down or slow.
+     *
+     * @return array{distance_km: float, duration_min: float}
+     */
+    public function fallbackEstimate(float $fromLat, float $fromLng, float $toLat, float $toLng, float $averageSpeedKmh = 30): array
+    {
+        $earthRadiusKm = 6371;
+        $latDelta = deg2rad($toLat - $fromLat);
+        $lonDelta = deg2rad($toLng - $fromLng);
+
+        $a = sin($latDelta / 2) ** 2
+            + cos(deg2rad($fromLat)) * cos(deg2rad($toLat)) * sin($lonDelta / 2) ** 2;
+
+        $straightLineKm = $earthRadiusKm * 2 * atan2(sqrt($a), sqrt(1 - $a));
+        $distanceKm = round($straightLineKm * 1.3, 2);
+
+        return [
+            'distance_km' => $distanceKm,
+            'duration_min' => max(1, round(($distanceKm / $averageSpeedKmh) * 60)),
+        ];
+    }
 }
