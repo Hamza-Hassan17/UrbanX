@@ -529,6 +529,19 @@ class RideController extends Controller
                 Log::error('Ride accept broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
             }
 
+            $acceptingDriver = $ride->driver;
+            if ($acceptingDriver && $acceptingDriver->lat !== null && $acceptingDriver->lang !== null) {
+                $this->broadcastRoute(
+                    $ride,
+                    'to_pickup',
+                    'accept',
+                    (float) $acceptingDriver->lat,
+                    (float) $acceptingDriver->lang,
+                    (float) $ride->pickup_latitude,
+                    (float) $ride->pickup_longitude
+                );
+            }
+
             $this->notifyRideNoLongerAvailable($ride, auth()->id());
 
             $passenger = $ride->passenger;
@@ -691,6 +704,20 @@ class RideController extends Controller
                 Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
             }
 
+            if ($request->status === 'started'
+                && $ride->pickup_latitude !== null
+                && $ride->dropoff_latitude !== null
+            ) {
+                $this->broadcastRoute(
+                    $ride,
+                    'to_dropoff',
+                    'start',
+                    (float) $ride->pickup_latitude,
+                    (float) $ride->pickup_longitude,
+                    (float) $ride->dropoff_latitude,
+                    (float) $ride->dropoff_longitude
+                );
+            }
 
             return response()->json([
                 'message' => 'Ride status updated successfully.',
@@ -857,6 +884,25 @@ class RideController extends Controller
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Fetches and broadcasts the planned route polyline for one leg of the
+     * ride (driver->pickup on accept, pickup->dropoff on start). A routing
+     * failure is logged and swallowed -- the accept/start action itself must
+     * never fail just because the map polyline couldn't be fetched.
+     */
+    private function broadcastRoute(Ride $ride, string $phase, string $reason, float $fromLat, float $fromLng, float $toLat, float $toLng): void
+    {
+        try {
+            $route = app(\App\Services\RoutingService::class)->route($fromLat, $fromLng, $toLat, $toLng);
+
+            if ($route) {
+                broadcast(new \App\Events\RideRouteUpdated($ride, $phase, $route['polyline'], $reason));
+            }
+        } catch (\Throwable $e) {
+            Log::error('RideRouteUpdated broadcast failed', ['ride_id' => $ride->id, 'phase' => $phase, 'error' => $e->getMessage()]);
         }
     }
 
