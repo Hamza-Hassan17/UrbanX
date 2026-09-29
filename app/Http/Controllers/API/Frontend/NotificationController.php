@@ -27,6 +27,7 @@ class NotificationController extends Controller
                     'created_at' => Carbon::parse($notification->created_at)->diffForHumans(),
                     'read_at' => $notification->read_at,
                     'page' => $notification->page,
+                    'is_popup' => (bool) $notification->is_popup,
                 ];
             });
 

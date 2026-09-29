@@ -66,6 +66,18 @@ class NotificationController extends Controller
         }
     }
 
+    /**
+     * Audience labels shown on the Send Notification form, mapped to their
+     * actual Spatie role names -- "Delivery Riders" is the 'rider' role
+     * (distinct from 'driver'), "Customers" is the 'user' role.
+     */
+    public const AUDIENCE_ROLES = [
+        'customers' => 'user',
+        'drivers' => 'driver',
+        'restaurant_owners' => 'restaurant',
+        'delivery_riders' => 'rider',
+    ];
+
     public function store(Request $request)
     {
         $this->authorize('create notification');
@@ -74,27 +86,39 @@ class NotificationController extends Controller
             $request->validate([
                 'title' => 'required|string|max:255',
                 'message' => 'required|string',
-                'send_all' => 'nullable|boolean',
-                'user_ids' => 'required_if:send_all,false|array',
+                'audience' => 'required|in:all,specific,roles',
+                'user_ids' => 'required_if:audience,specific|array',
                 'user_ids.*' => 'exists:users,id',
+                'roles' => 'required_if:audience,roles|array',
+                'roles.*' => 'in:' . implode(',', array_keys(self::AUDIENCE_ROLES)),
+                'is_popup' => 'nullable|boolean',
             ], [
-                'user_ids.required_if' => 'Please select at least one user if Send to All is not checked.',
+                'user_ids.required_if' => 'Please select at least one user.',
+                'roles.required_if' => 'Please select at least one audience.',
             ]);
 
-            if ($request->boolean('send_all')) {
-                // Get all users except current authenticated user
+            if ($request->audience === 'all') {
                 $users = User::where('id', '!=', auth()->id())->get();
+            } elseif ($request->audience === 'roles') {
+                $roleNames = array_map(fn ($key) => self::AUDIENCE_ROLES[$key], $request->roles);
+                $users = User::role($roleNames)->where('id', '!=', auth()->id())->get();
             } else {
-                // Get only selected users
                 $users = User::whereIn('id', $request->user_ids ?? [])->get();
             }
 
-            // Send notifications
-            app('notificationService')->notifyUsers($users, $request->title, $request->message);
+            app('notificationService')->notifyUsers(
+                $users,
+                $request->title,
+                $request->message,
+                null,
+                null,
+                null,
+                $request->boolean('is_popup')
+            );
 
             return redirect()
                 ->route('dashboard.notifications.create')
-                ->with('success', 'Notification sent successfully');
+                ->with('success', "Notification sent to {$users->count()} user(s)");
         } catch (\Throwable $th) {
             Log::error('Notification Send Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");

@@ -24,7 +24,7 @@ class NotificationServiceProvider extends ServiceProvider
                 {
                 }
 
-                public function notifyUsers($users, $title, $message, $tableName = null, $tableId = null, $page = null)
+                public function notifyUsers($users, $title, $message, $tableName = null, $tableId = null, $page = null, $isPopup = false)
                 {
                     foreach ($users as $user) {
                         $notification = Notification::create([
@@ -34,6 +34,7 @@ class NotificationServiceProvider extends ServiceProvider
                             'table_name' => $tableName,
                             'table_id' => $tableId,
                             'page' => $page,
+                            'is_popup' => $isPopup,
                         ]);
 
                         try {
@@ -48,12 +49,17 @@ class NotificationServiceProvider extends ServiceProvider
                             continue;
                         }
 
+                        // array_filter's default callback treats the string
+                        // "0" as falsy, so is_popup (always "0" or "1") must
+                        // be added after filtering, not inside it -- otherwise
+                        // a false popup flag would be silently dropped.
                         $data = array_filter([
                             'notification_id' => (string) $notification->id,
                             'table_name' => $tableName,
                             'table_id' => $tableId !== null ? (string) $tableId : null,
                             'page' => $page,
                         ]);
+                        $data['is_popup'] = $isPopup ? '1' : '0';
 
                         try {
                             $cloudMessage = CloudMessage::withTarget('token', $userDevice->fcm_token)

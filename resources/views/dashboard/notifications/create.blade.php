@@ -18,12 +18,47 @@
                     @csrf
                     <div class="row p-5">
                         <h3>{{ __('Send New Notification') }}</h3>
+
                         <div class="mb-4 col-md-12">
-                            <div class="form-check">
-                                <input type="checkbox" class="form-check-input" id="send_all" name="send_all"
-                                    value="1" {{ old('send_all') ? 'checked' : 'checked' }}>
-                                <label class="form-check-label" for="send_all">{{ __('Send to All Users') }}</label>
+                            <label class="form-label d-block">{{ __('Send To') }}</label>
+                            @php $audience = old('audience', 'all'); @endphp
+                            <div class="form-check form-check-inline">
+                                <input type="radio" class="form-check-input audience-radio" id="audience_all" name="audience" value="all" {{ $audience == 'all' ? 'checked' : '' }}>
+                                <label class="form-check-label" for="audience_all">{{ __('All Users') }}</label>
                             </div>
+                            <div class="form-check form-check-inline">
+                                <input type="radio" class="form-check-input audience-radio" id="audience_roles" name="audience" value="roles" {{ $audience == 'roles' ? 'checked' : '' }}>
+                                <label class="form-check-label" for="audience_roles">{{ __('Specific User Type') }}</label>
+                            </div>
+                            <div class="form-check form-check-inline">
+                                <input type="radio" class="form-check-input audience-radio" id="audience_specific" name="audience" value="specific" {{ $audience == 'specific' ? 'checked' : '' }}>
+                                <label class="form-check-label" for="audience_specific">{{ __('Specific Users') }}</label>
+                            </div>
+                            @error('audience')
+                                <span class="invalid-feedback d-block" role="alert"><strong>{{ $message }}</strong></span>
+                            @enderror
+                        </div>
+
+                        <div class="mb-4 col-md-12" id="roles_select_box">
+                            <label class="form-label d-block">{{ __('User Type') }}</label>
+                            @php
+                                $audienceLabels = [
+                                    'customers' => __('Customers'),
+                                    'drivers' => __('Drivers'),
+                                    'restaurant_owners' => __('Restaurant Owners'),
+                                    'delivery_riders' => __('Delivery Riders'),
+                                ];
+                                $oldRoles = collect(old('roles'));
+                            @endphp
+                            @foreach ($audienceLabels as $key => $label)
+                                <div class="form-check form-check-inline">
+                                    <input type="checkbox" class="form-check-input" id="role_{{ $key }}" name="roles[]" value="{{ $key }}" {{ $oldRoles->contains($key) ? 'checked' : '' }}>
+                                    <label class="form-check-label" for="role_{{ $key }}">{{ $label }}</label>
+                                </div>
+                            @endforeach
+                            @error('roles')
+                                <span class="invalid-feedback d-block" role="alert"><strong>{{ $message }}</strong></span>
+                            @enderror
                         </div>
 
                         <div class="mb-4 col-md-12" id="users_select_box">
@@ -45,6 +80,14 @@
                                     <strong>{{ $message }}</strong>
                                 </span>
                             @enderror
+                        </div>
+
+                        <div class="mb-4 col-md-12">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="is_popup" name="is_popup"
+                                    value="1" {{ old('is_popup') ? 'checked' : '' }}>
+                                <label class="form-check-label" for="is_popup">{{ __('Show as a popup on open (not just a bell notification)') }}</label>
+                            </div>
                         </div>
                         <div class="mb-4 col-md-12">
                             <label for="title" class="form-label">{{ __('Title') }}</label><span
@@ -84,21 +127,29 @@
     <!-- Vendors JS -->
     <script>
         $(document).ready(function() {
-            function toggleUserSelect() {
-                if ($('#send_all').is(':checked')) {
-                    $('#users_select_box').hide();
-                    $('#user_ids').val(null).trigger('change'); // clear selection if send_all
+            function toggleAudienceBoxes() {
+                const audience = $('input[name="audience"]:checked').val();
+
+                if (audience === 'roles') {
+                    $('#roles_select_box').show();
                 } else {
+                    $('#roles_select_box').hide();
+                }
+
+                if (audience === 'specific') {
                     $('#users_select_box').show();
+                } else {
+                    $('#users_select_box').hide();
+                    $('#user_ids').val(null).trigger('change');
                 }
             }
 
             // Run on page load
-            toggleUserSelect();
+            toggleAudienceBoxes();
 
-            // Run on checkbox toggle
-            $('#send_all').on('change', function() {
-                toggleUserSelect();
+            // Run on radio toggle
+            $('.audience-radio').on('change', function() {
+                toggleAudienceBoxes();
             });
         });
     </script>

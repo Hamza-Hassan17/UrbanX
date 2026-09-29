@@ -13,6 +13,11 @@ class Notification extends Model
         'table_name',
         'table_id',
         'page',
+        'is_popup',
+    ];
+
+    protected $casts = [
+        'is_popup' => 'boolean',
     ];
 
     public function user()
