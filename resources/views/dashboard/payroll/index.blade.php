@@ -29,7 +29,7 @@
                         <select name="driver_ids[]" class="select2 form-select" multiple>
                             @foreach ($drivers as $driver)
                                 <option value="{{ $driver->id }}" {{ in_array($driver->id, request('driver_ids', [])) ? 'selected' : '' }}>
-                                    {{ $driver->name }} @if($driver->is_active !== 'active') ({{ __('inactive') }}) @endif
+                                    {{ $driver->name }} @if($driver->phone)({{ $driver->phone }})@endif @if($driver->is_active !== 'active') ({{ __('inactive') }}) @endif
                                 </option>
                             @endforeach
                         </select>

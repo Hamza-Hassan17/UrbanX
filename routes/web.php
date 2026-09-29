@@ -171,6 +171,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::resource('drivers', DriverController::class);
             Route::post('drivers/{id}/verification/approve', [DriverController::class, 'approveVerification'])->name('drivers.verification.approve');
             Route::post('drivers/{id}/verification/reject', [DriverController::class, 'rejectVerification'])->name('drivers.verification.reject');
+            Route::get('drivers/{id}/documents/pdf', [DriverController::class, 'exportDocumentsPdf'])->name('drivers.documents.pdf');
 
             //PromoCode Routes
             Route::resource('promo-codes', PromoCodeController::class);

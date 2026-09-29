@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Models\User;
 use App\Http\Controllers\Controller;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -76,6 +77,28 @@ class DriverController extends Controller
             Log::error('Drivers Show Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
             throw $th;
+        }
+    }
+
+    /**
+     * Combined PDF of every submitted KYC document (vehicle images/reg
+     * paper, license front/back, CNIC front/back, selfie) -- individual
+     * JPG downloads are plain <a download> links straight to the storage
+     * URL in the view, no controller needed for those.
+     */
+    public function exportDocumentsPdf(string $id)
+    {
+        $this->authorize('view driver');
+        try {
+            $driver = User::with('driverCnic', 'driverLicense', 'driverSelfie', 'driverVehicle.vehicleType')->findOrFail($id);
+
+            $pdf = Pdf::loadView('dashboard.drivers.documents-pdf', compact('driver'))
+                ->setPaper('a4', 'portrait');
+
+            return $pdf->download("driver-{$driver->id}-documents.pdf");
+        } catch (\Throwable $th) {
+            Log::error('Driver Documents PDF Export Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
         }
     }
 

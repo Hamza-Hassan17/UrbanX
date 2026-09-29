@@ -27,7 +27,7 @@ class PayrollController extends Controller
     {
         $this->authorize('export payroll');
 
-        $drivers = User::role('driver')->orderBy('name')->get(['id', 'name', 'is_active']);
+        $drivers = User::role('driver')->orderBy('name')->get(['id', 'name', 'phone', 'is_active']);
 
         $summary = null;
         if ($request->filled('start_date') && $request->filled('end_date')) {

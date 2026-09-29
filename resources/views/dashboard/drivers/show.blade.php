@@ -88,7 +88,12 @@
             <!-- User Content -->
             <div class="col-xl-8 col-lg-7 order-0 order-md-1">
                 <div class="card mb-6" id="documents">
-                    <h5 class="card-header">Driver Details</h5>
+                    <h5 class="card-header d-flex justify-content-between align-items-center">
+                        <span>Driver Details</span>
+                        <a href="{{ route('dashboard.drivers.documents.pdf', $driver->id) }}" class="btn btn-sm btn-outline-danger">
+                            <i class="ti ti-file-type-pdf"></i> Download All as PDF
+                        </a>
+                    </h5>
                     <div class="card-body pt-1">
 
                         {{-- Vehicle Details --}}
@@ -129,8 +134,7 @@
                                             <th>Images</th>
                                             <td>
                                                 @foreach (json_decode($driver->driverVehicle->vehicle_images, true) as $image)
-                                                    <img src="{{ asset('storage/' . $image) }}" alt="Vehicle Image"
-                                                        class="rounded border me-2 mb-2" width="100">
+                                                    @include('dashboard.drivers.partials.doc-thumb', ['path' => $image, 'label' => 'Vehicle Image'])
                                                 @endforeach
                                             </td>
                                         </tr>
@@ -139,8 +143,7 @@
                                         <tr>
                                             <th>Registration Paper</th>
                                             <td>
-                                                <img src="{{ asset('storage/' . $driver->driverVehicle->registration_paper) }}"
-                                                    alt="Registration Paper" class="rounded border" width="100">
+                                                @include('dashboard.drivers.partials.doc-thumb', ['path' => $driver->driverVehicle->registration_paper, 'label' => 'Registration Paper'])
                                             </td>
                                         </tr>
                                     @endif
@@ -182,10 +185,8 @@
                                     <tr>
                                         <th>License Images</th>
                                         <td>
-                                            <img src="{{ asset('storage/' . $driver->driverLicense->front_picture) }}"
-                                                width="100" class="me-2 rounded border" alt="Front">
-                                            <img src="{{ asset('storage/' . $driver->driverLicense->back_picture) }}"
-                                                width="100" class="rounded border" alt="Back">
+                                            @include('dashboard.drivers.partials.doc-thumb', ['path' => $driver->driverLicense->front_picture, 'label' => 'License Front'])
+                                            @include('dashboard.drivers.partials.doc-thumb', ['path' => $driver->driverLicense->back_picture, 'label' => 'License Back'])
                                         </td>
                                     </tr>
                                 </tbody>
@@ -216,10 +217,8 @@
                                     <tr>
                                         <th>CNIC Images</th>
                                         <td>
-                                            <img src="{{ asset('storage/' . $driver->driverCnic->front_picture) }}"
-                                                width="100" class="me-2 rounded border" alt="Front">
-                                            <img src="{{ asset('storage/' . $driver->driverCnic->back_picture) }}"
-                                                width="100" class="rounded border" alt="Back">
+                                            @include('dashboard.drivers.partials.doc-thumb', ['path' => $driver->driverCnic->front_picture, 'label' => 'CNIC Front'])
+                                            @include('dashboard.drivers.partials.doc-thumb', ['path' => $driver->driverCnic->back_picture, 'label' => 'CNIC Back'])
                                         </td>
                                     </tr>
                                 </tbody>
@@ -233,8 +232,7 @@
                         {{-- Selfie --}}
                         <h6 class="fw-bold mt-3">Selfie</h6>
                         @if ($driver->driverSelfie)
-                            <img src="{{ asset('storage/' . $driver->driverSelfie->picture) }}" alt="Selfie"
-                                class="rounded border" width="100">
+                            @include('dashboard.drivers.partials.doc-thumb', ['path' => $driver->driverSelfie->picture, 'label' => 'Selfie'])
                         @else
                             <p class="text-muted">No selfie submitted.</p>
                         @endif
