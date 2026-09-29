@@ -209,6 +209,13 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('custom-rides', [CustomRideController::class, 'index'])->name('custom-rides.index');
             Route::get('custom-rides/stats', [CustomRideController::class, 'dispatchStats'])->name('custom-rides.stats');
             Route::get('custom-rides/live-tracking', [CustomRideController::class, 'liveTrackingData'])->name('custom-rides.live-tracking');
+
+            //Live Tracking page -- split out from Custom Rides/Manual Ride
+            // Assignment (they used to share one page/URL, just anchor-scrolled
+            // to different sections). This is the dedicated monitoring-only
+            // view; custom-rides.live-tracking above stays as its polling data
+            // endpoint, now consumed by this page instead of the old one.
+            Route::get('live-tracking', [CustomRideController::class, 'liveTracking'])->name('live-tracking.index');
             // Was POST /api/request-ride (unauthenticated -- so once requestCustomRide()
             // got an authorize() check it threw "unauthorized" for everyone). This is
             // a dashboard action, belongs on a session-authed web route.

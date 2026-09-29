@@ -20,11 +20,61 @@ class CustomRideController extends Controller
     {
         $this->authorize('view custom rides');
         try {
-            // Every driver, not just ones with a registered vehicle -- otherwise
-            // typing a real driver's ID that happens to have no vehicle yet gives
-            // the misleading "No driver found with ID: x". They still can't be
-            // assigned a ride (no vehicle_type_id), but the UI can now say why.
-            $drivers = User::with('driverVehicle.vehicleType', 'profile:id,user_id,city')
+            $drivers = $this->getDriverMapData();
+
+            $driver = User::role('driver')
+                ->where('driver_status', 'available') // only available drivers
+                ->whereHas('driverVehicle')          // must have a vehicle
+                ->inRandomOrder()                    // randomize
+                ->with('driverVehicle')              // eager load vehicle info
+                ->first();
+
+            $dispatch = $this->getDispatchSnapshot();
+
+            return view('dashboard.custom-rides.index', array_merge(
+                compact('drivers', 'driver'),
+                $dispatch
+            ));
+        } catch (\Throwable $th) {
+            Log::error('Custom Rides Index Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
+            throw $th;
+        }
+    }
+
+    /**
+     * Live Tracking page -- split out from Manual Ride Assignment above (they
+     * used to be one page, just anchor-scrolled to different sections).
+     * Monitoring-only: driver/active-ride/delivery markers with anomaly
+     * overlay, city filter. No booking form -- that stays on index().
+     */
+    public function liveTracking()
+    {
+        $this->authorize('view live tracking');
+        try {
+            $drivers = $this->getDriverMapData();
+            $cities = $drivers->pluck('city')->filter()->unique()->sort()->values();
+
+            return view('dashboard.custom-rides.live-tracking', compact('drivers', 'cities'));
+        } catch (\Throwable $th) {
+            Log::error('Live Tracking Page Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
+        }
+    }
+
+    /**
+     * Driver list shaped for the map (id/name/lat/lng/status/vehicle/city
+     * etc) -- shared by the booking form's driver lookup (index()) and the
+     * Live Tracking page's driver markers, so both stay in sync off one
+     * query instead of two copies drifting apart.
+     */
+    private function getDriverMapData()
+    {
+        // Every driver, not just ones with a registered vehicle -- otherwise
+        // typing a real driver's ID that happens to have no vehicle yet gives
+        // the misleading "No driver found with ID: x". They still can't be
+        // assigned a ride (no vehicle_type_id), but the UI can now say why.
+        return User::with('driverVehicle.vehicleType', 'profile:id,user_id,city')
             ->role('driver')
             ->get()
             ->map(function ($driver) {
@@ -54,30 +104,6 @@ class CustomRideController extends Controller
                     'city'   => $driver->profile->city ?? null,
                 ];
             });
-
-            $driver = User::role('driver')
-                ->where('driver_status', 'available') // only available drivers
-                ->whereHas('driverVehicle')          // must have a vehicle
-                ->inRandomOrder()                    // randomize
-                ->with('driverVehicle')              // eager load vehicle info
-                ->first();
-
-            $dispatch = $this->getDispatchSnapshot();
-
-            // Distinct list of cities actually assigned to a driver right now, for
-            // the city-filter dropdown -- "All Cities" and "Unassigned" are handled
-            // separately in the view since they're not real city values.
-            $cities = $drivers->pluck('city')->filter()->unique()->sort()->values();
-
-            return view('dashboard.custom-rides.index', array_merge(
-                compact('drivers', 'driver', 'cities'),
-                $dispatch
-            ));
-        } catch (\Throwable $th) {
-            Log::error('Custom Rides Index Failed', ['error' => $th->getMessage()]);
-            return redirect()->back()->with('error', "Something went wrong! Please try again later");
-            throw $th;
-        }
     }
 
     /**
