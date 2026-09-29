@@ -126,6 +126,7 @@
                         <i class="fas fa-circle ms-2" style="color:#f59e0b; font-size:8px;"></i> Busy
                         <i class="fas fa-circle ms-2" style="color:#2563eb; font-size:8px;"></i> Active taxi ride (last known position)
                         <i class="fas fa-circle ms-2" style="color:#db2777; font-size:8px;"></i> Active delivery (live)
+                        <i class="fas fa-circle ms-2" style="color:#dc2626; font-size:8px;"></i> Anomaly detected
                     </small>
                 </div>
             </div>
