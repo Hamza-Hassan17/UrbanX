@@ -125,7 +125,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/deactivated', function () {
         return view('errors.deactivated');
     })->name('deactivated');
-    Route::middleware(['check.activation'])->group(function () {
+    Route::middleware(['check.activation', 'no.cache'])->group(function () {
 
         Route::resource('profile', ProfileController::class);
         Route::post('profile/setting/account/{id}', [ProfileController::class, 'accountDeactivation'])->name('account.deactivate');
