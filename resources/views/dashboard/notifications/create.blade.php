@@ -61,17 +61,24 @@
                             @enderror
                         </div>
 
-                        <div class="mb-4 col-md-12" id="users_select_box">
-                            <label class="form-label" for="user_ids">{{ __('Users') }}</label>
-                            <select id="user_ids" name="user_ids[]"
-                                class="form-select @error('user_ids') is-invalid @enderror" multiple>
+                        <div class="mb-4 col-md-12 position-relative" id="users_select_box">
+                            <label class="form-label" for="user_search_input">{{ __('Users') }}</label>
+                            <input type="text" id="user_search_input" class="form-control @error('user_ids') is-invalid @enderror"
+                                placeholder="{{ __('Type to search by name or email...') }}" autocomplete="off">
+                            <div id="user_search_results" class="list-group position-absolute w-100"
+                                style="z-index: 1050; display: none; max-height: 250px; overflow-y: auto;"></div>
+
+                            <div id="selected_users_chips" class="d-flex flex-wrap gap-2 mt-2"></div>
+
+                            {{-- The actual form data -- a plain hidden multi-select the widget above
+                                 manages via jQuery (append/remove <option>), so the server-side
+                                 handling (request->user_ids) needed no changes. --}}
+                            <select id="user_ids" name="user_ids[]" multiple style="display: none;">
                                 @foreach ($selectedUsers as $user)
-                                    <option value="{{ $user->id }}" selected>
-                                        {{ $user->email ? "{$user->name} ({$user->email})" : $user->name }}
-                                    </option>
+                                    @php $label = $user->email ? "{$user->name} ({$user->email})" : $user->name; @endphp
+                                    <option value="{{ $user->id }}" selected data-label="{{ $label }}">{{ $label }}</option>
                                 @endforeach
                             </select>
-                            <small class="text-muted">{{ __('Type to search by name or email.') }}</small>
                             @error('user_ids')
                                 <span class="invalid-feedback d-block" role="alert">
                                     <strong>{{ $message }}</strong>
@@ -124,40 +131,87 @@
     <!-- Vendors JS -->
     <script>
         $(document).ready(function() {
-            // TEMP DIAGNOSTIC -- remove once the search issue is confirmed fixed.
-            console.log('[diag] jQuery version:', $.fn.jquery);
-            console.log('[diag] select2 plugin loaded:', typeof $.fn.select2);
-            console.log('[diag] #user_ids element found:', $('#user_ids').length);
-            console.log('[diag] search-users URL:', '{{ route("dashboard.notifications.search-users") }}');
+            // Plain jQuery remote-search widget for the Users field --
+            // deliberately not using select2's built-in `ajax` option, which
+            // silently never invoked its own data/processResults callbacks on
+            // this page despite initializing without error (confirmed via the
+            // exact same request succeeding when called directly with
+            // $.getJSON). This gives full control and is easy to debug.
+            const searchUrl = '{{ route("dashboard.notifications.search-users") }}';
+            let searchTimeout = null;
 
-            // Manual select2 init (not the .select2 class) with a remote
-            // search, since preloading every active user doesn't scale once
-            // there are hundreds of customers/drivers/restaurant owners/riders.
-            try {
-                $('#user_ids').wrap('<div class="position-relative"></div>').select2({
-                    placeholder: '{{ __("Search users by name or email...") }}',
-                    dropdownParent: $('#user_ids').parent(),
-                    minimumInputLength: 2,
-                    ajax: {
-                        url: '{{ route("dashboard.notifications.search-users") }}',
-                        dataType: 'json',
-                        delay: 250,
-                        data: function(params) {
-                            console.log('[diag] ajax.data called with term:', params.term);
-                            return { q: params.term };
-                        },
-                        processResults: function(data) {
-                            console.log('[diag] ajax response:', data);
-                            return { results: data.results };
-                        },
-                        cache: true,
-                    },
+            function renderSelectedChips() {
+                const $chips = $('#selected_users_chips').empty();
+                $('#user_ids option').each(function() {
+                    const $opt = $(this);
+                    const $chip = $('<span>', {
+                        class: 'badge bg-label-primary d-flex align-items-center gap-2 p-2',
+                        text: $opt.data('label') || $opt.text(),
+                    });
+                    $('<button>', {
+                        type: 'button',
+                        class: 'btn-close',
+                        style: 'font-size: 0.6rem;',
+                        'aria-label': 'Remove',
+                    }).on('click', function() {
+                        $opt.remove();
+                        renderSelectedChips();
+                    }).appendTo($chip);
+                    $chips.append($chip);
                 });
-                console.log('[diag] select2 init call completed without throwing');
-                console.log('[diag] select2 instance attached:', $('#user_ids').data('select2') ? 'yes' : 'no');
-            } catch (err) {
-                console.error('[diag] select2 init THREW:', err);
             }
+
+            $('#user_search_input').on('input', function() {
+                const term = $(this).val().trim();
+                clearTimeout(searchTimeout);
+
+                if (term.length < 2) {
+                    $('#user_search_results').hide().empty();
+                    return;
+                }
+
+                searchTimeout = setTimeout(function() {
+                    $.getJSON(searchUrl, { q: term })
+                        .done(function(data) {
+                            const $results = $('#user_search_results').empty();
+                            const results = (data && data.results) || [];
+
+                            if (!results.length) {
+                                $results.append(
+                                    $('<div>', { class: 'list-group-item text-muted', text: '{{ __("No results found") }}' })
+                                );
+                            } else {
+                                results.forEach(function(user) {
+                                    $('<button>', {
+                                        type: 'button',
+                                        class: 'list-group-item list-group-item-action',
+                                        text: user.text,
+                                    }).on('click', function() {
+                                        if ($('#user_ids option[value="' + user.id + '"]').length === 0) {
+                                            $('#user_ids').append(
+                                                $('<option>', { value: user.id, selected: true, 'data-label': user.text, text: user.text })
+                                            );
+                                            renderSelectedChips();
+                                        }
+                                        $('#user_search_input').val('');
+                                        $results.hide().empty();
+                                    }).appendTo($results);
+                                });
+                            }
+
+                            $results.show();
+                        });
+                }, 250);
+            });
+
+            // Close the results dropdown when clicking elsewhere
+            $(document).on('click', function(e) {
+                if (!$(e.target).closest('#users_select_box').length) {
+                    $('#user_search_results').hide();
+                }
+            });
+
+            renderSelectedChips();
 
             function toggleAudienceBoxes() {
                 const audience = $('input[name="audience"]:checked').val();
@@ -172,7 +226,7 @@
                     $('#users_select_box').show();
                 } else {
                     $('#users_select_box').hide();
-                    $('#user_ids').val(null).trigger('change');
+                    $('#user_search_results').hide().empty();
                 }
             }
 
