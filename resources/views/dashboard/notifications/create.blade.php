@@ -124,26 +124,40 @@
     <!-- Vendors JS -->
     <script>
         $(document).ready(function() {
+            // TEMP DIAGNOSTIC -- remove once the search issue is confirmed fixed.
+            console.log('[diag] jQuery version:', $.fn.jquery);
+            console.log('[diag] select2 plugin loaded:', typeof $.fn.select2);
+            console.log('[diag] #user_ids element found:', $('#user_ids').length);
+            console.log('[diag] search-users URL:', '{{ route("dashboard.notifications.search-users") }}');
+
             // Manual select2 init (not the .select2 class) with a remote
             // search, since preloading every active user doesn't scale once
             // there are hundreds of customers/drivers/restaurant owners/riders.
-            $('#user_ids').wrap('<div class="position-relative"></div>').select2({
-                placeholder: '{{ __("Search users by name or email...") }}',
-                dropdownParent: $('#user_ids').parent(),
-                minimumInputLength: 2,
-                ajax: {
-                    url: '{{ route("dashboard.notifications.search-users") }}',
-                    dataType: 'json',
-                    delay: 250,
-                    data: function(params) {
-                        return { q: params.term };
+            try {
+                $('#user_ids').wrap('<div class="position-relative"></div>').select2({
+                    placeholder: '{{ __("Search users by name or email...") }}',
+                    dropdownParent: $('#user_ids').parent(),
+                    minimumInputLength: 2,
+                    ajax: {
+                        url: '{{ route("dashboard.notifications.search-users") }}',
+                        dataType: 'json',
+                        delay: 250,
+                        data: function(params) {
+                            console.log('[diag] ajax.data called with term:', params.term);
+                            return { q: params.term };
+                        },
+                        processResults: function(data) {
+                            console.log('[diag] ajax response:', data);
+                            return { results: data.results };
+                        },
+                        cache: true,
                     },
-                    processResults: function(data) {
-                        return { results: data.results };
-                    },
-                    cache: true,
-                },
-            });
+                });
+                console.log('[diag] select2 init call completed without throwing');
+                console.log('[diag] select2 instance attached:', $('#user_ids').data('select2') ? 'yes' : 'no');
+            } catch (err) {
+                console.error('[diag] select2 init THREW:', err);
+            }
 
             function toggleAudienceBoxes() {
                 const audience = $('input[name="audience"]:checked').val();
