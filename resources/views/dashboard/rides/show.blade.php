@@ -3,7 +3,6 @@
 @section('title', __('Ride Details'))
 
 @section('css')
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
     .ride-status {
         font-size: 0.9rem;
@@ -520,7 +519,7 @@
 @endsection
 
 @section('script')
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}"></script>
 <script>
     $(document).ready(function() {
         // Initialize tooltips
@@ -587,6 +586,19 @@
         let map;
         let pickupMarker, dropoffMarker;
 
+        // Simple colored-circle marker icon (SVG data URI) -- replaces
+        // Leaflet's divIcon; kept deliberately plain (no inner glyph) since
+        // classic google.maps.Marker icons are images, not arbitrary HTML.
+        function circleIcon(color) {
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24">` +
+                `<circle cx="12" cy="12" r="9" fill="${color}" stroke="white" stroke-width="3"/></svg>`;
+            return {
+                url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+                scaledSize: new google.maps.Size(24, 24),
+                anchor: new google.maps.Point(12, 12),
+            };
+        }
+
         function initMap() {
             // Calculate center point
             let centerLat, centerLng;
@@ -598,61 +610,54 @@
                 centerLng = rideData.pickup.lng;
             }
 
-            // Initialize map
-            map = L.map('map').setView([centerLat, centerLng], 13);
-
-            // Add OpenStreetMap tiles
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                maxZoom: 19
-            }).addTo(map);
-
-            // Create custom icons
-            const pickupIcon = L.divIcon({
-                html: '<div style="background-color: #4e54c8; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;"><i class="bx bx-flag" style="color: white; font-size: 12px;"></i></div>',
-                className: 'custom-pickup-icon',
-                iconSize: [24, 24],
-                iconAnchor: [12, 12]
-            });
-
-            const dropoffIcon = L.divIcon({
-                html: '<div style="background-color: #dc3545; width: 24px; height: 24px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;"><i class="bx bx-target-lock" style="color: white; font-size: 12px;"></i></div>',
-                className: 'custom-dropoff-icon',
-                iconSize: [24, 24],
-                iconAnchor: [12, 12]
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: centerLat, lng: centerLng },
+                zoom: 13,
             });
 
             // Add pickup marker
-            pickupMarker = L.marker([rideData.pickup.lat, rideData.pickup.lng], {
-                icon: pickupIcon
-            }).addTo(map).bindPopup('<strong>Pickup Location</strong>');
+            pickupMarker = new google.maps.Marker({
+                position: { lat: rideData.pickup.lat, lng: rideData.pickup.lng },
+                map: map,
+                icon: circleIcon('#4e54c8'),
+            });
+            const pickupInfoWindow = new google.maps.InfoWindow({ content: '<strong>Pickup Location</strong>' });
+            pickupMarker.addListener('click', () => pickupInfoWindow.open(map, pickupMarker));
 
             // Add dropoff marker if exists
             if (rideData.dropoff) {
-                dropoffMarker = L.marker([rideData.dropoff.lat, rideData.dropoff.lng], {
-                    icon: dropoffIcon
-                }).addTo(map).bindPopup('<strong>Dropoff Location</strong>');
+                dropoffMarker = new google.maps.Marker({
+                    position: { lat: rideData.dropoff.lat, lng: rideData.dropoff.lng },
+                    map: map,
+                    icon: circleIcon('#dc3545'),
+                });
+                const dropoffInfoWindow = new google.maps.InfoWindow({ content: '<strong>Dropoff Location</strong>' });
+                dropoffMarker.addListener('click', () => dropoffInfoWindow.open(map, dropoffMarker));
 
-                // Draw line between points
-                const polyline = L.polyline([
-                    [rideData.pickup.lat, rideData.pickup.lng],
-                    [rideData.dropoff.lat, rideData.dropoff.lng]
-                ], {
-                    color: '#4e54c8',
-                    weight: 3,
-                    opacity: 0.7,
-                    dashArray: '5, 10'
-                }).addTo(map);
+                // Draw dashed line between points
+                new google.maps.Polyline({
+                    path: [
+                        { lat: rideData.pickup.lat, lng: rideData.pickup.lng },
+                        { lat: rideData.dropoff.lat, lng: rideData.dropoff.lng },
+                    ],
+                    strokeOpacity: 0,
+                    icons: [{
+                        icon: { path: 'M 0,-1 0,1', strokeOpacity: 1, strokeColor: '#4e54c8', scale: 3 },
+                        offset: '0',
+                        repeat: '12px',
+                    }],
+                    map: map,
+                });
 
                 // Fit bounds to show both markers
-                const bounds = L.latLngBounds(
-                    [rideData.pickup.lat, rideData.pickup.lng],
-                    [rideData.dropoff.lat, rideData.dropoff.lng]
-                );
-                map.fitBounds(bounds, { padding: [50, 50] });
+                const bounds = new google.maps.LatLngBounds();
+                bounds.extend({ lat: rideData.pickup.lat, lng: rideData.pickup.lng });
+                bounds.extend({ lat: rideData.dropoff.lat, lng: rideData.dropoff.lng });
+                map.fitBounds(bounds, 50);
             } else {
                 // Zoom to pickup if no dropoff
-                map.setView([rideData.pickup.lat, rideData.pickup.lng], 15);
+                map.setCenter({ lat: rideData.pickup.lat, lng: rideData.pickup.lng });
+                map.setZoom(15);
             }
         }
 

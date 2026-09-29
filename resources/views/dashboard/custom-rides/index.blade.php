@@ -3,8 +3,6 @@
 @section('title', __('Custom Rides'))
 
 @section('css')
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -704,21 +702,6 @@
             gap: 10px;
         }
 
-        /* Routing machine custom styles */
-        .leaflet-routing-container {
-            display: none;
-            background: var(--surface);
-            border-radius: 8px;
-            box-shadow: var(--card-shadow);
-            width: 320px;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .leaflet-routing-alt {
-            max-height: 300px;
-        }
-
         /* Responsive */
         @media (max-width: 1200px) {
             .dispatch-toprow {
@@ -740,31 +723,6 @@
             .field-grid {
                 grid-template-columns: 1fr;
             }
-        }
-
-        /* Custom Leaflet Styles */
-        .leaflet-control-zoom {
-            border: none !important;
-            box-shadow: var(--card-shadow) !important;
-            border-radius: 8px !important;
-            overflow: hidden;
-        }
-
-        .leaflet-control-zoom a {
-            border-radius: 0 !important;
-            border: none !important;
-            width: 34px !important;
-            height: 34px !important;
-            line-height: 34px !important;
-        }
-
-        .leaflet-popup-content {
-            font-family: 'Inter', sans-serif !important;
-        }
-
-        .custom-div-icon {
-            background: transparent !important;
-            border: none !important;
         }
 
         .notification {
@@ -1104,70 +1062,65 @@
 @endsection
 
 @section('script')
-    <!-- Leaflet JS -->
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <!-- Leaflet Routing Machine -->
-    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <!-- Google Maps JS API -->
+    <script src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}"></script>
 
     <script>
         // Global variables
-        let map, pickupMarker, destinationMarker, routingControl;
+        let map, pickupMarker, destinationMarker, directionsRenderer;
+        const directionsService = new google.maps.DirectionsService();
         let pickupCoordinates = null;
         let destinationCoordinates = null;
         let debounceTimer;
 
         // Initialize the map centered on Pakistan
         function initMap() {
-            map = L.map('map').setView([30.3753, 69.3451], 6);
-
-            // Add OpenStreetMap tiles
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '© OpenStreetMap contributors',
-                maxZoom: 18,
-            }).addTo(map);
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: { lat: 30.3753, lng: 69.3451 },
+                zoom: 6,
+            });
 
             // Add driver markers
             addDriverMarkers();
         }
 
-        // Custom taxi icons
-        const taxiIcon = L.divIcon({
-            className: 'custom-div-icon',
-            html: '<div style="background-color: white; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 3px solid #10b981; box-shadow: 0 2px 5px rgba(0,0,0,0.2);"><i class="fas fa-taxi" style="color: #10b981; font-size: 20px;"></i></div>',
-            iconSize: [44, 44],
-            iconAnchor: [22, 22]
-        });
+        // Colored-circle SVG marker icon, optionally with a short text label
+        // and/or a pulsing animation (via SMIL <animate>, which plays even
+        // inside an <img> showing an SVG data URI) -- replaces Leaflet's
+        // divIcon, which could embed arbitrary HTML/icon fonts directly;
+        // classic google.maps.Marker icons are images, so icon-font glyphs
+        // (fa-taxi, fa-route, etc) are approximated with short text instead.
+        function svgCircleIcon({ color, size = 44, label = '', pulse = false, bg = 'white' } = {}) {
+            const r = size / 2 - 3;
+            const pulseAnim = pulse
+                ? `<animate attributeName="r" values="${r};${r + 3};${r}" dur="1.2s" repeatCount="indefinite" />
+                   <animate attributeName="opacity" values="1;0.55;1" dur="1.2s" repeatCount="indefinite" />`
+                : '';
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}">` +
+                `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="${bg}" stroke="${color}" stroke-width="3">${pulseAnim}</circle>` +
+                (label ? `<text x="${size / 2}" y="${size / 2 + 5}" text-anchor="middle" font-size="13" font-weight="bold" fill="${color}" font-family="Arial, sans-serif">${label}</text>` : '') +
+                `</svg>`;
 
-        const taxiIconBusy = L.divIcon({
-            className: 'custom-div-icon',
-            html: '<div style="background-color: white; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 3px solid #f59e0b; box-shadow: 0 2px 5px rgba(0,0,0,0.2);"><i class="fas fa-taxi" style="color: #f59e0b; font-size: 20px;"></i></div>',
-            iconSize: [44, 44],
-            iconAnchor: [22, 22]
-        });
+            return {
+                url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+                scaledSize: new google.maps.Size(size, size),
+                anchor: new google.maps.Point(size / 2, size / 2),
+            };
+        }
+
+        // Custom taxi icons
+        const taxiIcon = svgCircleIcon({ color: '#10b981', label: 'T' });
+        const taxiIconBusy = svgCircleIcon({ color: '#f59e0b', label: 'T' });
 
         // Active-ride / active-delivery icons (Live Ops Task 3 -- distinct from
         // idle available/busy driver markers above).
-        const activeRideIcon = L.divIcon({
-            className: 'custom-div-icon',
-            html: '<div style="background-color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 3px solid #2563eb; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><i class="fas fa-route" style="color: #2563eb; font-size: 16px;"></i></div>',
-            iconSize: [40, 40],
-            iconAnchor: [20, 20],
-        });
-        const activeDeliveryIcon = L.divIcon({
-            className: 'custom-div-icon',
-            html: '<div style="background-color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 3px solid #db2777; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"><i class="fas fa-motorcycle" style="color: #db2777; font-size: 16px;"></i></div>',
-            iconSize: [40, 40],
-            iconAnchor: [20, 20],
-        });
+        const activeRideIcon = svgCircleIcon({ color: '#2563eb', size: 40, label: 'R' });
+        const activeDeliveryIcon = svgCircleIcon({ color: '#db2777', size: 40, label: 'D' });
+
         // Anomaly (Live Ops Task 4) -- wrong-direction or stale-GPS driver,
         // shown red and pulsing so it stands out from the normal blue/pink
         // active markers above.
-        const anomalyIcon = L.divIcon({
-            className: 'custom-div-icon',
-            html: '<div style="background-color: #fee2e2; border-radius: 50%; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; border: 3px solid #dc2626; box-shadow: 0 0 10px rgba(220,38,38,0.7); animation: anomaly-pulse 1.2s infinite;"><i class="fas fa-triangle-exclamation" style="color: #dc2626; font-size: 18px;"></i></div>',
-            iconSize: [44, 44],
-            iconAnchor: [22, 22],
-        });
+        const anomalyIcon = svgCircleIcon({ color: '#dc2626', label: '!', pulse: true, bg: '#fee2e2' });
 
         const anomalyLabels = {
             wrong_direction: 'Wrong direction',
@@ -1176,30 +1129,7 @@
 
         function getDriverIcon(driver) {
             const borderColor = driver.status === 'available' ? '#10b981' : '#f59e0b';
-
-            return L.divIcon({
-                className: 'custom-div-icon',
-                html: `
-                    <div style="
-                        background-color: white;
-                        border-radius: 50%;
-                        width: 44px;
-                        height: 44px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        border: 3px solid ${borderColor};
-                        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                        font-weight: bold;
-                        font-size: 14px;
-                        color: #111827;
-                    ">
-                        ${'D-' + driver.id}
-                    </div>
-                `,
-                iconSize: [44, 44],
-                iconAnchor: [22, 22]
-            });
+            return svgCircleIcon({ color: borderColor, label: 'D-' + driver.id });
         }
 
 
@@ -1313,7 +1243,7 @@
 
         // Add driver markers to map
         function addDriverMarkers() {
-            driverMarkers.forEach(m => map.removeLayer(m));
+            driverMarkers.forEach(m => m.setMap(null));
             driverMarkers = [];
 
             if (activeOnly) return; // idle drivers hidden while "active only" is on
@@ -1331,12 +1261,13 @@
 
                 if (!driverMatchesCityFilter(driver)) return;
 
-                const marker = L.marker(
-                        [parseFloat(driver.lat), parseFloat(driver.lng)], {
-                            icon: getDriverIcon(driver)
-                        }
-                    )
-                    .bindPopup(`
+                const marker = new google.maps.Marker({
+                    position: { lat, lng },
+                    map: map,
+                    icon: getDriverIcon(driver),
+                });
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `
                     <div style="padding: 10px; min-width: 200px;">
                         <h3 style="margin: 0 0 10px 0; color: #1f2937;">${driver.name}</h3>
                         <p style="margin: 5px 0; font-size: 14px;"><strong>#ID:</strong> ${driver.id}</p>
@@ -1353,8 +1284,9 @@
                             <i class="fas fa-paper-plane"></i> Assign Trip
                         </button>
                     </div>
-                `)
-                    .addTo(map);
+                `,
+                });
+                marker.addListener('click', () => infoWindow.open(map, marker));
                 driverMarkers.push(marker);
             });
         }
@@ -1367,7 +1299,7 @@
         }
 
         function renderActiveRideMarkers(activeRides) {
-            activeRideMarkers.forEach(m => map.removeLayer(m));
+            activeRideMarkers.forEach(m => m.setMap(null));
             activeRideMarkers = [];
 
             activeRides.forEach(ride => {
@@ -1384,8 +1316,13 @@
                        </p>`
                     : '';
 
-                const marker = L.marker([ride.lat, ride.lng], { icon: hasAnomaly ? anomalyIcon : activeRideIcon })
-                    .bindPopup(`
+                const marker = new google.maps.Marker({
+                    position: { lat: ride.lat, lng: ride.lng },
+                    map: map,
+                    icon: hasAnomaly ? anomalyIcon : activeRideIcon,
+                });
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `
                         <div style="padding: 10px; min-width: 200px;">
                             <h3 style="margin: 0 0 10px 0; color: #1f2937;">Active Ride #${ride.ride_id}</h3>
                             <p style="margin: 5px 0; font-size: 14px;"><strong>Driver:</strong> ${ride.driver_name ?? 'N/A'}</p>
@@ -1398,14 +1335,15 @@
                             </p>
                             ${anomalyHtml}
                         </div>
-                    `)
-                    .addTo(map);
+                    `,
+                });
+                marker.addListener('click', () => infoWindow.open(map, marker));
                 activeRideMarkers.push(marker);
             });
         }
 
         function renderActiveDeliveryMarkers(activeDeliveries) {
-            activeDeliveryMarkers.forEach(m => map.removeLayer(m));
+            activeDeliveryMarkers.forEach(m => m.setMap(null));
             activeDeliveryMarkers = [];
 
             activeDeliveries.forEach(delivery => {
@@ -1416,8 +1354,13 @@
                        </p>`
                     : '';
 
-                const marker = L.marker([delivery.lat, delivery.lng], { icon: hasAnomaly ? anomalyIcon : activeDeliveryIcon })
-                    .bindPopup(`
+                const marker = new google.maps.Marker({
+                    position: { lat: delivery.lat, lng: delivery.lng },
+                    map: map,
+                    icon: hasAnomaly ? anomalyIcon : activeDeliveryIcon,
+                });
+                const infoWindow = new google.maps.InfoWindow({
+                    content: `
                         <div style="padding: 10px; min-width: 200px;">
                             <h3 style="margin: 0 0 10px 0; color: #1f2937;">Active Delivery — Order #${delivery.order_id}</h3>
                             <p style="margin: 5px 0; font-size: 14px;"><strong>Restaurant:</strong> ${delivery.restaurant_name ?? 'N/A'}</p>
@@ -1430,8 +1373,9 @@
                             </p>
                             ${anomalyHtml}
                         </div>
-                    `)
-                    .addTo(map);
+                    `,
+                });
+                marker.addListener('click', () => infoWindow.open(map, marker));
                 activeDeliveryMarkers.push(marker);
             });
         }
@@ -1630,18 +1574,17 @@
 
             // Remove existing pickup marker
             if (pickupMarker) {
-                map.removeLayer(pickupMarker);
+                pickupMarker.setMap(null);
             }
 
             // Add new pickup marker
-            pickupMarker = L.marker([lat, lng], {
-                icon: L.divIcon({
-                    className: 'custom-div-icon',
-                    html: '<div style="background-color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 3px solid #2563eb; box-shadow: 0 2px 5px rgba(0,0,0,0.2);"><i class="fas fa-location-dot" style="color: #2563eb; font-size: 18px;"></i></div>',
-                    iconSize: [40, 40],
-                    iconAnchor: [20, 20]
-                })
-            }).bindPopup(`<b>Pickup Location</b><br>${address}`).addTo(map);
+            pickupMarker = new google.maps.Marker({
+                position: { lat, lng },
+                map: map,
+                icon: svgCircleIcon({ color: '#2563eb', size: 40, label: 'P' }),
+            });
+            const pickupInfoWindow = new google.maps.InfoWindow({ content: `<b>Pickup Location</b><br>${address}` });
+            pickupMarker.addListener('click', () => pickupInfoWindow.open(map, pickupMarker));
 
             // Update route if destination exists
             if (destinationCoordinates) {
@@ -1657,18 +1600,17 @@
 
             // Remove existing destination marker
             if (destinationMarker) {
-                map.removeLayer(destinationMarker);
+                destinationMarker.setMap(null);
             }
 
             // Add new destination marker
-            destinationMarker = L.marker([lat, lng], {
-                icon: L.divIcon({
-                    className: 'custom-div-icon',
-                    html: '<div style="background-color: white; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border: 3px solid #ef4444; box-shadow: 0 2px 5px rgba(0,0,0,0.2);"><i class="fas fa-flag-checkered" style="color: #ef4444; font-size: 18px;"></i></div>',
-                    iconSize: [40, 40],
-                    iconAnchor: [20, 20]
-                })
-            }).bindPopup(`<b>Destination</b><br>${address}`).addTo(map);
+            destinationMarker = new google.maps.Marker({
+                position: { lat, lng },
+                map: map,
+                icon: svgCircleIcon({ color: '#ef4444', size: 40, label: 'D' }),
+            });
+            const destinationInfoWindow = new google.maps.InfoWindow({ content: `<b>Destination</b><br>${address}` });
+            destinationMarker.addListener('click', () => destinationInfoWindow.open(map, destinationMarker));
 
             // Update route if pickup exists
             if (pickupCoordinates) {
@@ -1678,47 +1620,40 @@
             showNotification('Destination set', 'success');
         }
 
-        // Update route using OSRM API (free)
+        // Update route using Google Directions API
         function updateRoute() {
             if (!pickupCoordinates || !destinationCoordinates) {
                 return;
             }
 
-            // Remove existing route
-            if (routingControl) {
-                map.removeControl(routingControl);
+            if (!directionsRenderer) {
+                directionsRenderer = new google.maps.DirectionsRenderer({
+                    map: map,
+                    suppressMarkers: true, // keep our own pickup/destination markers
+                    polylineOptions: {
+                        strokeColor: '#2563eb',
+                        strokeWeight: 4,
+                        strokeOpacity: 0.7,
+                    },
+                });
             }
 
-            // Add new route using OSRM
-            routingControl = L.Routing.control({
-                waypoints: [
-                    L.latLng(pickupCoordinates[0], pickupCoordinates[1]),
-                    L.latLng(destinationCoordinates[0], destinationCoordinates[1])
-                ],
-                routeWhileDragging: false,
-                showAlternatives: false,
-                lineOptions: {
-                    styles: [{
-                        color: '#2563eb',
-                        weight: 4,
-                        opacity: 0.7
-                    }]
-                },
-                createMarker: function() {
-                    return null;
-                }, // Don't create default markers
-                router: L.Routing.osrmv1({
-                    serviceUrl: 'https://router.project-osrm.org/route/v1'
-                })
-            }).addTo(map);
+            directionsService.route({
+                origin: { lat: pickupCoordinates[0], lng: pickupCoordinates[1] },
+                destination: { lat: destinationCoordinates[0], lng: destinationCoordinates[1] },
+                travelMode: google.maps.TravelMode.DRIVING,
+            }, async function(result, status) {
+                if (status !== google.maps.DirectionsStatus.OK || !result.routes || !result.routes.length) {
+                    showNotification('Could not calculate route. Using straight line distance.', 'warning');
+                    calculateFallbackDistance();
+                    return;
+                }
 
-            routingControl.on('routesfound', async function(e) {
-                const routes = e.routes;
-                if (!routes || routes.length === 0) return;
+                directionsRenderer.setDirections(result);
 
-                const route = routes[0];
-                const distance = (route.summary.totalDistance / 1000).toFixed(1);
-                const time = Math.round(route.summary.totalTime / 60);
+                const leg = result.routes[0].legs[0];
+                const distance = (leg.distance.value / 1000).toFixed(1); // meters -> km
+                const time = Math.round(leg.duration.value / 60); // seconds -> minutes
 
                 document.getElementById('ride_distance').value = distance;
 
@@ -1758,19 +1693,10 @@
                 }
 
                 // Fit map bounds
-                const bounds = L.latLngBounds([
-                    [pickupCoordinates[0], pickupCoordinates[1]],
-                    [destinationCoordinates[0], destinationCoordinates[1]]
-                ]);
-                map.fitBounds(bounds.pad(0.1));
-            });
-
-
-
-
-            routingControl.on('routingerror', function(e) {
-                showNotification('Could not calculate route. Using straight line distance.', 'warning');
-                calculateFallbackDistance();
+                const bounds = new google.maps.LatLngBounds();
+                bounds.extend({ lat: pickupCoordinates[0], lng: pickupCoordinates[1] });
+                bounds.extend({ lat: destinationCoordinates[0], lng: destinationCoordinates[1] });
+                map.fitBounds(bounds, 60);
             });
         }
 
@@ -2056,13 +1982,13 @@
             pickupCoordinates = null;
             destinationCoordinates = null;
 
-            [pickupMarker, destinationMarker].forEach(marker => { if (marker) map.removeLayer(marker); });
+            [pickupMarker, destinationMarker].forEach(marker => { if (marker) marker.setMap(null); });
             pickupMarker = null;
             destinationMarker = null;
 
-            if (routingControl) {
-                map.removeControl(routingControl);
-                routingControl = null;
+            if (directionsRenderer) {
+                directionsRenderer.setMap(null);
+                directionsRenderer = null;
             }
 
             document.getElementById('distance').textContent = '0 km';

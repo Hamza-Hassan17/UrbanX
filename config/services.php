@@ -36,4 +36,12 @@ return [
         'sender_id' => env('VEEVOTECH_SENDER_ID', 'Default'),
     ],
 
+    'osrm' => [
+        'url' => env('OSRM_URL', 'https://router.project-osrm.org'),
+    ],
+
+    'google_maps' => [
+        'key' => env('GOOGLE_MAPS_API_KEY'),
+    ],
+
 ];
