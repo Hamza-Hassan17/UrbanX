@@ -188,6 +188,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             //Create Notification
             Route::get('/notifications/create', [NotificationController::class, 'create'])->name('notifications.create');
             Route::post('/notifications/store', [NotificationController::class, 'store'])->name('notifications.store');
+            Route::get('/notifications/search-users', [NotificationController::class, 'searchUsers'])->name('notifications.search-users');
 
             //Chauffeurs Vehicle Routes
             Route::resource('chauffeur-vehicles', ChauffeursVehicle::class);

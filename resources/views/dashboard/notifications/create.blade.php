@@ -64,19 +64,16 @@
                         <div class="mb-4 col-md-12" id="users_select_box">
                             <label class="form-label" for="user_ids">{{ __('Users') }}</label>
                             <select id="user_ids" name="user_ids[]"
-                                class="select2 multiple form-select @error('user_ids') is-invalid @enderror" multiple>
-                                {{-- <option value="" disabled>{{ __('Select User') }}</option> --}}
-                                @if (isset($users) && count($users) > 0)
-                                    @foreach ($users as $user)
-                                        <option value="{{ $user->id }}"
-                                            {{ collect(old('user_ids'))->contains($user->id) ? 'selected' : '' }}>
-                                            {{ $user->name }}
-                                        </option>
-                                    @endforeach
-                                @endif
+                                class="form-select @error('user_ids') is-invalid @enderror" multiple>
+                                @foreach ($selectedUsers as $user)
+                                    <option value="{{ $user->id }}" selected>
+                                        {{ $user->email ? "{$user->name} ({$user->email})" : $user->name }}
+                                    </option>
+                                @endforeach
                             </select>
+                            <small class="text-muted">{{ __('Type to search by name or email.') }}</small>
                             @error('user_ids')
-                                <span class="invalid-feedback" role="alert">
+                                <span class="invalid-feedback d-block" role="alert">
                                     <strong>{{ $message }}</strong>
                                 </span>
                             @enderror
@@ -127,6 +124,27 @@
     <!-- Vendors JS -->
     <script>
         $(document).ready(function() {
+            // Manual select2 init (not the .select2 class) with a remote
+            // search, since preloading every active user doesn't scale once
+            // there are hundreds of customers/drivers/restaurant owners/riders.
+            $('#user_ids').wrap('<div class="position-relative"></div>').select2({
+                placeholder: '{{ __("Search users by name or email...") }}',
+                dropdownParent: $('#user_ids').parent(),
+                minimumInputLength: 2,
+                ajax: {
+                    url: '{{ route("dashboard.notifications.search-users") }}',
+                    dataType: 'json',
+                    delay: 250,
+                    data: function(params) {
+                        return { q: params.term };
+                    },
+                    processResults: function(data) {
+                        return { results: data.results };
+                    },
+                    cache: true,
+                },
+            });
+
             function toggleAudienceBoxes() {
                 const audience = $('input[name="audience"]:checked').val();
 

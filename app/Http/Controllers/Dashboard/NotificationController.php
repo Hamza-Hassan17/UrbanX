@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Dashboard;
 use App\Events\NotificationEvent;
 use App\Helpers\Helper;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Dashboard\User\UserController;
 use App\Models\Notification;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -56,14 +57,55 @@ class NotificationController extends Controller
     {
         $this->authorize('create notification');
         try {
-            $currentuser = Auth::user();
-            $users = User::where('is_active', 'active')->where('id', '!=', $currentuser->id)->get();
-            return view('dashboard.notifications.create', compact('users'));
+            // "Specific Users" is searched via AJAX (searchUsers()) rather than
+            // preloaded here -- with hundreds of customers/drivers/etc, loading
+            // every active user into one <select> doesn't scale. Only re-fetch
+            // the previously selected ones here, so they're preselected if a
+            // validation error sends the admin back to this form.
+            $selectedUsers = collect();
+            if (old('audience') === 'specific' && old('user_ids')) {
+                $selectedUsers = User::whereIn('id', old('user_ids'))->get();
+            }
+
+            return view('dashboard.notifications.create', compact('selectedUsers'));
         } catch (\Throwable $th) {
-            Log::error('Books Create Failed', ['error' => $th->getMessage()]);
+            Log::error('Notification Create Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
-            throw $th;
         }
+    }
+
+    /**
+     * AJAX search backing the "Specific Users" select2 field -- excludes
+     * admin-panel staff (super-admin/admin/dispatcher/finance), since this
+     * picker is for targeting customers/drivers/restaurant owners/riders,
+     * not other admins. Capped at 20 results per query.
+     */
+    public function searchUsers(Request $request)
+    {
+        $this->authorize('create notification');
+
+        $term = (string) $request->query('q', '');
+
+        $users = User::where('is_active', 'active')
+            ->where('id', '!=', auth()->id())
+            ->whereDoesntHave('roles', function ($q) {
+                $q->whereIn('name', UserController::ADMIN_PANEL_ROLES);
+            })
+            ->when($term !== '', function ($q) use ($term) {
+                $q->where(function ($q) use ($term) {
+                    $q->where('name', 'like', "%{$term}%")
+                        ->orWhere('email', 'like', "%{$term}%");
+                });
+            })
+            ->limit(20)
+            ->get(['id', 'name', 'email']);
+
+        return response()->json([
+            'results' => $users->map(fn ($user) => [
+                'id' => $user->id,
+                'text' => $user->email ? "{$user->name} ({$user->email})" : $user->name,
+            ]),
+        ]);
     }
 
     /**
