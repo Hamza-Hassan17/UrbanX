@@ -65,8 +65,8 @@
                             <label class="form-label" for="user_search_input">{{ __('Users') }}</label>
                             <input type="text" id="user_search_input" class="form-control @error('user_ids') is-invalid @enderror"
                                 placeholder="{{ __('Type to search by name or email...') }}" autocomplete="off">
-                            <div id="user_search_results" class="list-group position-absolute w-100"
-                                style="z-index: 1050; display: none; max-height: 250px; overflow-y: auto;"></div>
+                            <div id="user_search_results" class="list-group position-absolute w-100 shadow-sm"
+                                style="z-index: 1050; display: none; max-height: 250px; overflow-y: auto; background-color: var(--bs-body-bg, #fff); border: 1px solid rgba(0,0,0,.15); border-radius: 0.375rem;"></div>
 
                             <div id="selected_users_chips" class="d-flex flex-wrap gap-2 mt-2"></div>
 
