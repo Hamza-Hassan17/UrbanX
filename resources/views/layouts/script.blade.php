@@ -28,6 +28,32 @@
 <!-- Main JS -->
 <script src="{{ asset('assets/js/main.js') }}"></script>
 
+<script>
+    // Sitewide "don't leave the admin staring at a frozen screen" fix: every
+    // plain form submit disables its submit button and swaps it for a
+    // spinner, so a slow request reads as "working" instead of "stuck".
+    // Deferred check (setTimeout 0) so this runs *after* any inline
+    // onsubmit="return confirm(...)" or custom validation handler has had a
+    // chance to call preventDefault() -- a cancelled confirm() or a failed
+    // validation must never leave the button stuck disabled with a spinner
+    // for a submission that never actually happened.
+    document.addEventListener('submit', function (e) {
+        var form = e.target;
+        if (!(form instanceof HTMLFormElement)) return;
+
+        var submitter = e.submitter || form.querySelector('button[type="submit"], input[type="submit"], button:not([type])');
+
+        setTimeout(function () {
+            if (e.defaultPrevented) return;
+            if (!submitter || submitter.disabled) return;
+
+            submitter.dataset.originalHtml = submitter.innerHTML;
+            submitter.disabled = true;
+            submitter.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Processing...';
+        }, 0);
+    }, true);
+</script>
+
 <!-- Page JS -->
 <script src="{{ asset('assets/js/dashboards-analytics.js') }}"></script>
 
