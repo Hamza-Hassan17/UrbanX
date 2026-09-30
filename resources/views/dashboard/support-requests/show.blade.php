@@ -151,13 +151,41 @@
             }, 100);
         }
 
+        // Shared by both the optimistic own-message render (on AJAX success)
+        // and the incoming live listener (for the other party's messages) --
+        // messageId lets the listener recognize and skip a message that was
+        // already rendered optimistically, in case the broadcast for it
+        // also arrives, so a message never gets shown twice.
+        function appendMessageBubble(messageId, isAdmin, messageText, timeText) {
+            if (messageId && $('[data-message-id="' + messageId + '"]').length) {
+                return;
+            }
+
+            var bubble = $('<div>')
+                .addClass('mb-3 d-flex ' + (isAdmin ? 'justify-content-end' : 'justify-content-start'))
+                .attr('data-message-id', messageId || '')
+                .html(
+                    '<div class="p-3 rounded ' + (isAdmin ? 'bg-label-primary' : 'bg-label-secondary') + '" style="max-width: 70%;">' +
+                    '<div class="small fw-bold mb-1">' + (isAdmin ? 'Admin' : 'Driver') + '</div>' +
+                    '<div></div>' +
+                    '<div class="small text-muted mt-1"></div>' +
+                    '</div>'
+                );
+            bubble.find('div div:eq(1)').text(messageText);
+            bubble.find('.small.text-muted').text(timeText || 'just now');
+            $('#messages-list').append(bubble);
+            $('#messages-list').scrollTop($('#messages-list')[0].scrollHeight);
+        }
+
         $(document).ready(function() {
             // AJAX submit for replies -- a plain form post here means a full
             // page reload + the sitewide "Success!" modal on every single
-            // chat message, which is a bad fit for a chat UI. The message
-            // itself still shows up via the .support.message listener below
-            // (broadcasts reach the sender's own open connection too, not
-            // just the other party), so this just needs to clear the input.
+            // chat message, which is a bad fit for a chat UI. The sent
+            // message is rendered directly from this request's own response
+            // (see appendMessageBubble call below) rather than waiting for
+            // it to round-trip back through the broadcast -- a missed/
+            // delayed WebSocket event must never be the only way the sender
+            // sees their own message appear.
             var replyForm = document.getElementById('replyForm');
             if (replyForm) {
                 replyForm.addEventListener('submit', function (e) {
@@ -186,6 +214,10 @@
                                     throw new Error(data.message || 'Failed to send reply.');
                                 });
                             }
+                            return response.json();
+                        })
+                        .then(function (data) {
+                            appendMessageBubble(data.message_id, true, message, 'just now');
                             input.value = '';
                         })
                         .catch(function (err) {
@@ -202,19 +234,7 @@
             whenEchoReady(function () {
                 window.Echo.private('support-request.{{ $supportRequest->id }}')
                     .listen('.support.message', function(e) {
-                        const isAdmin = e.sender_role === 'admin';
-                        const bubble = $('<div>')
-                            .addClass('mb-3 d-flex ' + (isAdmin ? 'justify-content-end' : 'justify-content-start'))
-                            .html(
-                                '<div class="p-3 rounded ' + (isAdmin ? 'bg-label-primary' : 'bg-label-secondary') + '" style="max-width: 70%;">' +
-                                '<div class="small fw-bold mb-1">' + (isAdmin ? 'Admin' : 'Driver') + '</div>' +
-                                '<div></div>' +
-                                '<div class="small text-muted mt-1">just now</div>' +
-                                '</div>'
-                            );
-                        bubble.find('div div:eq(1)').text(e.message);
-                        $('#messages-list').append(bubble);
-                        $('#messages-list').scrollTop($('#messages-list')[0].scrollHeight);
+                        appendMessageBubble(e.message_id, e.sender_role === 'admin', e.message, 'just now');
                     })
                     .listen('.support.request.status', function(e) {
                         location.reload();

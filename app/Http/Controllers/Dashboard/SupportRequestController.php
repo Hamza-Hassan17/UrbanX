@@ -154,7 +154,18 @@ class SupportRequestController extends Controller
             );
 
             if ($wantsJson) {
-                return response()->json(['message' => 'Reply sent.']);
+                // The client renders its own message from this response
+                // directly rather than waiting for it to round-trip back
+                // through the broadcast -- a missed/delayed WebSocket event
+                // must never be the only way the sender sees their own
+                // message appear. message_id lets the live listener below
+                // recognize and skip this exact message if the broadcast
+                // does also arrive, avoiding a duplicate bubble.
+                return response()->json([
+                    'message' => 'Reply sent.',
+                    'message_id' => $message->id,
+                    'created_at' => $message->created_at->toIso8601String(),
+                ]);
             }
             return redirect()->back()->with('success', 'Reply sent.');
         } catch (\Throwable $th) {
