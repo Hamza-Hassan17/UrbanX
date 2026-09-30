@@ -112,8 +112,28 @@
 
 @section('script')
     <script>
-        $(document).ready(function() {
+        // window.Echo is created by layouts/master.blade.php's own inline
+        // script, which runs *after* this page's @yield('script') content in
+        // the compiled HTML (layouts.script is @include'd, and Echo is set
+        // up further down in master.blade.php itself) -- checking
+        // `if (window.Echo)` once on document ready always found it
+        // undefined and silently skipped attaching the listener. Poll until
+        // it actually exists instead of assuming it's ready by then.
+        function whenEchoReady(callback) {
             if (window.Echo) {
+                callback();
+                return;
+            }
+            var interval = setInterval(function () {
+                if (window.Echo) {
+                    clearInterval(interval);
+                    callback();
+                }
+            }, 100);
+        }
+
+        $(document).ready(function() {
+            whenEchoReady(function () {
                 window.Echo.private('support-request.{{ $supportRequest->id }}')
                     .listen('.support.message', function(e) {
                         const isAdmin = e.sender_role === 'admin';
@@ -133,7 +153,7 @@
                     .listen('.support.request.status', function(e) {
                         location.reload();
                     });
-            }
+            });
         });
     </script>
 @endsection
