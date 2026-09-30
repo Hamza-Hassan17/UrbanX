@@ -154,12 +154,17 @@ class CustomRideController extends Controller
                 ->groupBy('ride_id')
                 ->map(fn ($group) => $group->pluck('type')->values());
 
+            $geocoder = app(\App\Services\GeocodingService::class);
+
             $activeRides = Ride::with(['driver:id,name,phone,lat,lang', 'passenger:id,name,phone'])
                 ->where('ride_type', 'ride')
                 ->whereIn('status', $activeRideStatuses)
                 ->whereNotNull('driver_id')
                 ->get()
-                ->map(function ($ride) use ($openAnomaliesByRide) {
+                ->map(function ($ride) use ($openAnomaliesByRide, $geocoder) {
+                    $pickupCoords = $ride->pickup_latitude . ', ' . $ride->pickup_longitude;
+                    $dropoffCoords = $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude;
+
                     return [
                         'ride_id' => $ride->id,
                         'driver_id' => $ride->driver_id,
@@ -170,8 +175,11 @@ class CustomRideController extends Controller
                         // continuous location trail to show instead.
                         'lat' => $ride->driver->lat ? (float) $ride->driver->lat : null,
                         'lng' => $ride->driver->lang ? (float) $ride->driver->lang : null,
-                        'pickup' => $ride->pickup_latitude . ', ' . $ride->pickup_longitude,
-                        'dropoff' => $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude,
+                        // Human-readable address, falling back to raw
+                        // coordinates if reverse geocoding fails/is
+                        // unavailable -- never leave the popup blank.
+                        'pickup' => $geocoder->reverseGeocode((float) $ride->pickup_latitude, (float) $ride->pickup_longitude) ?? $pickupCoords,
+                        'dropoff' => $geocoder->reverseGeocode((float) $ride->dropoff_latitude, (float) $ride->dropoff_longitude) ?? $dropoffCoords,
                         'status' => $ride->status,
                         'ride_type' => 'ride',
                         'anomalies' => $openAnomaliesByRide->get($ride->id, collect())->values(),
@@ -186,7 +194,7 @@ class CustomRideController extends Controller
                 ->whereIn('status', $activeOrderStatuses)
                 ->whereNotNull('ride_id')
                 ->get()
-                ->map(function ($order) use ($openAnomaliesByRide) {
+                ->map(function ($order) use ($openAnomaliesByRide, $geocoder) {
                     $ride = Ride::find($order->ride_id);
                     // Real live position -- rider_latitude/rider_longitude are
                     // updated on every GPS ping by DeliveryController::
@@ -195,6 +203,9 @@ class CustomRideController extends Controller
                     // value" the way Firebase RTDB's getValue() did, so this
                     // dashboard poll reads the persisted last-known position
                     // straight from the order row instead.
+                    $pickupCoords = $ride ? $ride->pickup_latitude . ', ' . $ride->pickup_longitude : null;
+                    $dropoffCoords = $ride ? $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude : null;
+
                     return [
                         'order_id' => $order->id,
                         'ride_id' => $order->ride_id,
@@ -202,8 +213,8 @@ class CustomRideController extends Controller
                         'customer_name' => $order->customer->name ?? null,
                         'lat' => $order->rider_latitude !== null ? (float) $order->rider_latitude : null,
                         'lng' => $order->rider_longitude !== null ? (float) $order->rider_longitude : null,
-                        'pickup' => $ride ? $ride->pickup_latitude . ', ' . $ride->pickup_longitude : null,
-                        'dropoff' => $ride ? $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude : null,
+                        'pickup' => $ride ? ($geocoder->reverseGeocode((float) $ride->pickup_latitude, (float) $ride->pickup_longitude) ?? $pickupCoords) : null,
+                        'dropoff' => $ride ? ($geocoder->reverseGeocode((float) $ride->dropoff_latitude, (float) $ride->dropoff_longitude) ?? $dropoffCoords) : null,
                         'status' => $order->status,
                         'ride_type' => 'delivery',
                         'anomalies' => $order->ride_id ? $openAnomaliesByRide->get($order->ride_id, collect())->values() : collect(),
