@@ -94,7 +94,8 @@ class NotificationController extends Controller
             ->when($term !== '', function ($q) use ($term) {
                 $q->where(function ($q) use ($term) {
                     $q->where('name', 'like', "%{$term}%")
-                        ->orWhere('email', 'like', "%{$term}%");
+                        ->orWhere('email', 'like', "%{$term}%")
+                        ->orWhere('id', $term);
                 });
             })
             ->limit(20)
@@ -103,7 +104,9 @@ class NotificationController extends Controller
         return response()->json([
             'results' => $users->map(fn ($user) => [
                 'id' => $user->id,
-                'text' => $user->email ? "{$user->name} ({$user->email})" : $user->name,
+                'text' => $user->email
+                    ? "{$user->name} ({$user->email}) #{$user->id}"
+                    : "{$user->name} #{$user->id}",
             ]),
         ]);
     }
