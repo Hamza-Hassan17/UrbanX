@@ -372,13 +372,30 @@ class RideController extends Controller
                 }
 
                 if ($ride->driver) {
+                    // A cancellation while the driver already has this ride
+                    // active is a "drop what you're doing" event, not a minor
+                    // detail tweak -- distinct title/message so it doesn't
+                    // read as just another routine update, and flagged as a
+                    // popup so the driver app can surface it immediately
+                    // rather than leaving it to be discovered in the bell.
+                    if ($ride->status === 'cancelled') {
+                        $title = 'Ride Cancelled';
+                        $message = 'This ride has been cancelled by the admin.';
+                        $isPopup = true;
+                    } else {
+                        $title = 'Ride Updated';
+                        $message = 'The admin has updated the details of your ride.';
+                        $isPopup = false;
+                    }
+
                     app('notificationService')->notifyUsers(
                         [$ride->driver],
-                        'Ride Updated',
-                        'The admin has updated the details of your ride.',
+                        $title,
+                        $message,
                         'rides',
                         $ride->id,
-                        'ride_details'
+                        'ride_details',
+                        $isPopup
                     );
                 }
             }
