@@ -127,17 +127,24 @@
         // script, which runs *after* this page's own section-script content
         // in the compiled HTML (the shared layout script partial is pulled
         // in earlier, and Echo is set up further down in master.blade.php
-        // itself) -- checking `if (window.Echo)` once on document ready
-        // always found it undefined and silently skipped attaching the
-        // listener. Poll until it actually exists instead of assuming it's
-        // ready by then.
+        // itself). A plain `if (window.Echo)` truthy check isn't enough --
+        // in production this caught some other truthy value squatting on
+        // `window.Echo` (observed error: "window.Echo.private is not a
+        // function", thrown immediately on page load, before master's own
+        // script could have run yet -- most likely a browser extension
+        // defining a global with the same name). Check for the actual
+        // method the real Echo instance has, not just object presence.
+        function isRealEcho(candidate) {
+            return !!candidate && typeof candidate.private === 'function';
+        }
+
         function whenEchoReady(callback) {
-            if (window.Echo) {
+            if (isRealEcho(window.Echo)) {
                 callback();
                 return;
             }
             var interval = setInterval(function () {
-                if (window.Echo) {
+                if (isRealEcho(window.Echo)) {
                     clearInterval(interval);
                     callback();
                 }
