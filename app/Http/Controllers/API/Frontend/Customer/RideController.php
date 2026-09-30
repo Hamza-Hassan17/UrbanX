@@ -330,6 +330,84 @@ class RideController extends Controller
         }
     }
 
+    /**
+     * Call when the "choose a trip" screen opens, before any ride is
+     * requested -- registers where this passenger is browsing so idle
+     * driver pings know to push them nearby.drivers previews on their own
+     * rider.{id} channel. Also returns an immediate snapshot so the map
+     * isn't empty until the next driver ping happens to trigger a push.
+     */
+    public function watchNearbyDrivers(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'pickup_latitude' => 'required|numeric',
+            'pickup_longitude' => 'required|numeric',
+            'vehicle_type_id' => 'nullable|exists:vehicle_types,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $passenger = $request->user();
+
+            \App\Models\PreRideDriverWatch::updateOrCreate(
+                ['passenger_id' => $passenger->id],
+                [
+                    'pickup_latitude' => $request->pickup_latitude,
+                    'pickup_longitude' => $request->pickup_longitude,
+                    'vehicle_type_id' => $request->vehicle_type_id,
+                    'expires_at' => now()->addMinutes(5),
+                ]
+            );
+
+            $snapshot = ['drivers' => [], 'nearest_eta_min' => null];
+
+            if ($request->filled('vehicle_type_id')) {
+                $result = app(\App\Services\NearbyDriversFinder::class)->find(
+                    (float) $request->pickup_latitude,
+                    (float) $request->pickup_longitude,
+                    (int) $request->vehicle_type_id
+                );
+
+                if ($result) {
+                    $snapshot = ['drivers' => $result['points'], 'nearest_eta_min' => $result['nearest_eta_min']];
+                }
+            }
+
+            return response()->json($snapshot, Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Watch Nearby Drivers failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Call when leaving the "choose a trip" screen without requesting a
+     * ride (back button, app backgrounded) -- stops idle pings from
+     * pushing further previews. Not strictly required (the watch expires
+     * on its own after 5 minutes) but keeps things tidy.
+     */
+    public function unwatchNearbyDrivers(Request $request)
+    {
+        try {
+            \App\Models\PreRideDriverWatch::where('passenger_id', $request->user()->id)->delete();
+
+            return response()->json(['message' => 'Stopped watching.'], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Unwatch Nearby Drivers failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public function requestRide(Request $request)
     {
         $validator = Validator::make($request->all(), [

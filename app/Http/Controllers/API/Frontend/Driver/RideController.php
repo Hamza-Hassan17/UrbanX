@@ -889,9 +889,12 @@ class RideController extends Controller
                 // anyone currently searching nearby in this driver's vehicle
                 // type, throttled per-ride so a burst of idle pings from many
                 // drivers doesn't spam the channel faster than ~every 8s.
+                // Also updates anyone still just browsing vehicle options
+                // (pre-ride, no ride row exists yet) via the watch registry.
                 $vehicleTypeId = DriverVehicle::where('driver_id', $driver->id)->value('vehicle_type_id');
                 if ($vehicleTypeId) {
                     $this->broadcastNearbyDriversForSearchingRides($latitude, $longitude, $vehicleTypeId);
+                    $this->broadcastNearbyDriversForPreRideWatches($latitude, $longitude, $vehicleTypeId);
                 }
             }
 
@@ -933,6 +936,8 @@ class RideController extends Controller
                 ->havingRaw('distance <= ?', [$radiusKm])
                 ->get();
 
+            $finder = app(\App\Services\NearbyDriversFinder::class);
+
             foreach ($searchingRides as $ride) {
                 $cacheKey = "nearby_drivers_broadcast_ride_{$ride->id}";
                 if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
@@ -940,45 +945,64 @@ class RideController extends Controller
                 }
                 \Illuminate\Support\Facades\Cache::put($cacheKey, true, 8);
 
-                $nearbyDrivers = DriverVehicle::where('vehicle_type_id', $ride->vehicle_type_id)
-                    ->join('users', 'users.id', '=', 'driver_vehicles.driver_id')
-                    ->whereNotNull('users.lat')
-                    ->whereNotNull('users.lang')
-                    ->selectRaw("
-                        users.lat, users.lang,
-                        (6371 * acos(
-                            cos(radians(?)) *
-                            cos(radians(users.lat)) *
-                            cos(radians(users.lang) - radians(?)) +
-                            sin(radians(?)) *
-                            sin(radians(users.lat))
-                        )) AS distance
-                    ", [$ride->pickup_latitude, $ride->pickup_longitude, $ride->pickup_latitude])
-                    ->havingRaw('distance <= ?', [$radiusKm])
-                    ->orderBy('distance')
-                    ->limit(10)
-                    ->get();
-
-                if ($nearbyDrivers->isEmpty()) {
+                $result = $finder->find((float) $ride->pickup_latitude, (float) $ride->pickup_longitude, $ride->vehicle_type_id);
+                if (!$result) {
                     continue;
                 }
 
-                // Straight-line distance / average city speed -- same
-                // fallback formula the brief specifies for when a routing
-                // provider call isn't worth making (this is a coarse,
-                // anonymized estimate, not a per-ride live ETA).
-                $averageSpeedKmh = 30;
-                $nearestEtaMin = max(1, (int) round(($nearbyDrivers->first()->distance / $averageSpeedKmh) * 60));
-
-                $points = $nearbyDrivers->map(fn ($d) => [
-                    'lat' => round((float) $d->lat, 3),
-                    'lng' => round((float) $d->lang, 3),
-                ])->values()->all();
-
-                broadcast(new \App\Events\NearbyDriversUpdated($ride, $points, $nearestEtaMin));
+                broadcast(new \App\Events\NearbyDriversUpdated($ride, $result['points'], $result['nearest_eta_min']));
             }
         } catch (\Throwable $e) {
             Log::error('NearbyDriversUpdated broadcast failed', ['error' => $e->getMessage()]);
+        }
+    }
+
+    /**
+     * Same idea as broadcastNearbyDriversForSearchingRides() but for
+     * passengers browsing the "choose a trip" screen before any ride
+     * exists -- matched against the pre_ride_driver_watches registry
+     * instead of a Ride row, broadcast on rider.{id} instead of ride.{id}.
+     */
+    private function broadcastNearbyDriversForPreRideWatches(float $driverLat, float $driverLng, int $vehicleTypeId): void
+    {
+        try {
+            $radiusKm = 5;
+
+            $watches = \App\Models\PreRideDriverWatch::active()
+                ->where(function ($q) use ($vehicleTypeId) {
+                    $q->whereNull('vehicle_type_id')->orWhere('vehicle_type_id', $vehicleTypeId);
+                })
+                ->selectRaw("
+                    pre_ride_driver_watches.*,
+                    (6371 * acos(
+                        cos(radians(?)) *
+                        cos(radians(pickup_latitude)) *
+                        cos(radians(pickup_longitude) - radians(?)) +
+                        sin(radians(?)) *
+                        sin(radians(pickup_latitude))
+                    )) AS distance
+                ", [$driverLat, $driverLng, $driverLat])
+                ->havingRaw('distance <= ?', [$radiusKm])
+                ->get();
+
+            $finder = app(\App\Services\NearbyDriversFinder::class);
+
+            foreach ($watches as $watch) {
+                $cacheKey = "nearby_drivers_broadcast_watch_{$watch->passenger_id}";
+                if (\Illuminate\Support\Facades\Cache::has($cacheKey)) {
+                    continue;
+                }
+                \Illuminate\Support\Facades\Cache::put($cacheKey, true, 8);
+
+                $result = $finder->find((float) $watch->pickup_latitude, (float) $watch->pickup_longitude, $vehicleTypeId);
+                if (!$result) {
+                    continue;
+                }
+
+                broadcast(new \App\Events\NearbyDriversPreview($watch->passenger_id, $result['points'], $result['nearest_eta_min']));
+            }
+        } catch (\Throwable $e) {
+            Log::error('NearbyDriversPreview broadcast failed', ['error' => $e->getMessage()]);
         }
     }
 

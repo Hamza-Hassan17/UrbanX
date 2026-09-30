@@ -146,3 +146,12 @@ Broadcast::channel('support-request.{id}', function ($user, $id) {
 
     return $user->can('view support requests');
 });
+
+/**
+ * A passenger's own inbox for nearby-drivers previews while browsing the
+ * "choose a trip" screen, before any ride exists -- strictly the owning
+ * passenger, same pattern as driver.{id}.
+ */
+Broadcast::channel('rider.{id}', function ($user, $id) {
+    return (int) $user->id === (int) $id;
+});
