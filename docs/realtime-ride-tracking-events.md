@@ -195,3 +195,19 @@ No new endpoints to call. Just subscribe to `private-ride.{rideId}` once a ride 
 - `ride.completed` isn't a separate event — the final state comes through `ride.status` with `status: "completed"` (no fare breakdown object; `total_fare` is already fixed and known from earlier events).
 - No `accept_deadline` on `ride.requested` yet.
 - No explicit ride state-machine validation (invalid transitions aren't rejected with a 409) — out of scope for this pass, ask if this becomes a real problem.
+
+## Building a live-tracking map screen (driver + rider apps)
+
+Decision made: **no turn-by-turn navigation** (no lane guidance, no voice prompts, no "turn left in 200m" banner) — that specifically requires Google's paid Navigation SDK, which we're not paying for. Instead, build a live-tracking screen using the free **Google Maps SDK for mobile** (iOS/Android — this is the plain map-rendering SDK, billed like the Maps JS API already used in the admin panel, *not* the Navigation SDK) plus the events already documented above. This gets you a map with a moving car, the route drawn on it, and an ETA/distance bar — just not spoken/street-level turn instructions.
+
+| Screen element | Backend source | Notes |
+|---|---|---|
+| Map itself | Google Maps SDK for mobile | Free tier, same billing model as the admin panel's Maps JS API |
+| Route line on the map | `ride.route` event, `polyline` field | Google-encoded polyline, decode with the SDK's built-in polyline decoder |
+| Moving car/arrow icon + rotation | `driver.location` event, `lat`/`lng`/`heading` | Update marker position + rotation on every event; interpolate/animate between updates for smoothness rather than snapping |
+| Bottom card: ETA, distance remaining | `ride.progress` event, `eta_min`/`remaining_km` | Updates every ~20s; keep showing the last known value between updates |
+| "Re-center" button | Pure client-side | No backend involved — just re-center the camera on the driver's last known `driver.location` position |
+| Green turn-arrow banner + voice ("Turn left onto Selby Rd") | **Not available** | This is the actual navigation part — needs the paid Navigation SDK, out of scope for now |
+| Speed limit sign, lane guidance | **Not available** | Same as above — road-sign/lane data isn't part of the free Maps SDK |
+
+**For the driver's own turn-by-turn need** (finding their way to pickup/dropoff), the practical free option already discussed: a "Navigate" button that deep-links out to the Google Maps app with the destination pre-filled (`https://www.google.com/maps/dir/?api=1&destination={lat},{lng}`). The driver leaves the app briefly for the actual turn-by-turn, then returns — this is what the in-app live-tracking screen above is for (both driver and rider can watch the trip progress), while Google Maps handles the moment-to-moment driving directions.
