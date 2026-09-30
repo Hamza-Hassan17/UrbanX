@@ -74,9 +74,9 @@
 
                 @can(['manage support requests'])
                     @if ($supportRequest->status === 'approved')
-                        <form action="{{ route('dashboard.support-requests.reply', $supportRequest->id) }}" method="POST" class="d-flex gap-2 mt-3">
+                        <form id="replyForm" action="{{ route('dashboard.support-requests.reply', $supportRequest->id) }}" method="POST" class="d-flex gap-2 mt-3">
                             @csrf
-                            <input type="text" name="message" class="form-control" placeholder="{{ __('Type a reply...') }}" required>
+                            <input type="text" id="replyMessageInput" name="message" class="form-control" placeholder="{{ __('Type a reply...') }}" required>
                             <button type="submit" class="btn btn-primary">{{ __('Send') }}</button>
                         </form>
                     @else
@@ -134,6 +134,53 @@
         }
 
         $(document).ready(function() {
+            // AJAX submit for replies -- a plain form post here means a full
+            // page reload + the sitewide "Success!" modal on every single
+            // chat message, which is a bad fit for a chat UI. The message
+            // itself still shows up via the .support.message listener below
+            // (broadcasts reach the sender's own open connection too, not
+            // just the other party), so this just needs to clear the input.
+            var replyForm = document.getElementById('replyForm');
+            if (replyForm) {
+                replyForm.addEventListener('submit', function (e) {
+                    e.preventDefault();
+
+                    var input = document.getElementById('replyMessageInput');
+                    var message = input.value.trim();
+                    if (!message) return;
+
+                    var submitButton = replyForm.querySelector('button[type="submit"]');
+                    submitButton.disabled = true;
+                    input.disabled = true;
+
+                    fetch(replyForm.action, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('input[name="_token"]').value,
+                        },
+                        body: JSON.stringify({ message: message }),
+                    })
+                        .then(function (response) {
+                            if (!response.ok) {
+                                return response.json().then(function (data) {
+                                    throw new Error(data.message || 'Failed to send reply.');
+                                });
+                            }
+                            input.value = '';
+                        })
+                        .catch(function (err) {
+                            alert(err.message || 'Failed to send reply.');
+                        })
+                        .finally(function () {
+                            submitButton.disabled = false;
+                            input.disabled = false;
+                            input.focus();
+                        });
+                });
+            }
+
             whenEchoReady(function () {
                 window.Echo.private('support-request.{{ $supportRequest->id }}')
                     .listen('.support.message', function(e) {

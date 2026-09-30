@@ -107,11 +107,16 @@ class SupportRequestController extends Controller
     public function reply(Request $request, string $id)
     {
         $this->authorize('manage support requests');
+        $wantsJson = $request->wantsJson();
+
         $validator = Validator::make($request->all(), [
             'message' => 'required|string|max:2000',
         ]);
 
         if ($validator->fails()) {
+            if ($wantsJson) {
+                return response()->json(['message' => $validator->errors()->first() ?: 'Validation Error!'], 422);
+            }
             return redirect()->back()->withErrors($validator)->with('error', 'Validation Error!');
         }
 
@@ -119,7 +124,11 @@ class SupportRequestController extends Controller
             $supportRequest = SupportRequest::findOrFail($id);
 
             if ($supportRequest->status !== 'approved') {
-                return redirect()->back()->with('error', 'This request must be approved before replying.');
+                $message = 'This request must be approved before replying.';
+                if ($wantsJson) {
+                    return response()->json(['message' => $message], 422);
+                }
+                return redirect()->back()->with('error', $message);
             }
 
             $message = SupportMessage::create([
@@ -144,9 +153,15 @@ class SupportRequestController extends Controller
                 'support_request_details'
             );
 
+            if ($wantsJson) {
+                return response()->json(['message' => 'Reply sent.']);
+            }
             return redirect()->back()->with('success', 'Reply sent.');
         } catch (\Throwable $th) {
             Log::error('Support Request Reply Failed', ['error' => $th->getMessage()]);
+            if ($wantsJson) {
+                return response()->json(['message' => 'Something went wrong! Please try again later'], 500);
+            }
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
         }
     }
