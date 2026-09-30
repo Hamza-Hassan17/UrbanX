@@ -92,7 +92,8 @@ class SupportController extends Controller
     public function messages(Request $request, $id)
     {
         try {
-            $supportRequest = SupportRequest::where('id', $id)
+            $supportRequest = SupportRequest::with('approver:id,name,phone')
+                ->where('id', $id)
                 ->where('driver_id', $request->user()->id)
                 ->first();
 
@@ -100,9 +101,19 @@ class SupportController extends Controller
                 return response()->json(['message' => 'Support request not found.'], Response::HTTP_NOT_FOUND);
             }
 
+            // Only once approved -- and only if the approving admin actually
+            // has a phone number on file -- can the driver call back. Calling
+            // is gated the same way messaging already is: pending/rejected/
+            // closed requests can't reach anyone.
+            $canCall = $supportRequest->status === 'approved'
+                && $supportRequest->approver
+                && $supportRequest->approver->phone;
+
             return response()->json([
                 'support_request' => $supportRequest,
                 'messages' => $supportRequest->messages,
+                'can_call' => $canCall,
+                'call_number' => $canCall ? $supportRequest->approver->phone : null,
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Get Support Messages failed', ['error' => $th->getMessage()]);

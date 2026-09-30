@@ -15,6 +15,9 @@
                     <h5 class="mb-1">{{ $supportRequest->subject }}</h5>
                     <small class="text-muted">
                         {{ __('From') }} {{ $supportRequest->driver->name ?? 'N/A' }}
+                        @if ($supportRequest->driver && $supportRequest->driver->phone)
+                            &middot; {{ $supportRequest->driver->phone }}
+                        @endif
                         &middot; {{ $supportRequest->created_at->format('M d, Y h:i A') }}
                     </small>
                 </div>
@@ -30,6 +33,14 @@
                     <span id="status-badge" class="badge {{ $badgeClass }} align-self-center">{{ ucfirst($supportRequest->status) }}</span>
 
                     @can(['manage support requests'])
+                        {{-- Admin can always call the driver regardless of approval status --
+                             the approval gate exists to protect driver-initiated contact
+                             (messaging/calling back), not admin's own outreach. --}}
+                        @if ($supportRequest->driver && $supportRequest->driver->phone)
+                            <a href="tel:{{ $supportRequest->driver->phone }}" class="btn btn-success btn-sm align-self-center">
+                                <i class="ti ti-phone"></i> {{ __('Call Driver') }}
+                            </a>
+                        @endif
                         @if ($supportRequest->status === 'pending')
                             <form action="{{ route('dashboard.support-requests.approve', $supportRequest->id) }}" method="POST">
                                 @csrf
