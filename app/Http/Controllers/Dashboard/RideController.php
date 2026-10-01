@@ -382,6 +382,10 @@ class RideController extends Controller
                         $title = 'Ride Cancelled';
                         $message = 'This ride has been cancelled by the admin.';
                         $isPopup = true;
+                    } elseif ($ride->status === 'completed') {
+                        $title = 'Ride Completed';
+                        $message = 'This ride has been marked completed by the admin.';
+                        $isPopup = true;
                     } else {
                         $title = 'Ride Updated';
                         $message = 'The admin has updated the details of your ride.';
