@@ -100,6 +100,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         //Live GPS ping (taxi rides) -- call every ~15-30s while en_route/started
         Route::post('/location/ping', [DriverRideController::class, 'pingLocation']);
+        Route::post('/ride/stop/arrived', [DriverRideController::class, 'markStopArrived']);
 
         //Support Requests -- driver can't send messages until an admin approves the request
         Route::post('/support/request', [DriverSupportController::class, 'store']);

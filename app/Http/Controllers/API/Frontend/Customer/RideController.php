@@ -422,6 +422,14 @@ class RideController extends Controller
             'subtotal' => 'nullable|string',
             'discount_amount' => 'nullable|string',
             'total_fare' => 'nullable|string',
+            // "Add Stop" -- intermediate waypoints between pickup and the
+            // final dropoff above, in visit order. Taxi only, booking-time
+            // only (fixed price means the whole route must be known before
+            // the ride is requested, not changed mid-ride).
+            'stops' => 'nullable|array|max:3',
+            'stops.*.latitude' => 'required_with:stops|string',
+            'stops.*.longitude' => 'required_with:stops|string',
+            'stops.*.address' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
@@ -451,6 +459,16 @@ class RideController extends Controller
             $ride->status = 'requested';
             $ride->ride_type = 'ride';
             $ride->save();
+
+            foreach ($request->input('stops', []) as $index => $stop) {
+                \App\Models\RideStop::create([
+                    'ride_id' => $ride->id,
+                    'sequence' => $index + 1,
+                    'latitude' => $stop['latitude'],
+                    'longitude' => $stop['longitude'],
+                    'address' => $stop['address'] ?? null,
+                ]);
+            }
 
             try {
                 broadcast(new \App\Events\RideStatusUpdated($ride));

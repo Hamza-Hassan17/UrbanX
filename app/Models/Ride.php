@@ -62,6 +62,11 @@ class Ride extends Model
         return $this->belongsTo(User::class, 'driver_id');
     }
 
+    public function stops()
+    {
+        return $this->hasMany(RideStop::class)->orderBy('sequence');
+    }
+
     public function statusUpdatedBy()
     {
         return $this->belongsTo(User::class, 'status_updated_by');

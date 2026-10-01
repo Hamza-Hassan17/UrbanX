@@ -231,7 +231,8 @@ class RideController extends Controller
     public function getSingleRideDetails($ride_id)
     {
         try {
-            $ride = Ride::where('id', $ride_id)
+            $ride = Ride::with('stops')
+                ->where('id', $ride_id)
                 ->where('status', 'requested')
                 ->first();
 
@@ -276,7 +277,8 @@ class RideController extends Controller
         try {
             $driver = $request->user();
 
-            $ride = Ride::where('driver_id', $driver->id)
+            $ride = Ride::with('stops')
+                ->where('driver_id', $driver->id)
                 ->whereIn('status', ['accepted', 'en_route', 'arrived', 'started'])
                 ->latest()
                 ->first();
@@ -302,7 +304,8 @@ class RideController extends Controller
     {
         try {
             $user = request()->user();
-            $ride = Ride::where('id', $ride_id)
+            $ride = Ride::with('stops')
+                ->where('id', $ride_id)
                 ->first();
 
             if (!$ride) {
@@ -1116,11 +1119,71 @@ class RideController extends Controller
      * the shape of driver.location + RideStatusUpdated's payload so the app
      * can render the same UI from either source.
      */
+    /**
+     * Marks one "Add Stop" waypoint as arrived (driver taps it in sequence
+     * while navigating the multi-stop route). Doesn't change the ride's own
+     * status -- that still only moves through the normal
+     * accepted/en_route/arrived/started/completed flow via
+     * updateRideStatus(); this just tracks progress through the
+     * intermediate stops along the way.
+     */
+    public function markStopArrived(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'ride_id' => 'required|exists:rides,id',
+            'stop_id' => 'required|exists:ride_stops,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $driver = $request->user();
+            $ride = Ride::find($request->ride_id);
+
+            if (!$ride || (int) $ride->driver_id !== (int) $driver->id) {
+                return response()->json([
+                    'message' => 'You are not assigned to this ride.'
+                ], Response::HTTP_FORBIDDEN);
+            }
+
+            $stop = \App\Models\RideStop::where('id', $request->stop_id)
+                ->where('ride_id', $ride->id)
+                ->first();
+
+            if (!$stop) {
+                return response()->json(['message' => 'Stop not found on this ride.'], Response::HTTP_NOT_FOUND);
+            }
+
+            if (!$stop->arrived_at) {
+                $stop->arrived_at = now();
+                $stop->save();
+
+                try {
+                    broadcast(new \App\Events\RideStopArrived($stop));
+                } catch (\Throwable $e) {
+                    Log::error('RideStopArrived broadcast failed', ['stop_id' => $stop->id, 'error' => $e->getMessage()]);
+                }
+            }
+
+            return response()->json(['message' => 'Stop marked as arrived.'], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Mark Stop Arrived failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public function liveStatus(Request $request, $id)
     {
         try {
             $user = $request->user();
-            $ride = Ride::find($id);
+            $ride = Ride::with('stops')->find($id);
 
             if (!$ride) {
                 return response()->json(['message' => 'Ride not found.'], Response::HTTP_NOT_FOUND);
@@ -1162,6 +1225,13 @@ class RideController extends Controller
                     'latitude' => $ride->dropoff_latitude,
                     'longitude' => $ride->dropoff_longitude,
                 ],
+                'stops' => $ride->stops->map(fn ($stop) => [
+                    'sequence' => $stop->sequence,
+                    'latitude' => $stop->latitude,
+                    'longitude' => $stop->longitude,
+                    'address' => $stop->address,
+                    'arrived_at' => $stop->arrived_at?->toIso8601String(),
+                ]),
                 'distance_km' => $ride->distance_km,
                 'duration_minutes' => $ride->duration_minutes,
                 'total_fare' => $ride->total_fare !== null ? (float) $ride->total_fare : null,
