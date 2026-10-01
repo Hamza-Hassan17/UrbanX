@@ -111,6 +111,22 @@
                 },
             });
 
+            // TEMP diagnostic -- remove once the intermittent "message sent
+            // but didn't arrive live" issue is root-caused. Logs every
+            // WebSocket connection state change (connecting/connected/
+            // unavailable/failed/disconnected) with a timestamp, so when a
+            // message goes missing we can check the console history and see
+            // definitively whether the connection had dropped at that exact
+            // moment, instead of inferring it indirectly.
+            if (window.Echo.connector && window.Echo.connector.pusher) {
+                window.Echo.connector.pusher.connection.bind('state_change', function (states) {
+                    console.log('[pusher] ' + new Date().toISOString() + ' state: ' + states.previous + ' -> ' + states.current);
+                });
+                window.Echo.connector.pusher.connection.bind('error', function (err) {
+                    console.error('[pusher] connection error', err);
+                });
+            }
+
             @auth
             window.Echo.private(@json('notifications.' . auth()->id()))
                 .listen('NotificationEvent', (e) => {
