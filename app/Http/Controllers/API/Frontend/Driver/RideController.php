@@ -779,8 +779,20 @@ class RideController extends Controller
                 ->orderBy('created_at', 'desc')
                 ->get();
 
+            // Attach the commission/SST breakdown so the driver app can show
+            // how the gross fare splits into platform fees vs. their net
+            // take-home, matching the same figures shown in admin payroll.
+            $rideHistory = $rides->map(function (Ride $ride) {
+                $data = $ride->toArray();
+                $data['fare_breakdown'] = $ride->status === 'completed' && $ride->total_fare > 0
+                    ? \App\Services\FareBreakdownService::calculate((float) $ride->total_fare)
+                    : null;
+
+                return $data;
+            });
+
             return response()->json([
-                'ride_history' => $rides,
+                'ride_history' => $rideHistory,
             ], Response::HTTP_OK);
 
         } catch (\Throwable $th) {
