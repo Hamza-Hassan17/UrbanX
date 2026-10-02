@@ -19,6 +19,20 @@ class NotificationController extends Controller
             // Fetch counts in fewer queries
             $notifications = Notification::where('user_id', $user->id)->latest()->get();
 
+            // Popup notifications (e.g. "Ride Cancelled") are meant to be
+            // shown once -- mark them read the moment they're delivered to
+            // the app so the next fetch won't surface the same popup again.
+            // read_at is still null on the objects below, so this fetch's
+            // response correctly tells the app to show it this one time.
+            $popupIdsToAcknowledge = $notifications
+                ->where('is_popup', true)
+                ->whereNull('read_at')
+                ->pluck('id');
+
+            if ($popupIdsToAcknowledge->isNotEmpty()) {
+                Notification::whereIn('id', $popupIdsToAcknowledge)->update(['read_at' => now()]);
+            }
+
             $data = $notifications->map(function ($notification) use ($user) {
                 return [
                     'user_id' => $notification->user_id,
