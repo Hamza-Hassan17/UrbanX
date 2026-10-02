@@ -21,6 +21,34 @@
                         </span>
                     @enderror
                 </div>
+                <h3>{{ __('Ride Wait Penalty Settings') }}</h3>
+                <div class="mb-4 col-md-6">
+                    <label for="wait_grace_minutes" class="form-label">{{ __('Grace Period (minutes)') }}</label><span class="text-danger">*</span>
+                    <small class="fw-medium text-primary d-block">({{ __('Free waiting time after the driver arrives before penalty starts') }})</small>
+                    <input class="form-control @error('wait_grace_minutes') is-invalid @enderror" type="number"
+                        id="wait_grace_minutes" name="wait_grace_minutes" min="0"
+                        value="{{ old('wait_grace_minutes', $systemSetting->wait_grace_minutes ?? 5) }}"
+                        placeholder="i.e. 5" required/>
+                    @error('wait_grace_minutes')
+                        <span class="invalid-feedback" role="alert">
+                            <strong>{{ $message }}</strong>
+                        </span>
+                    @enderror
+                </div>
+                <div class="mb-4 col-md-6">
+                    <label for="wait_penalty_per_minute" class="form-label">{{ __('Penalty Per Minute') }}</label><span class="text-danger">*</span>
+                    <small class="fw-medium text-primary d-block">({{ __('Amount charged for each extra minute after the grace period') }})</small>
+                    <input class="form-control @error('wait_penalty_per_minute') is-invalid @enderror" type="number"
+                        step="0.01" min="0"
+                        id="wait_penalty_per_minute" name="wait_penalty_per_minute"
+                        value="{{ old('wait_penalty_per_minute', $systemSetting->wait_penalty_per_minute ?? 9) }}"
+                        placeholder="i.e. 9" required/>
+                    @error('wait_penalty_per_minute')
+                        <span class="invalid-feedback" role="alert">
+                            <strong>{{ $message }}</strong>
+                        </span>
+                    @enderror
+                </div>
                 <h3>{{ __('Currency Settings') }}</h3>
                 <div class="mb-4 col-md-6">
                     <label for="currency_symbol" class="form-label">{{ __('Currency Symbol') }}</label><span class="text-danger">*</span>

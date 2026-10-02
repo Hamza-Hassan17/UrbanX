@@ -669,6 +669,15 @@ class RideController extends Controller
                 $ride->arrived_at = now();
             } elseif ($request->status === 'started') {
                 $ride->started_at = now();
+
+                // Freeze the late-wait penalty the moment the ride starts,
+                // so it stops accruing once the passenger is in the car.
+                $waitPenalty = $ride->calculateWaitPenalty($ride->started_at);
+                if ($waitPenalty > 0) {
+                    $ride->wait_penalty = $waitPenalty;
+                    $ride->extra_charges += $waitPenalty;
+                    $ride->total_fare += $waitPenalty;
+                }
             } elseif ($request->status === 'completed') {
                 $ride->completed_at = now();
             }
@@ -1202,8 +1211,21 @@ class RideController extends Controller
 
             $driver = $ride->driver;
 
+            // Wait-time meter: live while the driver is waiting at pickup,
+            // frozen (from wait_penalty) once the ride has started.
+            if ($ride->status === 'arrived' && $ride->arrived_at) {
+                $waitSeconds = $ride->arrived_at->diffInSeconds(now());
+                $extraCharge = $ride->calculateWaitPenalty();
+            } else {
+                $waitSeconds = 0;
+                $extraCharge = (float) $ride->wait_penalty;
+            }
+
             return response()->json([
                 'status' => $ride->status,
+                'wait_seconds' => $waitSeconds,
+                'wait_grace_seconds' => Ride::waitGraceMinutes() * 60,
+                'extra_charge' => (float) $extraCharge,
                 'driver_location' => $lastPing ? [
                     'lat' => (float) $lastPing->latitude,
                     'lng' => (float) $lastPing->longitude,

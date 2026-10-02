@@ -9,6 +9,11 @@ class Ride extends Model
 {
     use HasFactory;
 
+    // Fallback grace period/rate used only if an admin hasn't saved
+    // system settings yet (see waitGraceMinutes()/waitPenaltyPerMinute()).
+    const WAIT_GRACE_MINUTES = 5;
+    const WAIT_PENALTY_PER_MINUTE = 9;
+
     protected $casts = [
         'started_at'   => 'datetime',
         'completed_at' => 'datetime',
@@ -32,6 +37,7 @@ class Ride extends Model
         'subtotal',
         'discount_amount',
         'extra_charges',
+        'wait_penalty',
         'total_fare',
         'status',
         'ride_type',
@@ -85,5 +91,33 @@ class Ride extends Model
     public function vehicleType()
     {
         return $this->belongsTo(VehicleType::class, 'vehicle_type_id');
+    }
+
+    public static function waitGraceMinutes(): int
+    {
+        return (int) (SystemSetting::first()->wait_grace_minutes ?? self::WAIT_GRACE_MINUTES);
+    }
+
+    public static function waitPenaltyPerMinute(): float
+    {
+        return (float) (SystemSetting::first()->wait_penalty_per_minute ?? self::WAIT_PENALTY_PER_MINUTE);
+    }
+
+    /**
+     * Wait-time penalty accrued since the driver arrived, as of a given
+     * moment (defaults to now). Full extra minutes past the admin-configured
+     * grace period are charged; a partial minute is not counted.
+     */
+    public function calculateWaitPenalty(?\Carbon\Carbon $asOf = null): float
+    {
+        if (!$this->arrived_at) {
+            return 0;
+        }
+
+        $asOf = $asOf ?: now();
+        $elapsedMinutes = floor($this->arrived_at->diffInSeconds($asOf) / 60);
+        $lateMinutes = $elapsedMinutes - self::waitGraceMinutes();
+
+        return $lateMinutes > 0 ? $lateMinutes * self::waitPenaltyPerMinute() : 0;
     }
 }

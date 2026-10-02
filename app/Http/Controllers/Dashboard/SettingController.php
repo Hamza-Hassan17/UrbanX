@@ -233,6 +233,8 @@ class SettingController extends Controller
             'language_id' => 'nullable|exists:languages,id',
             'timezone_id' => 'nullable|exists:timezones,id',
             'footer_text' => 'required|string|max:255',
+            'wait_penalty_per_minute' => 'required|numeric|min:0',
+            'wait_grace_minutes' => 'required|integer|min:0',
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -251,6 +253,8 @@ class SettingController extends Controller
             $systemSetting->language_id = $request->language_id;
             $systemSetting->timezone_id = $request->timezone_id;
             $systemSetting->footer_text = $request->footer_text;
+            $systemSetting->wait_penalty_per_minute = $request->wait_penalty_per_minute;
+            $systemSetting->wait_grace_minutes = $request->wait_grace_minutes;
             $systemSetting->save();
             return redirect()->back()->with('success', 'System Settings Updated Successfully');
         } catch (\Throwable $th) {
