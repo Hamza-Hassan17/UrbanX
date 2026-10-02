@@ -19,7 +19,11 @@
 
     <div class="summary">
         <p><strong>Total Rides:</strong> {{ $row['total_rides'] }}</p>
-        <p><strong>Total Earnings:</strong> {{ \App\Helpers\Helper::formatCurrency($row['total_earnings']) }}</p>
+        <p><strong>Gross Fare:</strong> {{ \App\Helpers\Helper::formatCurrency($row['gross_fare']) }}</p>
+        <p><strong>Commission:</strong> ({{ \App\Helpers\Helper::formatCurrency($row['commission']) }})</p>
+        <p><strong>SST on Commission:</strong> ({{ \App\Helpers\Helper::formatCurrency($row['sst_on_commission']) }})</p>
+        <p><strong>SST on Ride Fare:</strong> ({{ \App\Helpers\Helper::formatCurrency($row['sst_on_ride_fare']) }})</p>
+        <p><strong>Net Income:</strong> {{ \App\Helpers\Helper::formatCurrency($row['total_earnings']) }}</p>
     </div>
 
     <table>

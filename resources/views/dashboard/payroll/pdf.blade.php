@@ -24,7 +24,11 @@
                 <th>Driver Name</th>
                 <th>Status</th>
                 <th>Total Rides</th>
-                <th>Total Earnings</th>
+                <th>Gross Fare</th>
+                <th>Commission</th>
+                <th>SST on Commission</th>
+                <th>SST on Ride Fare</th>
+                <th>Driver's Net Income</th>
             </tr>
         </thead>
         <tbody>
@@ -34,6 +38,10 @@
                     <td>{{ $row['driver_name'] }}</td>
                     <td class="{{ $row['is_active'] !== 'active' ? 'status-inactive' : '' }}">{{ ucfirst($row['is_active']) }}</td>
                     <td>{{ $row['total_rides'] }}</td>
+                    <td>{{ \App\Helpers\Helper::formatCurrency($row['gross_fare']) }}</td>
+                    <td>({{ \App\Helpers\Helper::formatCurrency($row['commission']) }})</td>
+                    <td>({{ \App\Helpers\Helper::formatCurrency($row['sst_on_commission']) }})</td>
+                    <td>({{ \App\Helpers\Helper::formatCurrency($row['sst_on_ride_fare']) }})</td>
                     <td>{{ \App\Helpers\Helper::formatCurrency($row['total_earnings']) }}</td>
                 </tr>
             @endforeach
@@ -42,6 +50,9 @@
             <tr>
                 <td colspan="3"></td>
                 <td>{{ $summary['grand_total_rides'] }}</td>
+                <td>{{ \App\Helpers\Helper::formatCurrency($summary['grand_total_gross']) }}</td>
+                <td>({{ \App\Helpers\Helper::formatCurrency($summary['grand_total_commission']) }})</td>
+                <td colspan="2">({{ \App\Helpers\Helper::formatCurrency($summary['grand_total_sst']) }})</td>
                 <td>{{ \App\Helpers\Helper::formatCurrency($summary['grand_total']) }}</td>
             </tr>
         </tfoot>

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Mail\DriverEarningsReportMail;
 use App\Models\Ride;
 use App\Models\User;
+use App\Services\FareBreakdownService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -15,11 +16,12 @@ use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 
 /**
- * Live Ops Task 8 -- payroll/accounting exports. Earnings are the driver's
- * full total_fare across completed rides in the date range (no commission
- * split modeled -- there's no platform-fee column on rides today), summed
- * across both ride_type values since a driver can do taxi and delivery
- * jobs alike.
+ * Live Ops Task 8 -- payroll/accounting exports. Gross earnings are the
+ * driver's full total_fare across completed rides in the date range, summed
+ * across both ride_type values since a driver can do taxi and delivery jobs
+ * alike. That gross is then run through FareBreakdownService (commission +
+ * SST, admin-configurable via Settings > System Settings) to get the
+ * driver's actual net payable income.
  */
 class PayrollController extends Controller
 {
@@ -159,6 +161,9 @@ class PayrollController extends Controller
         return [
             'rows' => $rows,
             'grand_total' => $rows->sum('total_earnings'),
+            'grand_total_gross' => $rows->sum('gross_fare'),
+            'grand_total_commission' => $rows->sum('commission'),
+            'grand_total_sst' => $rows->sum('sst_on_commission') + $rows->sum('sst_on_ride_fare'),
             'grand_total_rides' => $rows->sum('total_rides'),
         ];
     }
@@ -171,12 +176,19 @@ class PayrollController extends Controller
                 ->whereBetween('completed_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->get();
 
+            $grossFare = (float) $rides->sum('total_fare');
+            $breakdown = FareBreakdownService::calculate($grossFare);
+
             return [
                 'driver_id' => $driver->id,
                 'driver_name' => $driver->name,
                 'is_active' => $driver->is_active,
                 'total_rides' => $rides->count(),
-                'total_earnings' => (float) $rides->sum('total_fare'),
+                'gross_fare' => $breakdown['gross_fare'],
+                'commission' => $breakdown['commission'],
+                'sst_on_commission' => $breakdown['sst_on_commission'],
+                'sst_on_ride_fare' => $breakdown['sst_on_ride_fare'],
+                'total_earnings' => $breakdown['driver_income'],
                 'rides' => $rides,
             ];
         })->values();

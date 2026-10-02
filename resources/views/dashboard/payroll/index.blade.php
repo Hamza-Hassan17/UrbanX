@@ -84,7 +84,11 @@
                                 <th>{{ __('Driver') }}</th>
                                 <th>{{ __('Status') }}</th>
                                 <th>{{ __('Total Rides') }}</th>
-                                <th>{{ __('Total Earnings') }}</th>
+                                <th>{{ __('Gross Fare') }}</th>
+                                <th>{{ __('Commission') }}</th>
+                                <th>{{ __('SST on Commission') }}</th>
+                                <th>{{ __('SST on Ride Fare') }}</th>
+                                <th>{{ __('Driver\'s Net Income') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -97,16 +101,23 @@
                                         </span>
                                     </td>
                                     <td>{{ $row['total_rides'] }}</td>
-                                    <td>{{ \App\Helpers\Helper::formatCurrency($row['total_earnings']) }}</td>
+                                    <td>{{ \App\Helpers\Helper::formatCurrency($row['gross_fare']) }}</td>
+                                    <td class="text-danger">({{ \App\Helpers\Helper::formatCurrency($row['commission']) }})</td>
+                                    <td class="text-danger">({{ \App\Helpers\Helper::formatCurrency($row['sst_on_commission']) }})</td>
+                                    <td class="text-danger">({{ \App\Helpers\Helper::formatCurrency($row['sst_on_ride_fare']) }})</td>
+                                    <td><strong>{{ \App\Helpers\Helper::formatCurrency($row['total_earnings']) }}</strong></td>
                                 </tr>
                             @empty
-                                <tr><td colspan="4" class="text-center text-muted">{{ __('No earnings found for this selection.') }}</td></tr>
+                                <tr><td colspan="8" class="text-center text-muted">{{ __('No earnings found for this selection.') }}</td></tr>
                             @endforelse
                         </tbody>
                         <tfoot>
                             <tr>
                                 <th colspan="2">{{ __('Grand Total') }}</th>
                                 <th>{{ $summary['grand_total_rides'] }}</th>
+                                <th>{{ \App\Helpers\Helper::formatCurrency($summary['grand_total_gross']) }}</th>
+                                <th>({{ \App\Helpers\Helper::formatCurrency($summary['grand_total_commission']) }})</th>
+                                <th colspan="2">({{ \App\Helpers\Helper::formatCurrency($summary['grand_total_sst']) }})</th>
                                 <th>{{ \App\Helpers\Helper::formatCurrency($summary['grand_total']) }}</th>
                             </tr>
                         </tfoot>
