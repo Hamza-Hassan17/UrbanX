@@ -10,7 +10,9 @@ use App\Models\RideLocationPing;
 use App\Models\RideOffer;
 use App\Models\User;
 use App\Models\VehicleType;
+use App\Services\FareBreakdownService;
 use App\Services\FirebaseService;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -785,7 +787,7 @@ class RideController extends Controller
             $rideHistory = $rides->map(function (Ride $ride) {
                 $data = $ride->toArray();
                 $data['fare_breakdown'] = $ride->status === 'completed' && $ride->total_fare > 0
-                    ? \App\Services\FareBreakdownService::calculate((float) $ride->total_fare)
+                    ? FareBreakdownService::calculate((float) $ride->total_fare)
                     : null;
 
                 return $data;
@@ -794,9 +796,50 @@ class RideController extends Controller
             return response()->json([
                 'ride_history' => $rideHistory,
             ], Response::HTTP_OK);
-
         } catch (\Throwable $th) {
             Log::error('API Get Ride History failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Per-ride PDF receipt for the driver -- fare + the same commission/SST
+     * breakdown shown in Ride History and admin payroll, so a driver can
+     * keep/share a record of exactly how their net income was calculated.
+     */
+    public function downloadRideReceipt(Request $request, $id)
+    {
+        try {
+            $driver = $request->user();
+            $ride = Ride::find($id);
+
+            if (!$ride || (int) $ride->driver_id !== (int) $driver->id) {
+                return response()->json([
+                    'message' => 'Ride not found.'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($ride->status !== 'completed' || $ride->total_fare <= 0) {
+                return response()->json([
+                    'message' => 'No fare breakdown available for this ride.'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $breakdown = FareBreakdownService::calculate((float) $ride->total_fare);
+
+            $pdf = Pdf::loadView('pdf.ride-receipt', [
+                'ride' => $ride,
+                'breakdown' => $breakdown,
+                'commissionPercent' => FareBreakdownService::commissionPercent(),
+                'sstPercent' => FareBreakdownService::sstPercent(),
+            ])->setPaper('a4');
+
+            return $pdf->download('URBAN_RIDE_RECEIPT_' . $ride->id . '.pdf');
+
+        } catch (\Throwable $th) {
+            Log::error('API Download Ride Receipt failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);

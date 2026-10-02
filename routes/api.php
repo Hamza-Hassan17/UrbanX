@@ -91,6 +91,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
         //Driver Ride History
         Route::get('/ride-history', [DriverRideController::class, 'getRideHistory']);
+        Route::get('/ride/{id}/receipt-pdf', [DriverRideController::class, 'downloadRideReceipt']);
 
         //Status Update
         Route::post('/update-status', [DriverDetailsController::class, 'updateDriverStatus']);
