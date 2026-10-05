@@ -253,12 +253,14 @@ class CustomRideController extends Controller
             'cancelled' => Ride::whereDate('cancelled_at', today())->where('status', 'cancelled')->count(),
         ];
 
+        $geocoder = app(\App\Services\GeocodingService::class);
+
         $rides = Ride::with(['driver:id,name', 'passenger:id,name,phone'])
             ->whereIn('status', array_merge($activeStatuses, ['completed', 'cancelled']))
             ->latest('requested_at')
             ->take(50)
             ->get()
-            ->map(function ($ride) {
+            ->map(function ($ride) use ($geocoder) {
                 $queue = $ride->status === 'completed'
                     ? 'completed'
                     : ($ride->status === 'cancelled'
@@ -268,8 +270,10 @@ class CustomRideController extends Controller
                 return [
                     'id'        => $ride->id,
                     'time'      => optional($ride->requested_at)->format('H:i'),
-                    'pickup'    => $ride->pickup_latitude . ', ' . $ride->pickup_longitude,
-                    'dropoff'   => $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude,
+                    'pickup'    => $geocoder->reverseGeocode($ride->pickup_latitude, $ride->pickup_longitude)
+                                    ?? $ride->pickup_latitude . ', ' . $ride->pickup_longitude,
+                    'dropoff'   => $geocoder->reverseGeocode($ride->dropoff_latitude, $ride->dropoff_longitude)
+                                    ?? $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude,
                     'driver'    => $ride->driver->name ?? null,
                     'passenger' => $ride->passenger->name ?? null,
                     'phone'     => $ride->passenger->phone ?? null,
