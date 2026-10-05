@@ -144,12 +144,12 @@
 
         <tr>
             <td class="label">Pickup</td>
-            <td class="value" colspan="3">{{ $ride->pickup_latitude }}, {{ $ride->pickup_longitude }}</td>
+            <td class="value" colspan="3">{{ $pickupAddress }}</td>
         </tr>
 
         <tr>
             <td class="label">Drop-off</td>
-            <td class="value" colspan="3">{{ $ride->dropoff_latitude }}, {{ $ride->dropoff_longitude }}</td>
+            <td class="value" colspan="3">{{ $dropoffAddress }}</td>
         </tr>
     </table>
 

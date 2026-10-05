@@ -833,8 +833,14 @@ class RideController extends Controller
 
             $breakdown = FareBreakdownService::calculate((float) $ride->total_fare);
 
+            $geocoder = app(\App\Services\GeocodingService::class);
+
             $pdf = Pdf::loadView('pdf.ride-receipt', [
                 'ride' => $ride,
+                'pickupAddress' => $geocoder->reverseGeocode($ride->pickup_latitude, $ride->pickup_longitude)
+                    ?? $ride->pickup_latitude . ', ' . $ride->pickup_longitude,
+                'dropoffAddress' => $geocoder->reverseGeocode($ride->dropoff_latitude, $ride->dropoff_longitude)
+                    ?? $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude,
                 'breakdown' => $breakdown,
                 'commissionPercent' => FareBreakdownService::commissionPercent(),
                 'sstPercent' => FareBreakdownService::sstPercent(),
