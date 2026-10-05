@@ -90,6 +90,7 @@
                                 <th>{{ __('SST on Commission') }}</th>
                                 <th>{{ __('SST on Ride Fare') }}</th>
                                 <th>{{ __('Driver\'s Net Income') }}</th>
+                                <th>{{ __('Rides') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -107,9 +108,15 @@
                                     <td class="text-danger">({{ \App\Helpers\Helper::formatCurrency($row['sst_on_commission']) }})</td>
                                     <td class="text-danger">({{ \App\Helpers\Helper::formatCurrency($row['sst_on_ride_fare']) }})</td>
                                     <td><strong>{{ \App\Helpers\Helper::formatCurrency($row['total_earnings']) }}</strong></td>
+                                    <td>
+                                        <a href="{{ route('dashboard.finance.reports', ['start_date' => request('start_date'), 'end_date' => request('end_date'), 'driver_ids' => [$row['driver_id']], 'type' => 'all']) }}"
+                                            class="btn btn-sm btn-outline-primary">
+                                            <i class="ti ti-eye"></i> {{ __('View Rides') }}
+                                        </a>
+                                    </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="8" class="text-center text-muted">{{ __('No earnings found for this selection.') }}</td></tr>
+                                <tr><td colspan="9" class="text-center text-muted">{{ __('No earnings found for this selection.') }}</td></tr>
                             @endforelse
                         </tbody>
                         <tfoot>
@@ -120,6 +127,7 @@
                                 <th>({{ \App\Helpers\Helper::formatCurrency($summary['grand_total_commission']) }})</th>
                                 <th colspan="2">({{ \App\Helpers\Helper::formatCurrency($summary['grand_total_sst']) }})</th>
                                 <th>{{ \App\Helpers\Helper::formatCurrency($summary['grand_total']) }}</th>
+                                <th></th>
                             </tr>
                         </tfoot>
                     </table>
