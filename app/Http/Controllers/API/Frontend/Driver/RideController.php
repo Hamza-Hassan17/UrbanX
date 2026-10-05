@@ -843,7 +843,8 @@ class RideController extends Controller
                     ?? $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude,
                 'breakdown' => $breakdown,
                 'commissionPercent' => FareBreakdownService::commissionPercent(),
-                'sstPercent' => FareBreakdownService::sstPercent(),
+                'sstCommissionPercent' => FareBreakdownService::sstCommissionPercent(),
+                'sstRideFarePercent' => FareBreakdownService::sstRideFarePercent(),
             ])->setPaper('a4');
 
             return $pdf->download('URBAN_RIDE_RECEIPT_' . $ride->id . '.pdf');

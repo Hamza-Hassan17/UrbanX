@@ -164,7 +164,7 @@
             <td align="right">({{ \App\Helpers\Helper::formatCurrency($breakdown['commission']) }})</td>
         </tr>
         <tr class="deduction">
-            <td>SST on Service Commission ({{ $sstPercent }}%)</td>
+            <td>SST on Service Commission ({{ $sstCommissionPercent }}%)</td>
             <td align="right">({{ \App\Helpers\Helper::formatCurrency($breakdown['sst_on_commission']) }})</td>
         </tr>
         <tr>
@@ -172,7 +172,7 @@
             <td align="right">{{ \App\Helpers\Helper::formatCurrency($breakdown['remaining']) }}</td>
         </tr>
         <tr class="deduction">
-            <td>SST on Ride Fare ({{ $sstPercent }}%)</td>
+            <td>SST on Ride Fare ({{ $sstRideFarePercent }}%)</td>
             <td align="right">({{ \App\Helpers\Helper::formatCurrency($breakdown['sst_on_ride_fare']) }})</td>
         </tr>
         <tr class="total">

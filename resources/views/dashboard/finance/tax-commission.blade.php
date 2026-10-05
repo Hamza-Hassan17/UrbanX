@@ -32,12 +32,23 @@
                     </div>
 
                     <div class="col-md-6">
-                        <label for="sst_percent" class="form-label">{{ __('SST (%)') }}</label><span class="text-danger">*</span>
-                        <small class="fw-medium text-primary d-block">({{ __('Sales tax applied on the commission and backed out of the driver\'s share') }})</small>
+                        <label for="sst_percent" class="form-label">{{ __('SST on Service Commission (%)') }}</label><span class="text-danger">*</span>
+                        <small class="fw-medium text-primary d-block">({{ __('Sales tax charged on the service commission') }})</small>
                         <input class="form-control @error('sst_percent') is-invalid @enderror" type="number"
                             step="0.01" min="0" max="100" id="sst_percent" name="sst_percent"
-                            value="{{ old('sst_percent', $sstPercent) }}" required/>
+                            value="{{ old('sst_percent', $sstCommissionPercent) }}" required/>
                         @error('sst_percent')
+                            <span class="invalid-feedback" role="alert"><strong>{{ $message }}</strong></span>
+                        @enderror
+                    </div>
+
+                    <div class="col-md-6">
+                        <label for="sst_ride_fare_percent" class="form-label">{{ __('SST on Ride Fare (%)') }}</label><span class="text-danger">*</span>
+                        <small class="fw-medium text-primary d-block">({{ __('Sales tax backed out of the driver\'s share of the ride fare') }})</small>
+                        <input class="form-control @error('sst_ride_fare_percent') is-invalid @enderror" type="number"
+                            step="0.01" min="0" max="100" id="sst_ride_fare_percent" name="sst_ride_fare_percent"
+                            value="{{ old('sst_ride_fare_percent', $sstRideFarePercent) }}" required/>
+                        @error('sst_ride_fare_percent')
                             <span class="invalid-feedback" role="alert"><strong>{{ $message }}</strong></span>
                         @enderror
                     </div>

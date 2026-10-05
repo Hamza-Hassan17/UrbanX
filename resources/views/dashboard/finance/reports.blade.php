@@ -55,7 +55,7 @@
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <div>
                         <h5 class="mb-0">{{ __('Results') }}</h5>
-                        <small class="text-muted">{{ $report['start_date'] }} → {{ $report['end_date'] }} &middot; {{ __('Commission') }} {{ $report['commission_percent'] }}% &middot; {{ __('SST') }} {{ $report['sst_percent'] }}%</small>
+                        <small class="text-muted">{{ $report['start_date'] }} → {{ $report['end_date'] }} &middot; {{ __('Commission') }} {{ $report['commission_percent'] }}% &middot; {{ __('SST on Commission') }} {{ $report['sst_commission_percent'] }}% &middot; {{ __('SST on Ride Fare') }} {{ $report['sst_ride_fare_percent'] }}%</small>
                     </div>
                     <div class="d-flex gap-2">
                         @foreach (['dashboard.finance.reports.export-pdf' => ['btn-outline-danger', 'ti-file-type-pdf', 'Export PDF'], 'dashboard.finance.reports.export-excel' => ['btn-outline-success', 'ti-file-spreadsheet', 'Export Excel']] as $routeName => $style)

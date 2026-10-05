@@ -23,7 +23,8 @@ class FinanceController extends Controller
 
         return view('dashboard.finance.tax-commission', [
             'commissionPercent' => FareBreakdownService::commissionPercent(),
-            'sstPercent' => FareBreakdownService::sstPercent(),
+            'sstCommissionPercent' => FareBreakdownService::sstCommissionPercent(),
+            'sstRideFarePercent' => FareBreakdownService::sstRideFarePercent(),
         ]);
     }
 
@@ -36,6 +37,7 @@ class FinanceController extends Controller
         $validator = Validator::make($request->all(), [
             'driver_commission_percent' => 'required|numeric|min:0|max:100',
             'sst_percent' => 'required|numeric|min:0|max:100',
+            'sst_ride_fare_percent' => 'required|numeric|min:0|max:100',
         ]);
 
         if ($validator->fails()) {
@@ -46,6 +48,7 @@ class FinanceController extends Controller
             $setting = SystemSetting::first() ?? new SystemSetting();
             $setting->driver_commission_percent = $request->driver_commission_percent;
             $setting->sst_percent = $request->sst_percent;
+            $setting->sst_ride_fare_percent = $request->sst_ride_fare_percent;
             $setting->save();
 
             return redirect()->back()->with('success', 'Tax & Commission settings updated successfully');

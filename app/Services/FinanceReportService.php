@@ -73,7 +73,8 @@ class FinanceReportService
                 'selected_total' => round($groups->sum('selected_total'), 2),
             ],
             'commission_percent' => FareBreakdownService::commissionPercent(),
-            'sst_percent' => FareBreakdownService::sstPercent(),
+            'sst_commission_percent' => FareBreakdownService::sstCommissionPercent(),
+            'sst_ride_fare_percent' => FareBreakdownService::sstRideFarePercent(),
         ];
     }
 

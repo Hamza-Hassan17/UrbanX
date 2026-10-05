@@ -19,7 +19,7 @@
     <h1>{{ $report['type_label'] }}</h1>
     <p class="subtitle">
         {{ $report['start_date'] }} to {{ $report['end_date'] }}
-        &middot; Commission {{ $report['commission_percent'] }}% &middot; SST {{ $report['sst_percent'] }}%
+        &middot; Commission {{ $report['commission_percent'] }}% &middot; SST on Commission {{ $report['sst_commission_percent'] }}% &middot; SST on Ride Fare {{ $report['sst_ride_fare_percent'] }}%
     </p>
 
     @if ($report['type'] === 'all')
