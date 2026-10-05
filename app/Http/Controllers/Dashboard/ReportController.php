@@ -60,26 +60,7 @@ class ReportController extends Controller
                     return $operator;
                 });
 
-            // Per-driver: total assigned, completed, cancelled.
-            $driverStats = User::role('driver')
-                ->select('users.id', 'users.name', 'users.driver_status')
-                ->selectSub(
-                    Ride::whereColumn('driver_id', 'users.id')->selectRaw('count(*)'),
-                    'total_assigned'
-                )
-                ->selectSub(
-                    Ride::whereColumn('driver_id', 'users.id')->where('status', 'completed')->selectRaw('count(*)'),
-                    'completed'
-                )
-                ->selectSub(
-                    Ride::whereColumn('driver_id', 'users.id')->where('status', 'cancelled')->selectRaw('count(*)'),
-                    'cancelled'
-                )
-                ->having('total_assigned', '>', 0)
-                ->orderByDesc('total_assigned')
-                ->get();
-
-            return view('dashboard.reports.index', compact('operatorStats', 'driverStats'));
+            return view('dashboard.reports.index', compact('operatorStats'));
         } catch (\Throwable $th) {
             Log::error('Operator/Driver Report Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', 'Something went wrong! Please try again later');
