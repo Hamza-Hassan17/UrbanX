@@ -31,8 +31,15 @@ class CustomRideController extends Controller
 
             $dispatch = $this->getDispatchSnapshot();
 
+            $presets = \App\Models\AdminQueuePreset::where('user_id', auth()->id())
+                ->get(['name', 'filters'])
+                ->keyBy('name');
+
+            $queuePresets = $presets->except('__last__')->map(fn ($p) => $p->filters)->all();
+            $lastQueueFilters = $presets->get('__last__')?->filters ?? null;
+
             return view('dashboard.custom-rides.index', array_merge(
-                compact('drivers', 'driver'),
+                compact('drivers', 'driver', 'queuePresets', 'lastQueueFilters'),
                 $dispatch
             ));
         } catch (\Throwable $th) {
@@ -253,36 +260,12 @@ class CustomRideController extends Controller
             'cancelled' => Ride::whereDate('cancelled_at', today())->where('status', 'cancelled')->count(),
         ];
 
-        $geocoder = app(\App\Services\GeocodingService::class);
-
         $rides = Ride::with(['driver:id,name', 'passenger:id,name,phone'])
             ->whereIn('status', array_merge($activeStatuses, ['completed', 'cancelled']))
             ->latest('requested_at')
             ->take(50)
             ->get()
-            ->map(function ($ride) use ($geocoder) {
-                $queue = $ride->status === 'completed'
-                    ? 'completed'
-                    : ($ride->status === 'cancelled'
-                        ? 'cancelled'
-                        : ($ride->driver_id ? 'booked' : 'dispatch'));
-
-                return [
-                    'id'        => $ride->id,
-                    'time'      => optional($ride->requested_at)->format('H:i'),
-                    'pickup'    => $geocoder->reverseGeocode($ride->pickup_latitude, $ride->pickup_longitude)
-                                    ?? $ride->pickup_latitude . ', ' . $ride->pickup_longitude,
-                    'dropoff'   => $geocoder->reverseGeocode($ride->dropoff_latitude, $ride->dropoff_longitude)
-                                    ?? $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude,
-                    'driver'    => $ride->driver->name ?? null,
-                    'passenger' => $ride->passenger->name ?? null,
-                    'phone'     => $ride->passenger->phone ?? null,
-                    'status'    => $ride->status,
-                    'queue'     => $queue,
-                    'fare'      => (float) $ride->total_fare,
-                    'ride_type' => $ride->ride_type,
-                ];
-            });
+            ->map(fn ($ride) => $this->queueRow($ride, app(\App\Services\GeocodingService::class)));
 
         return [
             'driverAvailableCount' => $driverAvailableCount,
@@ -290,6 +273,111 @@ class CustomRideController extends Controller
             'rideCounts'           => $rideCounts,
             'rides'                => $rides,
         ];
+    }
+
+    private function queueRow(Ride $ride, \App\Services\GeocodingService $geocoder): array
+    {
+        $queue = $ride->status === 'completed'
+            ? 'completed'
+            : ($ride->status === 'cancelled'
+                ? 'cancelled'
+                : ($ride->driver_id ? 'booked' : 'dispatch'));
+
+        $pickupAt = $ride->scheduled_pickup_at ?? $ride->requested_at;
+
+        return [
+            'id'        => $ride->id,
+            'time'      => optional($pickupAt)->setTimezone('Asia/Karachi')->format('H:i'),
+            'pickup'    => $geocoder->reverseGeocode($ride->pickup_latitude, $ride->pickup_longitude)
+                            ?? $ride->pickup_latitude . ', ' . $ride->pickup_longitude,
+            'dropoff'   => $geocoder->reverseGeocode($ride->dropoff_latitude, $ride->dropoff_longitude)
+                            ?? $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude,
+            'driver'    => $ride->driver->name ?? null,
+            'passenger' => $ride->passenger->name ?? null,
+            'phone'     => $ride->passenger->phone ?? null,
+            'status'    => $ride->status,
+            'queue'     => $queue,
+            'fare'      => (float) $ride->total_fare,
+            'ride_type' => $ride->ride_type,
+        ];
+    }
+
+    /**
+     * Filtered ride queue for the Manual Ride Assignment page. A ride shows when
+     * its effective pickup (scheduled, else requested) falls in the window, or when
+     * it is still active with a past pickup, so overdue jobs never drop out.
+     */
+    public function queue(Request $request)
+    {
+        $this->authorize('view custom rides');
+
+        $tz = 'Asia/Karachi';
+        $from = $request->filled('from')
+            ? \Carbon\Carbon::parse($request->from, $tz)->utc()
+            : now();
+
+        $until = $request->filled('until')
+            ? \Carbon\Carbon::parse($request->until, $tz)->utc()
+            : null;
+
+        $window = $request->input('window', '4');
+        if (!$until && $window !== 'all') {
+            $until = $from->copy()->addHours((int) $window);
+        }
+
+        $activeStatuses = ['requested', 'accepted', 'en_route', 'arrived', 'started'];
+        $effective = 'COALESCE(scheduled_pickup_at, requested_at)';
+
+        $query = Ride::with(['driver:id,name', 'passenger:id,name,phone'])
+            ->when($until, fn ($q) => $q->where(function ($q) use ($from, $until, $effective, $activeStatuses) {
+                $q->whereRaw("$effective BETWEEN ? AND ?", [$from, $until])
+                    ->orWhere(function ($q) use ($from, $effective, $activeStatuses) {
+                        $q->whereIn('status', $activeStatuses)
+                            ->whereRaw("$effective < ?", [$from])
+                            ->whereRaw("$effective >= ?", [$from->copy()->subHours(24)]);
+                    });
+            }), fn ($q) => $q->whereRaw("$effective >= ?", [$from]))
+            ->when($request->type === 'ride', fn ($q) => $q->where('ride_type', 'ride'))
+            ->when($request->type === 'delivery', fn ($q) => $q->where('ride_type', 'delivery'));
+
+        match ($request->status) {
+            'dispatch' => $query->where('status', 'requested')->whereNull('driver_id'),
+            'booked' => $query->whereIn('status', $activeStatuses)->whereNotNull('driver_id'),
+            'completed' => $query->where('status', 'completed'),
+            'cancelled' => $query->where('status', 'cancelled'),
+            default => $query->whereIn('status', array_merge($activeStatuses, ['completed', 'cancelled'])),
+        };
+
+        $geocoder = app(\App\Services\GeocodingService::class);
+
+        $total = (clone $query)->count();
+        $rides = $query->orderByRaw("$effective ASC")->take(200)->get()
+            ->map(fn ($ride) => $this->queueRow($ride, $geocoder))
+            ->values();
+
+        return response()->json([
+            'count' => $total,
+            'rides' => $rides,
+        ]);
+    }
+
+    public function savePreset(Request $request)
+    {
+        $this->authorize('view custom rides');
+
+        $validated = $request->validate([
+            'name' => 'nullable|string|max:60',
+            'filters' => 'required|array',
+        ]);
+
+        $name = $validated['name'] ?? '__last__';
+
+        \App\Models\AdminQueuePreset::updateOrCreate(
+            ['user_id' => $request->user()->id, 'name' => $name],
+            ['filters' => $validated['filters']]
+        );
+
+        return response()->json(['saved' => $name]);
     }
 
 
@@ -312,6 +400,7 @@ class CustomRideController extends Controller
             'dropoff_longitude' => 'required|string',
             'distance_km' => 'required|string',
             'duration_minutes' => 'nullable|string',
+            'scheduled_pickup_at' => 'nullable|date_format:Y-m-d\TH:i',
             'subtotal' => 'required|string',
             'discount_amount' => 'required|string',
             'total_fare' => 'required|string',
@@ -403,6 +492,10 @@ class CustomRideController extends Controller
                 $passenger->syncRoles('user');
             }
 
+            $scheduledPickupAt = $request->filled('scheduled_pickup_at')
+                ? \Carbon\Carbon::parse($request->scheduled_pickup_at, 'Asia/Karachi')->utc()
+                : null;
+
             if($request->driver_id_input){
                 $ride = new Ride();
                 $ride->passenger_id = $passenger->id;
@@ -423,6 +516,7 @@ class CustomRideController extends Controller
                 $ride->discount_amount = $request->discount_amount;
                 $ride->total_fare = $request->total_fare;
                 $ride->requested_at = now();
+                $ride->scheduled_pickup_at = $scheduledPickupAt;
                 $ride->status = 'requested';
                 $ride->created_by = auth()->id();
                 $ride->save();
@@ -457,6 +551,7 @@ class CustomRideController extends Controller
                 $ride->discount_amount = $request->discount_amount;
                 $ride->total_fare = $request->total_fare;
                 $ride->requested_at = now();
+                $ride->scheduled_pickup_at = $scheduledPickupAt;
                 $ride->status = 'requested';
                 $ride->created_by = auth()->id();
                 $ride->save();

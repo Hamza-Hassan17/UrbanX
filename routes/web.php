@@ -210,6 +210,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             //Dashboard Custom Rides Routes
             Route::get('custom-rides', [CustomRideController::class, 'index'])->name('custom-rides.index');
             Route::get('custom-rides/stats', [CustomRideController::class, 'dispatchStats'])->name('custom-rides.stats');
+            Route::get('custom-rides/queue', [CustomRideController::class, 'queue'])->name('custom-rides.queue');
+            Route::post('custom-rides/queue/presets', [CustomRideController::class, 'savePreset'])->name('custom-rides.queue.presets');
             Route::get('custom-rides/live-tracking', [CustomRideController::class, 'liveTrackingData'])->name('custom-rides.live-tracking');
 
             //Live Tracking page -- split out from Custom Rides/Manual Ride

@@ -534,6 +534,54 @@
             color: #422006;
         }
 
+        .queue-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 10px 0;
+        }
+
+        .queue-toolbar-group {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .queue-tab:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+
+        .queue-select,
+        .queue-input {
+            border: 1.5px solid var(--border);
+            background: var(--surface-alt);
+            color: var(--dark);
+            font-size: 11px;
+            font-weight: 700;
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+
+        .queue-field {
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: var(--gray);
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .queue-sep {
+            font-weight: 800;
+            color: var(--gray);
+        }
+
         .queue-table-wrap {
             overflow-x: auto;
         }
@@ -917,6 +965,41 @@
                     <button class="queue-tab" data-queue="cancelled">Cancelled</button>
                 </div>
                 <span class="trip-count" id="queue-count">{{ count($rides) }} Rides</span>
+            </div>
+            <div class="queue-toolbar" id="queue-toolbar">
+                <div class="queue-toolbar-group">
+                    <select id="qf-preset" class="queue-select" title="Presets">
+                        <option value="default">Default</option>
+                        @foreach ($queuePresets as $presetName => $presetFilters)
+                            <option value="{{ $presetName }}">{{ $presetName }}</option>
+                        @endforeach
+                    </select>
+                    <button type="button" id="qf-save-preset" class="queue-tab">Save as preset</button>
+                    <label class="queue-field">From
+                        <input type="datetime-local" id="qf-from" class="queue-input">
+                    </label>
+                    <button type="button" id="qf-now" class="queue-tab active">Now</button>
+                    <span class="queue-sep">»</span>
+                    <select id="qf-window" class="queue-select" title="Window">
+                        <option value="1">1 HR</option>
+                        <option value="2">2 HR</option>
+                        <option value="4" selected>4 HR</option>
+                        <option value="8">8 HR</option>
+                        <option value="12">12 HR</option>
+                        <option value="24">24 HR</option>
+                        <option value="all">All</option>
+                    </select>
+                    <label class="queue-field">Until
+                        <input type="datetime-local" id="qf-until" class="queue-input">
+                    </label>
+                    <button type="button" id="qf-until-clear" class="queue-tab" title="Clear end time">—</button>
+                </div>
+                <div class="queue-toolbar-group">
+                    <button type="button" class="queue-tab" disabled title="Not available yet">✖ Recurring</button>
+                    <button type="button" class="queue-tab" disabled title="Not available yet">✖ Ticket</button>
+                    <button type="button" class="queue-tab" disabled title="Not available yet">✖ Groups</button>
+                    <button type="button" class="queue-tab" disabled title="Not available yet"><i class="fas fa-eye"></i></button>
+                </div>
             </div>
             <div class="queue-table-wrap">
                 <table class="queue-table">
@@ -1772,8 +1855,15 @@
             cancelled: 'status-cancelled',
             requested: 'status-pending',
         };
-        let activeQueueFilter = 'all';
-        let activeTypeFilter = 'all';
+        const queueUrl = @json(route('dashboard.custom-rides.queue'));
+        const queuePresetUrl = @json(route('dashboard.custom-rides.queue.presets'));
+        const queuePresets = @json($queuePresets);
+        const lastQueueFilters = @json($lastQueueFilters);
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+        const DEFAULT_QUEUE_FILTERS = { type: 'all', status: 'all', from: '', until: '', window: '4' };
+        const WINDOW_CYCLE = ['1', '2', '4', '8', '12', '24', 'all'];
+        let queueFilters = { ...DEFAULT_QUEUE_FILTERS, ...(lastQueueFilters || {}) };
+        let queueRequestInFlight = false;
 
         function renderQueueTable(rides) {
             const tbody = document.getElementById('queue-table-body');
@@ -1807,22 +1897,79 @@
                     </tr>
                 `;
             }).join('');
-
-            applyQueueFilter();
         }
 
-        function applyQueueFilter() {
-            const rows = document.querySelectorAll('#queue-table-body tr[data-queue]');
-            let visibleCount = 0;
-            rows.forEach(row => {
-                const matchesQueue = activeQueueFilter === 'all' || row.dataset.queue === activeQueueFilter;
-                const matchesType = activeTypeFilter === 'all' || row.dataset.type === activeTypeFilter;
-                const show = matchesQueue && matchesType;
-                row.style.display = show ? '' : 'none';
-                if (show) visibleCount++;
+        function queueParams() {
+            const params = new URLSearchParams({
+                type: queueFilters.type,
+                status: queueFilters.status,
+                window: queueFilters.window,
             });
-            document.getElementById('queue-count').textContent = `${visibleCount} Rides`;
+            if (queueFilters.from) params.set('from', queueFilters.from);
+            if (queueFilters.until) params.set('until', queueFilters.until);
+            return params.toString();
         }
+
+        async function refreshQueue() {
+            if (queueRequestInFlight) return;
+            queueRequestInFlight = true;
+            try {
+                const response = await fetch(`${queueUrl}?${queueParams()}`, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (!response.ok) return;
+                const data = await response.json();
+                renderQueueTable(data.rides);
+                document.getElementById('queue-count').textContent = `${data.count} Rides`;
+            } catch (error) {
+                console.error('Queue refresh failed:', error);
+            } finally {
+                queueRequestInFlight = false;
+            }
+        }
+
+        function syncQueueToolbar() {
+            document.querySelectorAll('#queue-type-tabs .queue-tab').forEach(t =>
+                t.classList.toggle('active', t.dataset.type === queueFilters.type));
+            document.querySelectorAll('#queue-tabs .queue-tab').forEach(t =>
+                t.classList.toggle('active', t.dataset.queue === queueFilters.status));
+            document.getElementById('qf-from').value = queueFilters.from;
+            document.getElementById('qf-until').value = queueFilters.until;
+            document.getElementById('qf-window').value = queueFilters.window;
+            document.getElementById('qf-now').classList.toggle('active', !queueFilters.from);
+        }
+
+        function onQueueChange() {
+            syncQueueToolbar();
+            refreshQueue();
+            fetch(queuePresetUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({ filters: queueFilters }),
+            }).catch(error => console.error('Saving queue state failed:', error));
+        }
+
+        function cycleQueueWindow() {
+            const index = WINDOW_CYCLE.indexOf(queueFilters.window);
+            queueFilters.window = WINDOW_CYCLE[(index + 1) % WINDOW_CYCLE.length];
+            onQueueChange();
+        }
+
+        function resetQueueFilters() {
+            queueFilters = { ...DEFAULT_QUEUE_FILTERS };
+            document.getElementById('qf-preset').value = 'default';
+            onQueueChange();
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (!e.altKey) return;
+            if (e.key.toLowerCase() === 'w') { e.preventDefault(); cycleQueueWindow(); }
+            if (e.key.toLowerCase() === 'd') { e.preventDefault(); resetQueueFilters(); }
+        });
 
         async function refreshDispatchStats() {
             try {
@@ -1839,8 +1986,6 @@
                 document.getElementById('stat-booked').textContent = data.rideCounts.booked;
                 document.getElementById('stat-completed').textContent = data.rideCounts.completed;
                 document.getElementById('stat-cancelled').textContent = data.rideCounts.cancelled;
-
-                renderQueueTable(data.rides);
             } catch (error) {
                 console.error('Dispatch stats refresh failed:', error);
             }
@@ -1849,21 +1994,82 @@
         document.getElementById('queue-type-tabs').addEventListener('click', function(e) {
             const tab = e.target.closest('.queue-tab');
             if (!tab) return;
-
-            this.querySelectorAll('.queue-tab').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            activeTypeFilter = tab.dataset.type;
-            applyQueueFilter();
+            queueFilters.type = tab.dataset.type;
+            onQueueChange();
         });
 
         document.getElementById('queue-tabs').addEventListener('click', function(e) {
             const tab = e.target.closest('.queue-tab');
             if (!tab) return;
+            queueFilters.status = tab.dataset.queue;
+            onQueueChange();
+        });
 
-            this.querySelectorAll('.queue-tab').forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            activeQueueFilter = tab.dataset.queue;
-            applyQueueFilter();
+        document.getElementById('qf-from').addEventListener('change', function() {
+            queueFilters.from = this.value;
+            onQueueChange();
+        });
+
+        document.getElementById('qf-until').addEventListener('change', function() {
+            queueFilters.until = this.value;
+            onQueueChange();
+        });
+
+        document.getElementById('qf-window').addEventListener('change', function() {
+            queueFilters.window = this.value;
+            onQueueChange();
+        });
+
+        document.getElementById('qf-now').addEventListener('click', function() {
+            queueFilters.from = '';
+            onQueueChange();
+        });
+
+        document.getElementById('qf-until-clear').addEventListener('click', function() {
+            queueFilters.until = '';
+            onQueueChange();
+        });
+
+        document.getElementById('qf-preset').addEventListener('change', function() {
+            if (this.value === 'default') {
+                queueFilters = { ...DEFAULT_QUEUE_FILTERS };
+            } else {
+                queueFilters = { ...DEFAULT_QUEUE_FILTERS, ...queuePresets[this.value] };
+            }
+            onQueueChange();
+        });
+
+        document.getElementById('qf-save-preset').addEventListener('click', async function() {
+            const name = (window.prompt('Name for this preset (max 60 characters):') || '').trim();
+            if (!name) return;
+
+            const response = await fetch(queuePresetUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+                body: JSON.stringify({ name, filters: queueFilters }),
+            });
+
+            if (!response.ok) {
+                window.alert('Could not save the preset. Check the name and try again.');
+                return;
+            }
+
+            queuePresets[name] = { ...queueFilters };
+            const option = new Option(name, name, true, true);
+            document.getElementById('qf-preset').add(option);
+        });
+
+        syncQueueToolbar();
+        refreshQueue();
+        setInterval(() => {
+            if (!document.hidden) refreshQueue();
+        }, 10000);
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) refreshQueue();
         });
 
         // =============================================

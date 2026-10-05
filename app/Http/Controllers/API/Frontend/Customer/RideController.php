@@ -419,6 +419,7 @@ class RideController extends Controller
             'dropoff_longitude' => 'nullable|string',
             'distance_km' => 'nullable|string',
             'duration_minutes' => 'nullable|string',
+            'scheduled_pickup_at' => 'nullable|date|after:now',
             'subtotal' => 'nullable|string',
             'discount_amount' => 'nullable|string',
             'total_fare' => 'nullable|string',
@@ -456,6 +457,7 @@ class RideController extends Controller
             $ride->discount_amount = $request->discount_amount;
             $ride->total_fare = $request->total_fare;
             $ride->requested_at = now();
+            $ride->scheduled_pickup_at = $request->filled('scheduled_pickup_at') ? \Carbon\Carbon::parse($request->scheduled_pickup_at)->utc() : null;
             $ride->status = 'requested';
             $ride->ride_type = 'ride';
             $ride->save();

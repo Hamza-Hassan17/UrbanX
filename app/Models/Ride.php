@@ -20,6 +20,7 @@ class Ride extends Model
         'requested_at' => 'datetime',
         'accepted_at'  => 'datetime',
         'arrived_at'   => 'datetime',
+        'scheduled_pickup_at' => 'datetime',
     ];
 
 
@@ -42,6 +43,7 @@ class Ride extends Model
         'status',
         'ride_type',
         'requested_at',
+        'scheduled_pickup_at',
         'accepted_at',
         'arrived_at',
         'started_at',
