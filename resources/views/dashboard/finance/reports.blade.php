@@ -17,11 +17,11 @@
             </div>
             <div class="card-body">
                 <form method="GET" action="{{ route('dashboard.finance.reports') }}" class="row g-3 align-items-end">
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label">{{ __('Start Date') }}</label>
                         <input type="date" name="start_date" class="form-control" value="{{ request('start_date') }}" required>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md-2">
                         <label class="form-label">{{ __('End Date') }}</label>
                         <input type="date" name="end_date" class="form-control" value="{{ request('end_date') }}" required>
                     </div>
@@ -32,6 +32,14 @@
                                 <option value="{{ $driver->id }}" {{ in_array($driver->id, request('driver_ids', [])) ? 'selected' : '' }}>
                                     {{ $driver->name }} @if($driver->phone)({{ $driver->phone }})@endif #{{ $driver->id }}
                                 </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">{{ __('Report') }}</label>
+                        <select name="type" class="form-select">
+                            @foreach (\App\Services\FinanceReportService::TYPES as $value => $option)
+                                <option value="{{ $value }}" {{ request('type', 'all') === $value ? 'selected' : '' }}>{{ __($option['label']) }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -69,6 +77,7 @@
                     </div>
                 </div>
 
+                @if ($report['type'] === 'all')
                 <div class="table-responsive">
                     <table class="table table-sm border-top align-middle">
                         <thead>
@@ -132,6 +141,58 @@
                         @endif
                     </table>
                 </div>
+                @else
+                <div class="table-responsive">
+                    <table class="table table-sm border-top align-middle">
+                        <thead>
+                            <tr>
+                                <th>{{ __('Ride') }}</th>
+                                <th>{{ __('Completed') }}</th>
+                                <th>{{ __('Pickup') }}</th>
+                                <th>{{ __('Drop-off') }}</th>
+                                <th>{{ __('Distance / Time') }}</th>
+                                <th>{{ __('Gross Fare') }}</th>
+                                <th>{{ $report['type_label'] }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($report['groups'] as $group)
+                                <tr class="table-secondary">
+                                    <td colspan="7">
+                                        <strong>{{ $group['driver_name'] }}</strong> @if($group['driver_id'])#{{ $group['driver_id'] }}@endif
+                                        &middot; {{ $group['total_rides'] }} {{ __('ride(s)') }}
+                                    </td>
+                                </tr>
+                                @foreach ($group['rides'] as $ride)
+                                    <tr>
+                                        <td>#{{ $ride['ride_id'] }} <small class="text-muted">{{ $ride['ride_type'] }}</small></td>
+                                        <td>{{ $ride['completed_at'] }}</td>
+                                        <td style="max-width:220px">{{ $ride['pickup'] }}</td>
+                                        <td style="max-width:220px">{{ $ride['dropoff'] }}</td>
+                                        <td>{{ $ride['distance_km'] }} km / {{ $ride['duration_minutes'] }} min</td>
+                                        <td>{{ \App\Helpers\Helper::formatCurrency($ride['gross_fare']) }}</td>
+                                        <td class="text-danger"><strong>{{ \App\Helpers\Helper::formatCurrency($ride['selected_amount']) }}</strong></td>
+                                    </tr>
+                                @endforeach
+                                <tr>
+                                    <th colspan="6" class="text-end">{{ __('Subtotal') }}: {{ $group['driver_name'] }}</th>
+                                    <th class="text-danger">{{ \App\Helpers\Helper::formatCurrency($group['selected_total']) }}</th>
+                                </tr>
+                            @empty
+                                <tr><td colspan="7" class="text-center text-muted">{{ __('No completed rides found for this selection.') }}</td></tr>
+                            @endforelse
+                        </tbody>
+                        @if ($report['groups']->isNotEmpty())
+                            <tfoot>
+                                <tr>
+                                    <th colspan="6">{{ __('Grand Total') }} ({{ $report['totals']['total_rides'] }} {{ __('rides') }})</th>
+                                    <th class="text-danger">{{ \App\Helpers\Helper::formatCurrency($report['totals']['selected_total']) }}</th>
+                                </tr>
+                            </tfoot>
+                        @endif
+                    </table>
+                </div>
+                @endif
             </div>
         @endif
     </div>

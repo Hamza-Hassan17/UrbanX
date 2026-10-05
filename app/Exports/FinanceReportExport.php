@@ -18,6 +18,33 @@ class FinanceReportExport implements FromArray, WithHeadings, WithStyles
 
     public function array(): array
     {
+        return $this->report['type'] === 'all' ? $this->fullRows() : $this->singleTypeRows();
+    }
+
+    public function headings(): array
+    {
+        if ($this->report['type'] === 'all') {
+            return [
+                'Driver', 'Ride ID', 'Completed At', 'Type', 'Pickup', 'Drop-off', 'Distance (km)', 'Duration (min)',
+                'Gross Fare', 'Commission', 'SST on Commission', 'SST on Ride Fare', "Driver's Net Income",
+            ];
+        }
+
+        return [
+            'Driver', 'Ride ID', 'Completed At', 'Type', 'Pickup', 'Drop-off', 'Distance (km)', 'Duration (min)',
+            'Gross Fare', $this->report['type_label'],
+        ];
+    }
+
+    public function styles(Worksheet $sheet)
+    {
+        return [
+            1 => ['font' => ['bold' => true]],
+        ];
+    }
+
+    private function fullRows(): array
+    {
         $rows = [];
 
         foreach ($this->report['groups'] as $group) {
@@ -62,18 +89,38 @@ class FinanceReportExport implements FromArray, WithHeadings, WithStyles
         return $rows;
     }
 
-    public function headings(): array
+    private function singleTypeRows(): array
     {
-        return [
-            'Driver', 'Ride ID', 'Completed At', 'Type', 'Pickup', 'Drop-off', 'Distance (km)', 'Duration (min)',
-            'Gross Fare', 'Commission', 'SST on Commission', 'SST on Ride Fare', "Driver's Net Income",
-        ];
-    }
+        $rows = [];
 
-    public function styles(Worksheet $sheet)
-    {
-        return [
-            1 => ['font' => ['bold' => true]],
+        foreach ($this->report['groups'] as $group) {
+            foreach ($group['rides'] as $ride) {
+                $rows[] = [
+                    $group['driver_name'],
+                    $ride['ride_id'],
+                    $ride['completed_at'],
+                    $ride['ride_type'],
+                    $ride['pickup'],
+                    $ride['dropoff'],
+                    $ride['distance_km'],
+                    $ride['duration_minutes'],
+                    round($ride['gross_fare'], 2),
+                    round($ride['selected_amount'], 2),
+                ];
+            }
+
+            $rows[] = [
+                $group['driver_name'] . ' - Subtotal',
+                '', '', '', '', '', '', '', '',
+                $group['selected_total'],
+            ];
+        }
+
+        $rows[] = [
+            'Grand Total', '', '', '', '', '', '', '', '',
+            $this->report['totals']['selected_total'],
         ];
+
+        return $rows;
     }
 }

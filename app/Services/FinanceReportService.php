@@ -4,74 +4,63 @@ namespace App\Services;
 
 use App\Models\Ride;
 use App\Models\User;
+use Illuminate\Support\Collection;
 
 /**
- * Ride-level earnings report for admin: every completed ride in a date range
- * for all drivers or a chosen subset, with pickup/drop-off addresses and the
- * commission/SST breakdown per ride, grouped by driver with subtotals.
+ * Ride-level earnings and tax report for admin: every completed ride in a
+ * date range for all drivers or a chosen subset, with pickup/drop-off
+ * addresses and the commission/SST breakdown per ride, grouped by driver
+ * with subtotals. A report type can narrow it to a single tax or commission.
  */
 class FinanceReportService
 {
+    public const TYPES = [
+        'all' => ['label' => 'Driver Earnings (all)', 'key' => null],
+        'service_commission' => ['label' => 'Service Commission', 'key' => 'commission'],
+        'sst_service_commission' => ['label' => 'SST on Service Commission', 'key' => 'sst_on_commission'],
+        'sst_ride_fare' => ['label' => 'SST on Ride Fare', 'key' => 'sst_on_ride_fare'],
+    ];
+
     public function __construct(private GeocodingService $geocoder)
     {
     }
 
-    public function build(string $startDate, string $endDate, array $driverIds = []): array
+    public function build(string $startDate, string $endDate, array $driverIds = [], string $type = 'all'): array
     {
+        $type = array_key_exists($type, self::TYPES) ? $type : 'all';
+        $key = self::TYPES[$type]['key'];
+
         $driversQuery = User::role('driver')->orderBy('name');
         if (!empty($driverIds)) {
             $driversQuery->whereIn('id', $driverIds);
         }
 
-        $groups = $driversQuery->get(['id', 'name', 'phone', 'is_active'])->map(function (User $driver) use ($startDate, $endDate) {
+        $groups = $driversQuery->get(['id', 'name', 'phone', 'is_active'])->map(function (User $driver) use ($startDate, $endDate, $key) {
             $rides = Ride::where('driver_id', $driver->id)
                 ->where('status', 'completed')
                 ->whereBetween('completed_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->orderBy('completed_at')
                 ->get();
 
-            $rideRows = $rides->map(fn (Ride $ride) => $this->rideRow($ride))->values();
-
-            return [
-                'driver_id' => $driver->id,
-                'driver_name' => $driver->name,
-                'phone' => $driver->phone,
-                'is_active' => $driver->is_active,
-                'total_rides' => $rideRows->count(),
-                'gross_fare' => round($rideRows->sum('gross_fare'), 2),
-                'commission' => round($rideRows->sum('commission'), 2),
-                'sst' => round($rideRows->sum('sst_on_commission') + $rideRows->sum('sst_on_ride_fare'), 2),
-                'net_income' => round($rideRows->sum('driver_income'), 2),
-                'rides' => $rideRows,
-            ];
+            return $this->group($driver->id, $driver->name, $driver->phone, $driver->is_active, $rides, $key);
         })->filter(fn (array $group) => $group['total_rides'] > 0)->values();
 
         if (empty($driverIds)) {
-            $unassignedRides = Ride::whereNull('driver_id')
+            $unassigned = Ride::whereNull('driver_id')
                 ->where('status', 'completed')
                 ->whereBetween('completed_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->orderBy('completed_at')
-                ->get()
-                ->map(fn (Ride $ride) => $this->rideRow($ride))
-                ->values();
+                ->get();
 
-            if ($unassignedRides->isNotEmpty()) {
-                $groups->push([
-                    'driver_id' => null,
-                    'driver_name' => 'Driver unknown',
-                    'phone' => null,
-                    'is_active' => null,
-                    'total_rides' => $unassignedRides->count(),
-                    'gross_fare' => round($unassignedRides->sum('gross_fare'), 2),
-                    'commission' => round($unassignedRides->sum('commission'), 2),
-                    'sst' => round($unassignedRides->sum('sst_on_commission') + $unassignedRides->sum('sst_on_ride_fare'), 2),
-                    'net_income' => round($unassignedRides->sum('driver_income'), 2),
-                    'rides' => $unassignedRides,
-                ]);
+            if ($unassigned->isNotEmpty()) {
+                $groups->push($this->group(null, 'Driver unknown', null, null, $unassigned, $key));
             }
         }
 
         return [
+            'type' => $type,
+            'type_label' => self::TYPES[$type]['label'],
+            'selected_key' => $key,
             'start_date' => $startDate,
             'end_date' => $endDate,
             'groups' => $groups,
@@ -81,13 +70,33 @@ class FinanceReportService
                 'commission' => round($groups->sum('commission'), 2),
                 'sst' => round($groups->sum('sst'), 2),
                 'net_income' => round($groups->sum('net_income'), 2),
+                'selected_total' => round($groups->sum('selected_total'), 2),
             ],
             'commission_percent' => FareBreakdownService::commissionPercent(),
             'sst_percent' => FareBreakdownService::sstPercent(),
         ];
     }
 
-    private function rideRow(Ride $ride): array
+    private function group(?int $driverId, string $driverName, ?string $phone, ?string $isActive, Collection $rides, ?string $key): array
+    {
+        $rideRows = $rides->map(fn (Ride $ride) => $this->rideRow($ride, $key))->values();
+
+        return [
+            'driver_id' => $driverId,
+            'driver_name' => $driverName,
+            'phone' => $phone,
+            'is_active' => $isActive,
+            'total_rides' => $rideRows->count(),
+            'gross_fare' => round($rideRows->sum('gross_fare'), 2),
+            'commission' => round($rideRows->sum('commission'), 2),
+            'sst' => round($rideRows->sum('sst_on_commission') + $rideRows->sum('sst_on_ride_fare'), 2),
+            'net_income' => round($rideRows->sum('driver_income'), 2),
+            'selected_total' => round($rideRows->sum('selected_amount'), 2),
+            'rides' => $rideRows,
+        ];
+    }
+
+    private function rideRow(Ride $ride, ?string $key): array
     {
         $breakdown = FareBreakdownService::calculate((float) $ride->total_fare);
 
@@ -106,6 +115,16 @@ class FinanceReportService
             'sst_on_commission' => $breakdown['sst_on_commission'],
             'sst_on_ride_fare' => $breakdown['sst_on_ride_fare'],
             'driver_income' => $breakdown['driver_income'],
+            'selected_amount' => $key ? $breakdown[$this->breakdownKey($key)] : null,
         ];
+    }
+
+    private function breakdownKey(string $key): string
+    {
+        return match ($key) {
+            'commission' => 'commission',
+            'sst_on_commission' => 'sst_on_commission',
+            'sst_on_ride_fare' => 'sst_on_ride_fare',
+        };
     }
 }

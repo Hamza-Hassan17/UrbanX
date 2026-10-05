@@ -108,7 +108,8 @@ class FinanceController extends Controller
         return app(FinanceReportService::class)->build(
             $request->start_date,
             $request->end_date,
-            $request->input('driver_ids', [])
+            $request->input('driver_ids', []),
+            $request->input('type', 'all')
         );
     }
 }
