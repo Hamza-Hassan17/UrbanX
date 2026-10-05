@@ -41,7 +41,7 @@
             <tbody>
                 <tr class="driver-row">
                     <td colspan="10">
-                        {{ $group['driver_name'] }} (#{{ $group['driver_id'] }}) &middot; {{ $group['total_rides'] }} ride(s)
+                        {{ $group['driver_name'] }}@if($group['driver_id']) (#{{ $group['driver_id'] }})@endif &middot; {{ $group['total_rides'] }} ride(s)
                     </td>
                 </tr>
                 @foreach ($group['rides'] as $ride)

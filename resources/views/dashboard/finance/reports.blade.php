@@ -89,7 +89,7 @@
                             @forelse ($report['groups'] as $group)
                                 <tr class="table-secondary">
                                     <td colspan="10">
-                                        <strong>{{ $group['driver_name'] }}</strong> #{{ $group['driver_id'] }}
+                                        <strong>{{ $group['driver_name'] }}</strong> @if($group['driver_id'])#{{ $group['driver_id'] }}@endif
                                         @if($group['phone']) &middot; {{ $group['phone'] }} @endif
                                         &middot; {{ $group['total_rides'] }} {{ __('ride(s)') }}
                                     </td>

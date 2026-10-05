@@ -46,6 +46,31 @@ class FinanceReportService
             ];
         })->filter(fn (array $group) => $group['total_rides'] > 0)->values();
 
+        if (empty($driverIds)) {
+            $unassignedRides = Ride::whereNull('driver_id')
+                ->where('status', 'completed')
+                ->whereBetween('completed_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
+                ->orderBy('completed_at')
+                ->get()
+                ->map(fn (Ride $ride) => $this->rideRow($ride))
+                ->values();
+
+            if ($unassignedRides->isNotEmpty()) {
+                $groups->push([
+                    'driver_id' => null,
+                    'driver_name' => 'Driver unknown',
+                    'phone' => null,
+                    'is_active' => null,
+                    'total_rides' => $unassignedRides->count(),
+                    'gross_fare' => round($unassignedRides->sum('gross_fare'), 2),
+                    'commission' => round($unassignedRides->sum('commission'), 2),
+                    'sst' => round($unassignedRides->sum('sst_on_commission') + $unassignedRides->sum('sst_on_ride_fare'), 2),
+                    'net_income' => round($unassignedRides->sum('driver_income'), 2),
+                    'rides' => $unassignedRides,
+                ]);
+            }
+        }
+
         return [
             'start_date' => $startDate,
             'end_date' => $endDate,

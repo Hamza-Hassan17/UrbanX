@@ -76,6 +76,11 @@ class ArchivedUserController extends Controller
         $this->authorize('delete archived user');
         try {
             $user = User::withTrashed()->findOrFail($id);
+
+            if (\App\Models\Ride::where('driver_id', $user->id)->orWhere('passenger_id', $user->id)->exists()) {
+                return redirect()->back()->with('error', 'This user has ride history and cannot be permanently deleted. Their account stays archived so earnings records are kept.');
+            }
+
             $user->forceDelete();
             return redirect()->route('dashboard.archived-user.index')->with('success', 'User Permanently Deleted Successfully');
         } catch (\Throwable $th) {
