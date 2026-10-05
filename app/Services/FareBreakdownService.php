@@ -19,12 +19,12 @@ class FareBreakdownService
 {
     public static function commissionPercent(): float
     {
-        return (float) (SystemSetting::first()->driver_commission_percent ?? 7.63);
+        return (float) (SystemSetting::first()?->driver_commission_percent ?? 7.63);
     }
 
     public static function sstPercent(): float
     {
-        return (float) (SystemSetting::first()->sst_percent ?? 5.00);
+        return (float) (SystemSetting::first()?->sst_percent ?? 5.00);
     }
 
     public static function calculate(float $grossFare): array

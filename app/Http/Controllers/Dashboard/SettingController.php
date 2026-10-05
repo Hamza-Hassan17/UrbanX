@@ -235,8 +235,6 @@ class SettingController extends Controller
             'footer_text' => 'required|string|max:255',
             'wait_penalty_per_minute' => 'required|numeric|min:0',
             'wait_grace_minutes' => 'required|integer|min:0',
-            'driver_commission_percent' => 'required|numeric|min:0|max:100',
-            'sst_percent' => 'required|numeric|min:0|max:100',
         ];
 
         $validator = Validator::make($request->all(), $rules);
@@ -257,8 +255,6 @@ class SettingController extends Controller
             $systemSetting->footer_text = $request->footer_text;
             $systemSetting->wait_penalty_per_minute = $request->wait_penalty_per_minute;
             $systemSetting->wait_grace_minutes = $request->wait_grace_minutes;
-            $systemSetting->driver_commission_percent = $request->driver_commission_percent;
-            $systemSetting->sst_percent = $request->sst_percent;
             $systemSetting->save();
             return redirect()->back()->with('success', 'System Settings Updated Successfully');
         } catch (\Throwable $th) {

@@ -49,35 +49,6 @@
                         </span>
                     @enderror
                 </div>
-                <h3>{{ __('Driver Commission & Tax Settings') }}</h3>
-                <div class="mb-4 col-md-6">
-                    <label for="driver_commission_percent" class="form-label">{{ __('Service Commission (%)') }}</label><span class="text-danger">*</span>
-                    <small class="fw-medium text-primary d-block">({{ __('Platform commission deducted from the gross ride fare') }})</small>
-                    <input class="form-control @error('driver_commission_percent') is-invalid @enderror" type="number"
-                        step="0.01" min="0" max="100"
-                        id="driver_commission_percent" name="driver_commission_percent"
-                        value="{{ old('driver_commission_percent', $systemSetting->driver_commission_percent ?? 7.63) }}"
-                        placeholder="i.e. 7.63" required/>
-                    @error('driver_commission_percent')
-                        <span class="invalid-feedback" role="alert">
-                            <strong>{{ $message }}</strong>
-                        </span>
-                    @enderror
-                </div>
-                <div class="mb-4 col-md-6">
-                    <label for="sst_percent" class="form-label">{{ __('SST (%)') }}</label><span class="text-danger">*</span>
-                    <small class="fw-medium text-primary d-block">({{ __('Sales tax applied on the commission and backed out of the driver\'s share') }})</small>
-                    <input class="form-control @error('sst_percent') is-invalid @enderror" type="number"
-                        step="0.01" min="0" max="100"
-                        id="sst_percent" name="sst_percent"
-                        value="{{ old('sst_percent', $systemSetting->sst_percent ?? 5) }}"
-                        placeholder="i.e. 5" required/>
-                    @error('sst_percent')
-                        <span class="invalid-feedback" role="alert">
-                            <strong>{{ $message }}</strong>
-                        </span>
-                    @enderror
-                </div>
                 <h3>{{ __('Currency Settings') }}</h3>
                 <div class="mb-4 col-md-6">
                     <label for="currency_symbol" class="form-label">{{ __('Currency Symbol') }}</label><span class="text-danger">*</span>

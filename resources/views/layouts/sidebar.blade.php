@@ -237,29 +237,40 @@
             </li>
         @endcan
 
-        {{-- 8. Reports & Payroll --}}
-        @canany(['view report', 'export payroll'])
-            <li class="menu-item {{ request()->routeIs('dashboard.reports.*') ? 'open' : '' }}">
+        {{-- 8. Finance (Tax & Commission, Reports, Payroll) --}}
+        @can(['export payroll'])
+            <li class="menu-item {{ request()->routeIs('dashboard.finance.*') || request()->routeIs('dashboard.payroll.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
-                    <i class="menu-icon tf-icons ti ti-report-analytics"></i>
-                    <div>{{__('Reports & Payroll')}}</div>
+                    <i class="menu-icon tf-icons ti ti-coin"></i>
+                    <div>{{__('Finance')}}</div>
                 </a>
                 <ul class="menu-sub">
-                    @can(['view report'])
-                        <li class="menu-item {{ request()->routeIs('dashboard.reports.*') ? 'active' : '' }}">
-                            <a href="{{route('dashboard.reports.index')}}" class="menu-link" style="color: #fff !important;">
-                                <div>{{__('Operator / Driver Job Reports')}}</div>
-                            </a>
-                        </li>
-                    @endcan
-                    @can(['export payroll'])
-                        <li class="menu-item {{ request()->routeIs('dashboard.payroll.*') ? 'active' : '' }}">
-                            <a href="{{route('dashboard.payroll.index')}}" class="menu-link" style="color: #fff !important;">
-                                <div>{{__('Payroll')}}</div>
-                            </a>
-                        </li>
-                    @endcan
+                    <li class="menu-item {{ request()->routeIs('dashboard.finance.tax-commission') ? 'active' : '' }}">
+                        <a href="{{route('dashboard.finance.tax-commission')}}" class="menu-link" style="color: #fff !important;">
+                            <div>{{__('Tax & Commission')}}</div>
+                        </a>
+                    </li>
+                    <li class="menu-item {{ request()->routeIs('dashboard.finance.reports*') ? 'active' : '' }}">
+                        <a href="{{route('dashboard.finance.reports')}}" class="menu-link" style="color: #fff !important;">
+                            <div>{{__('Reports')}}</div>
+                        </a>
+                    </li>
+                    <li class="menu-item {{ request()->routeIs('dashboard.payroll.*') ? 'active' : '' }}">
+                        <a href="{{route('dashboard.payroll.index')}}" class="menu-link" style="color: #fff !important;">
+                            <div>{{__('Payroll')}}</div>
+                        </a>
+                    </li>
                 </ul>
+            </li>
+        @endcan
+
+        {{-- 8b. Admin Panel User Activity (operator/driver job reports) --}}
+        @can(['view report'])
+            <li class="menu-item {{ request()->routeIs('dashboard.reports.*') ? 'active' : '' }}">
+                <a href="{{route('dashboard.reports.index')}}" class="menu-link" style="color: #fff !important;">
+                    <i class="menu-icon tf-icons ti ti-report-analytics"></i>
+                    <div>{{__('Admin Panel User Activity')}}</div>
+                </a>
             </li>
         @endcan
 

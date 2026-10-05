@@ -22,6 +22,7 @@ use App\Http\Controllers\Dashboard\User\UserController;
 use App\Http\Controllers\Dashboard\DriverController;
 use App\Http\Controllers\Dashboard\PromoCodeController;
 use App\Http\Controllers\Dashboard\RideController;
+use App\Http\Controllers\Dashboard\FinanceController;
 use App\Http\Controllers\Dashboard\PayrollController;
 use App\Http\Controllers\Dashboard\SupportRequestController;
 use App\Http\Controllers\Dashboard\ReportController;
@@ -237,6 +238,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('payroll/export-pdf', [PayrollController::class, 'exportPdf'])->name('payroll.export-pdf');
             Route::get('payroll/export-excel', [PayrollController::class, 'exportExcel'])->name('payroll.export-excel');
             Route::post('payroll/bulk-send', [PayrollController::class, 'bulkSend'])->name('payroll.bulk-send');
+
+            //Finance (Tax & Commission settings, ride-level reports, payroll tab)
+            Route::get('finance', fn () => redirect()->route('dashboard.finance.tax-commission'))->name('finance.index');
+            Route::get('finance/tax-commission', [FinanceController::class, 'taxCommission'])->name('finance.tax-commission');
+            Route::put('finance/tax-commission', [FinanceController::class, 'updateTaxCommission'])->name('finance.tax-commission.update');
+            Route::get('finance/reports', [FinanceController::class, 'reports'])->name('finance.reports');
+            Route::get('finance/reports/export-pdf', [FinanceController::class, 'exportReportPdf'])->name('finance.reports.export-pdf');
+            Route::get('finance/reports/export-excel', [FinanceController::class, 'exportReportExcel'])->name('finance.reports.export-excel');
 
             //Driver Support Requests
             Route::get('support-requests', [SupportRequestController::class, 'index'])->name('support-requests.index');
