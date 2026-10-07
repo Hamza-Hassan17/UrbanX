@@ -133,6 +133,7 @@
                             <th>{{ __('Role') }}</th>
                             <th>{{ __('Created Date') }}</th>
                             <th>{{ __('Status') }}</th>
+                            <th>{{ __('Terms Accepted') }}</th>
                             @canany(['delete user', 'update user', 'view user'])<th>{{ __('Action') }}</th>@endcan
                         </tr>
                     </thead>
@@ -154,6 +155,13 @@
                                 <td>
                                     <span
                                         class="badge me-4 bg-label-{{ $user->is_active == 'active' ? 'success' : 'danger' }}">{{ ucfirst($user->is_active) }}</span>
+                                </td>
+                                <td>
+                                    @if ($user->hasAcceptedCurrentTerms() && $user->terms_accepted_at)
+                                        <span class="badge bg-label-success" title="{{ \Carbon\Carbon::parse($user->terms_accepted_at)->format('d M Y h:i A') }}">{{ __('Yes') }}</span>
+                                    @else
+                                        <span class="badge bg-label-danger">{{ __('No') }}</span>
+                                    @endif
                                 </td>
                                 @canany(['delete user', 'update user', 'view user'])
                                     <td class="d-flex">

@@ -14,6 +14,7 @@ use App\Http\Controllers\API\Frontend\Restaurant\CustomerController;
 use App\Http\Controllers\API\Frontend\Restaurant\DeliveryController;
 use App\Http\Controllers\API\Frontend\Restaurant\RestaurantController;
 use App\Http\Controllers\API\Frontend\Driver\SupportController as DriverSupportController;
+use App\Http\Controllers\API\Frontend\TermsController;
 use App\Http\Controllers\Dashboard\HomeController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -29,7 +30,11 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::middleware('auth:sanctum')->group(function () {
+//Terms & Conditions -- public, no auth needed (shown on the signup screen
+//before an account exists, and again right after login).
+Route::get('/terms-and-conditions', [TermsController::class, 'current']);
+
+Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user();
     });
@@ -39,6 +44,10 @@ Route::middleware('auth:sanctum')->group(function () {
     //Resent OTP API
     Route::get('/resend-otp', [LoginController::class, 'resend_otp']);
     Route::post('/otp-verification', [LoginController::class, 'verify_otp']);
+
+    //Terms & Conditions -- accept the current version (exempt from the
+    //terms.accepted gate itself, obviously, see EnsureTermsAccepted)
+    Route::post('/terms-and-conditions/accept', [TermsController::class, 'accept']);
 
     //Notifications API
     Route::get('/notifications', [NotificationController::class, 'getUserNotifications']);

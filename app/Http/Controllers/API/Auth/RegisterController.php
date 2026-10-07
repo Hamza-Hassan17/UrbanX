@@ -113,10 +113,14 @@ class RegisterController extends Controller
 
             DB::commit();
 
+            $currentTerms = \App\Models\TermsAndCondition::current();
+
             return response()->json([
                 'message' => 'Your account has been created successfully.',
                 'user' => $user->only(['id', 'name', 'email', 'username']),
                 'token' => $token,
+                'terms_accepted' => $user->hasAcceptedCurrentTerms(),
+                'terms' => $currentTerms ? ['id' => $currentTerms->id, 'content' => $currentTerms->content] : null,
             ], Response::HTTP_CREATED);
         } catch (\Throwable $th) {
             DB::rollback();

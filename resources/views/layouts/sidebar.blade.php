@@ -391,8 +391,8 @@
         @endcan
 
         {{-- 12. Settings --}}
-        @canany(['view role', 'view permission', 'view setting'])
-            <li class="menu-item {{ request()->routeIs('dashboard.roles.*') || request()->routeIs('dashboard.permissions.*') || request()->routeIs('dashboard.setting.*') ? 'open' : '' }}">
+        @canany(['view role', 'view permission', 'view setting', 'view terms'])
+            <li class="menu-item {{ request()->routeIs('dashboard.roles.*') || request()->routeIs('dashboard.permissions.*') || request()->routeIs('dashboard.setting.*') || request()->routeIs('dashboard.terms.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-settings"></i>
                     <div>{{__('Settings')}}</div>
@@ -427,6 +427,13 @@
                         <li class="menu-item {{ request()->routeIs('dashboard.setting.*') && request()->query('tab') === 'email' ? 'active' : '' }}">
                             <a href="{{route('dashboard.setting.index')}}?tab=email" class="menu-link" style="color: #fff !important;">
                                 <div>{{__('Email Settings')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['view terms'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.terms.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.terms.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Terms & Conditions')}}</div>
                             </a>
                         </li>
                     @endcan

@@ -15,9 +15,16 @@
                     <h4 class="mb-1">{{ $customer->name }}</h4>
                     <p class="mb-0 text-muted">{{ $customer->email }} &middot; {{ $customer->phone }}</p>
                 </div>
-                <span class="badge bg-label-{{ $customer->is_active === 'active' ? 'success' : 'secondary' }}">
-                    {{ ucfirst($customer->is_active) }}
-                </span>
+                <div class="d-flex flex-column align-items-end gap-1">
+                    <span class="badge bg-label-{{ $customer->is_active === 'active' ? 'success' : 'secondary' }}">
+                        {{ ucfirst($customer->is_active) }}
+                    </span>
+                    @if ($customer->hasAcceptedCurrentTerms() && $customer->terms_accepted_at)
+                        <span class="badge bg-label-success">{{ __('Terms Accepted') }} &middot; {{ \Carbon\Carbon::parse($customer->terms_accepted_at)->format('d M Y') }}</span>
+                    @else
+                        <span class="badge bg-label-danger">{{ __('Terms Not Accepted') }}</span>
+                    @endif
+                </div>
             </div>
         </div>
 

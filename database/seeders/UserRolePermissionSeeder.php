@@ -48,6 +48,9 @@ class UserRolePermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'update setting']);
         Permission::firstOrCreate(['name' => 'delete setting']);
 
+        Permission::firstOrCreate(['name' => 'view terms']);
+        Permission::firstOrCreate(['name' => 'update terms']);
+
         Permission::firstOrCreate(['name' => 'view driver']);
         Permission::firstOrCreate(['name' => 'create driver']);
         Permission::firstOrCreate(['name' => 'update driver']);
@@ -175,6 +178,9 @@ class UserRolePermissionSeeder extends Seeder
         $adminRole->revokePermissionTo(['view role', 'create role', 'update role', 'delete role']);
         $adminRole->revokePermissionTo(['view permission', 'create permission', 'update permission', 'delete permission']);
         $adminRole->revokePermissionTo(['view setting']);
+        // Terms & Conditions is a distinct, lower-sensitivity feature from
+        // system Settings/Roles/Permissions -- Admin keeps this one.
+        $adminRole->givePermissionTo(['view terms', 'update terms']);
         $adminRole->givePermissionTo(['create user', 'view user', 'update user']);
         // Preserves Admin's pre-existing ability to see Admin Panel Users (it was
         // bundled into 'view user' before the split above) -- not a new grant.

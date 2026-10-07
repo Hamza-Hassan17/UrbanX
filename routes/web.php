@@ -174,6 +174,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('recaptcha/setting/{id}', [SettingController::class, 'updateRecaptchaSettings'])->name('setting.recaptcha.update');
             Route::put('system/setting/{id}', [SettingController::class, 'updateSystemSettings'])->name('setting.system.update');
             Route::put('email/setting/{id}', [SettingController::class, 'updateEmailSettings'])->name('setting.email.update');
+
+            //Terms & Conditions
+            Route::get('terms', [\App\Http\Controllers\Dashboard\TermsController::class, 'index'])->name('terms.index');
+            Route::post('terms', [\App\Http\Controllers\Dashboard\TermsController::class, 'store'])->name('terms.store');
             Route::post('send-mail/setting', [SettingController::class, 'sendTestMail'])->name('setting.send_test_mail');
 
             // User Dashboard Authentication Routes

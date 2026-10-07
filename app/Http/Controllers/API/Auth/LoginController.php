@@ -82,10 +82,14 @@ class LoginController extends Controller
                         ]
                     );
                 }
+                $currentTerms = \App\Models\TermsAndCondition::current();
+
                 return response()->json([
                     'message' => 'Login successfully!',
                     'user' => $userfind->only(['id', 'name', 'email']),
-                    'token' => $token
+                    'token' => $token,
+                    'terms_accepted' => $userfind->hasAcceptedCurrentTerms(),
+                    'terms' => $currentTerms ? ['id' => $currentTerms->id, 'content' => $currentTerms->content] : null,
                 ], Response::HTTP_OK);
             } else {
                 return response()->json([
@@ -131,7 +135,13 @@ class LoginController extends Controller
         $user->otp_expires_at = null;
         $user->save();
 
-        return response()->json(['message' => 'Phone verified successfully!'], 200);
+        $currentTerms = \App\Models\TermsAndCondition::current();
+
+        return response()->json([
+            'message' => 'Phone verified successfully!',
+            'terms_accepted' => $user->hasAcceptedCurrentTerms(),
+            'terms' => $currentTerms ? ['id' => $currentTerms->id, 'content' => $currentTerms->content] : null,
+        ], 200);
     }
 
     public function resend_otp(Request $request)

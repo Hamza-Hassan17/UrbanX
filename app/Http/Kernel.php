@@ -71,5 +71,6 @@ class Kernel extends HttpKernel
         'locale' => LocaleMiddleware::class,
         'no.cache' => \App\Http\Middleware\PreventDashboardCaching::class,
         'workspace' => \App\Http\Middleware\EnsureWorkspaceAccess::class,
+        'terms.accepted' => \App\Http\Middleware\EnsureTermsAccepted::class,
     ];
 }

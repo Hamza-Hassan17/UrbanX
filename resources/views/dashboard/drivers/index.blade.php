@@ -25,6 +25,7 @@
                             <th>{{ __('Created Date') }}</th>
                             <th>{{ __('Status') }}</th>
                             <th>{{ __('Verification') }}</th>
+                            <th>{{ __('Terms Accepted') }}</th>
                             @canany(['delete driver', 'view driver', 'update driver'])<th>{{ __('Action') }}</th>@endcan
                         </tr>
                     </thead>
@@ -65,6 +66,13 @@
                                         <span class="badge bg-label-success">{{ __('Verified') }}</span>
                                     @elseif ($verificationStatus === 'rejected')
                                         <span class="badge bg-label-danger">{{ __('Rejected') }}</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @if ($driver->hasAcceptedCurrentTerms() && $driver->terms_accepted_at)
+                                        <span class="badge bg-label-success" title="{{ \Carbon\Carbon::parse($driver->terms_accepted_at)->format('d M Y h:i A') }}">{{ __('Yes') }}</span>
+                                    @else
+                                        <span class="badge bg-label-danger">{{ __('No') }}</span>
                                     @endif
                                 </td>
                                 @canany(['delete driver', 'view driver', 'update driver'])

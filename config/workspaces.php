@@ -72,6 +72,7 @@ return [
         'dashboard.roles.' => 'platform',
         'dashboard.permissions.' => 'platform',
         'dashboard.setting.' => 'platform',
+        'dashboard.terms.' => 'platform',
         // Only the Send Notification feature, not the notification bell's
         // own inbox (dashboard.notifications.index) -- everyone needs that
         // regardless of workspace.

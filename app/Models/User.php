@@ -57,6 +57,7 @@ class User  extends Authenticatable implements MustVerifyEmail
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'terms_accepted_at' => 'datetime',
         ];
     }
 
@@ -108,6 +109,26 @@ class User  extends Authenticatable implements MustVerifyEmail
     public function userWorkspaces()
     {
         return $this->hasMany(\App\Models\UserWorkspace::class);
+    }
+
+    public function termsAcceptedVersion()
+    {
+        return $this->belongsTo(TermsAndCondition::class, 'terms_accepted_version_id');
+    }
+
+    /**
+     * False if the user never accepted any version, or accepted an older
+     * version than the currently published one.
+     */
+    public function hasAcceptedCurrentTerms(): bool
+    {
+        $current = TermsAndCondition::current();
+
+        if (!$current) {
+            return true; // nothing published yet -- nothing to gate on
+        }
+
+        return $this->terms_accepted_version_id === $current->id;
     }
 
     /**
