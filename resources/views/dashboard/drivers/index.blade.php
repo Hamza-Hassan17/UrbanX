@@ -37,19 +37,9 @@
                                 <td>{{ $driver->email }}</td>
                                 <td>{{ $driver->profile->phone_number }}</td>
                                 <td>
-                                    @can(['update driver'])
-                                        <form action="{{ route('dashboard.drivers.update', $driver->id) }}" method="POST" class="d-flex gap-1">
-                                            @csrf
-                                            @method('PUT')
-                                            <input type="text" name="city" class="form-control form-control-sm" style="width: 110px;"
-                                                value="{{ $driver->profile->city ?? '' }}" placeholder="Unassigned">
-                                            <button type="submit" class="btn btn-icon btn-sm btn-text-primary" title="Save City">
-                                                <i class="ti ti-check ti-sm"></i>
-                                            </button>
-                                        </form>
-                                    @else
-                                        {{ $driver->profile->city ?? 'Unassigned' }}
-                                    @endcan
+                                    {{-- Read-only -- city is set automatically from the driver's
+                                         location at registration, not typed in by an admin. --}}
+                                    {{ $driver->profile->city ?? 'Unassigned' }}
                                 </td>
                                 <td>{{ $driver->created_at->format('M d, Y') }}</td>
                                 <td>
