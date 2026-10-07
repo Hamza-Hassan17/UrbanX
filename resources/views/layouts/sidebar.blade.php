@@ -15,6 +15,33 @@
 
     <div class="menu-inner-shadow"></div>
 
+    @php
+        $__allowedWorkspaces = auth()->check() ? auth()->user()->allowedWorkspaces() : [];
+        $__currentWorkspace = session('workspace');
+        $__switchableWorkspaces = array_values(array_intersect(['rides', 'delivery'], $__allowedWorkspaces));
+    @endphp
+    @if (count($__switchableWorkspaces) > 1)
+        <div class="px-4 py-2">
+            <select class="form-select form-select-sm" id="workspace-switcher" style="background: #222; color: #fff; border-color: #444;">
+                @foreach ($__switchableWorkspaces as $__ws)
+                    <option value="{{ $__ws }}" {{ $__currentWorkspace === $__ws ? 'selected' : '' }}>
+                        {{ config("workspaces.workspaces.$__ws.label") }}
+                    </option>
+                @endforeach
+            </select>
+        </div>
+        <form id="workspace-switch-form" action="{{ route('workspace.switch') }}" method="POST" class="d-none">
+            @csrf
+            <input type="hidden" name="workspace" id="workspace-switch-input">
+        </form>
+        <script>
+            document.getElementById('workspace-switcher').addEventListener('change', function () {
+                document.getElementById('workspace-switch-input').value = this.value;
+                document.getElementById('workspace-switch-form').submit();
+            });
+        </script>
+    @endif
+
     <ul class="menu-inner py-1">
         {{--
             Grouped by function per UrbanX_Sidebar_Spec.pdf (+ addendum superseding
@@ -38,7 +65,9 @@
 
         {{-- 2. Live Ops -- omitted: no dispatch-queue/live-tracking/anomaly-alert backend built yet. --}}
 
-        {{-- 3. Rides --}}
+        {{-- 3. Rides -- workspace-gated: only visible while "Rides" is the
+             selected service workspace. See config/workspaces.php. --}}
+        @if($__currentWorkspace === 'rides')
         @canany(['view ride', 'view custom rides', 'view live tracking', 'view vehicle type', 'create boost hour', 'view promo code', 'view driver'])
             <li class="menu-item {{ request()->routeIs('dashboard.rides.*') || request()->routeIs('dashboard.custom-rides.*') || request()->routeIs('dashboard.live-tracking.*') || request()->routeIs('dashboard.vehicle-types.*') || request()->routeIs('dashboard.boost-hours.*') || request()->routeIs('dashboard.promo-codes.*') || request()->routeIs('dashboard.drivers.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
@@ -117,8 +146,14 @@
                 </ul>
             </li>
         @endcanany
+        @endif
 
-        {{-- 4. Chauffeur / Rentals --}}
+        {{-- 4. Chauffeur / Rentals -- same workspace as Rides for now; the
+             spec calls out that this group must be self-contained enough to
+             move into its own workspace later purely via config/workspaces.php,
+             which is why it's wrapped separately rather than merged into the
+             Rides @if above. --}}
+        @if($__currentWorkspace === 'rides')
         @canany(['view chauffeur vehicle', 'view chauffeur booking'])
             <li class="menu-item {{ request()->routeIs('dashboard.chauffeur-vehicles.*') || request()->routeIs('dashboard.chauffeur-bookings.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
@@ -144,8 +179,11 @@
                 </ul>
             </li>
         @endcanany
+        @endif
 
-        {{-- 5. Restaurants --}}
+        {{-- 5. Restaurants -- workspace-gated: only visible while "Delivery"
+             is the selected service workspace. --}}
+        @if($__currentWorkspace === 'delivery')
         @canany(['view restaurant', 'view restaurant category', 'view restaurant voucher', 'view user'])
             <li class="menu-item {{ request()->routeIs('dashboard.restaurants.*') || request()->routeIs('dashboard.restaurant-categories.*') || request()->routeIs('dashboard.restaurant-vouchers.*') || request()->routeIs('dashboard.restaurant-owners.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
@@ -186,6 +224,7 @@
                 </ul>
             </li>
         @endcanany
+        @endif
 
         {{-- 6. Users -- scoped to Customers (+ Archived Users) only per the sidebar
              restructure spec. Drivers moved to Rides, Restaurant Owners moved to

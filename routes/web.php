@@ -126,7 +126,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/deactivated', function () {
         return view('errors.deactivated');
     })->name('deactivated');
-    Route::middleware(['check.activation', 'no.cache'])->group(function () {
+    Route::get('/no-workspace', function () {
+        return view('dashboard.no-workspace');
+    })->name('no-workspace');
+
+    Route::post('/workspace/switch', [\App\Http\Controllers\Dashboard\WorkspaceController::class, 'switch'])
+        ->name('workspace.switch');
+
+    Route::middleware(['check.activation', 'no.cache', 'workspace'])->group(function () {
 
         Route::resource('profile', ProfileController::class);
         Route::post('profile/setting/account/{id}', [ProfileController::class, 'accountDeactivation'])->name('account.deactivate');
@@ -151,6 +158,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('user/restore/{id}', [ArchivedUserController::class, 'restoreUser'])->name('archived-user.restore');
             Route::get('user/status/{id}', [UserController::class, 'updateStatus'])->name('user.status.update');
             Route::get('admin-users', [UserController::class, 'adminUsers'])->name('admin-users.index');
+            Route::put('admin-users/{id}/workspaces', [UserController::class, 'updateWorkspaces'])->name('admin-users.workspaces.update');
             Route::get('restaurant-owners', [UserController::class, 'restaurantOwners'])->name('restaurant-owners.index');
 
             // Role & Permission Start

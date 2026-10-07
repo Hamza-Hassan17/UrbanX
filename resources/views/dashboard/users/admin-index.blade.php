@@ -133,6 +133,7 @@
                             <th>{{ __('Role') }}</th>
                             <th>{{ __('Created Date') }}</th>
                             <th>{{ __('Status') }}</th>
+                            <th>{{ __('Workspaces') }}</th>
                             @canany(['delete user', 'update user', 'view user'])<th>{{ __('Action') }}</th>@endcan
                         </tr>
                     </thead>
@@ -148,6 +149,23 @@
                                 <td>
                                     <span
                                         class="badge me-4 bg-label-{{ $user->is_active == 'active' ? 'success' : 'danger' }}">{{ ucfirst($user->is_active) }}</span>
+                                </td>
+                                <td>
+                                    @forelse ($user->userWorkspaces as $userWorkspace)
+                                        <span class="badge bg-label-info me-1">{{ config("workspaces.workspaces.{$userWorkspace->workspace}.label", $userWorkspace->workspace) }}</span>
+                                    @empty
+                                        <span class="text-muted">{{ __('None') }}</span>
+                                    @endforelse
+                                    @can(['update user'])
+                                        <button type="button" class="btn btn-icon btn-text-secondary waves-effect waves-light rounded-pill manage-workspaces-btn"
+                                            data-bs-toggle="modal" data-bs-target="#workspacesModal"
+                                            data-user-id="{{ $user->id }}"
+                                            data-user-name="{{ $user->name }}"
+                                            data-workspaces="{{ $user->userWorkspaces->pluck('workspace')->implode(',') }}"
+                                            title="{{ __('Manage Workspaces') }}">
+                                            <i class="ti ti-apps ti-md"></i>
+                                        </button>
+                                    @endcan
                                 </td>
                                 @canany(['delete user', 'update user', 'view user'])
                                     <td class="d-flex">
@@ -212,6 +230,56 @@
     <!-- Modal to view user details -->
     @can(['view user'])
         @include('dashboard.users.sections.view-modal')
+    @endcan
+
+    {{-- Manage Workspaces modal -- shared across all rows, filled in via JS
+         from the triggering button's data attributes (same pattern as the
+         existing edit offcanvas / view modal on this page). --}}
+    @can(['update user'])
+        <div class="modal fade" id="workspacesModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <form id="workspacesForm" method="POST" action="">
+                        @csrf
+                        @method('PUT')
+                        <div class="modal-header">
+                            <h5 class="modal-title">{{ __('Manage Workspaces') }} — <span id="workspacesModalUserName"></span></h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body">
+                            @foreach (config('workspaces.workspaces') as $workspaceKey => $workspaceConfig)
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input workspace-checkbox" type="checkbox" name="workspaces[]"
+                                        value="{{ $workspaceKey }}" id="workspace-check-{{ $workspaceKey }}">
+                                    <label class="form-check-label" for="workspace-check-{{ $workspaceKey }}">
+                                        {{ $workspaceConfig['label'] }}
+                                    </label>
+                                </div>
+                            @endforeach
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-label-secondary" data-bs-dismiss="modal">{{ __('Cancel') }}</button>
+                            <button type="submit" class="btn btn-primary">{{ __('Save') }}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <script>
+            document.getElementById('workspacesModal').addEventListener('show.bs.modal', function (event) {
+                const button = event.relatedTarget;
+                const userId = button.getAttribute('data-user-id');
+                const userName = button.getAttribute('data-user-name');
+                const workspaces = (button.getAttribute('data-workspaces') || '').split(',').filter(Boolean);
+
+                document.getElementById('workspacesModalUserName').textContent = userName;
+                document.getElementById('workspacesForm').action = `{{ url('dashboard/admin-users') }}/${userId}/workspaces`;
+
+                document.querySelectorAll('.workspace-checkbox').forEach(function (checkbox) {
+                    checkbox.checked = workspaces.includes(checkbox.value);
+                });
+            });
+        </script>
     @endcan
 @endsection
 

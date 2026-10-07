@@ -27,7 +27,11 @@ class UserController extends Controller
      * only use the mobile apps. Kept in sync with
      * LoginController::ALLOWED_DASHBOARD_ROLES and ReportController.
      */
-    public const ADMIN_PANEL_ROLES = ['super-admin', 'admin', 'dispatcher', 'finance'];
+    // 'dispatcher' deliberately excluded -- Operator now covers its purpose
+    // (see UserRolePermissionSeeder); Dispatcher stays assigned on existing
+    // users and keeps working, it's just hidden from this picker going
+    // forward so new staff get Operator instead.
+    public const ADMIN_PANEL_ROLES = ['super-admin', 'admin', 'operator', 'finance'];
 
     /**
      * Display a listing of the resource -- the "Customers" tab.
@@ -65,7 +69,7 @@ class UserController extends Controller
     {
         $this->authorize('view admin user');
         try {
-            $users = User::with('profile')->whereHas('roles', function ($q) {
+            $users = User::with('profile', 'userWorkspaces')->whereHas('roles', function ($q) {
                 $q->whereIn('name', self::ADMIN_PANEL_ROLES);
             })->get();
             $totalUsers = $users->count();
@@ -279,6 +283,37 @@ class UserController extends Controller
             // throw $th;
             DB::rollback();
             Log::error("User Update Failed:" . $th->getMessage());
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
+        }
+    }
+
+    /**
+     * Admin Panel Workspace Restructure (Phase 1) -- which of the "rides" /
+     * "delivery" / "platform" workspaces this admin-panel user can switch
+     * into. Kept as its own small action rather than folded into the
+     * existing create/edit offcanvas form (which is JS-driven and already
+     * has its own validation/field-naming conventions) -- changes less,
+     * and the Admin Panel Users list is the only place this is needed.
+     */
+    public function updateWorkspaces(Request $request, string $id)
+    {
+        $this->authorize('update user');
+
+        $validWorkspaces = array_keys(config('workspaces.workspaces'));
+        $workspaces = array_values(array_intersect($request->input('workspaces', []), $validWorkspaces));
+
+        try {
+            $user = User::findOrFail($id);
+            DB::transaction(function () use ($user, $workspaces) {
+                $user->userWorkspaces()->delete();
+                foreach ($workspaces as $workspace) {
+                    $user->userWorkspaces()->create(['workspace' => $workspace]);
+                }
+            });
+
+            return redirect()->back()->with('success', 'Workspaces updated successfully');
+        } catch (\Throwable $th) {
+            Log::error("User Workspaces Update Failed:" . $th->getMessage());
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
         }
     }

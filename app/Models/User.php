@@ -104,4 +104,22 @@ class User  extends Authenticatable implements MustVerifyEmail
     {
         return $this->hasMany(ChauffeurFavourite::class, 'user_id');
     }
+
+    public function userWorkspaces()
+    {
+        return $this->hasMany(\App\Models\UserWorkspace::class);
+    }
+
+    /**
+     * Workspace keys this user is allowed to switch into. Super admins
+     * bypass the pivot entirely and get every workspace that exists.
+     */
+    public function allowedWorkspaces(): array
+    {
+        if ($this->hasRole('super-admin')) {
+            return array_keys(config('workspaces.workspaces'));
+        }
+
+        return $this->userWorkspaces()->pluck('workspace')->all();
+    }
 }

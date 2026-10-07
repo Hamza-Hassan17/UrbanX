@@ -218,6 +218,18 @@ class UserRolePermissionSeeder extends Seeder
         // permission).
         $dispatcherRole->givePermissionTo(['view report']);
 
+        // Admin Panel Workspace Restructure (Phase 1) -- Operator role.
+        // Per spec: "the existing Dispatcher role has the same purpose as
+        // Operator." Operator gets every permission Dispatcher has, plus
+        // Complaints access (listed in Operator's "Can" set but never
+        // granted to Dispatcher before this). Dispatcher itself is left
+        // untouched -- same permissions, same assigned users -- so nothing
+        // relying on it today regresses; it's just hidden from the role
+        // picker on the Admin Panel Users form going forward.
+        $operatorRole = Role::firstOrCreate(['name' => 'operator']);
+        $operatorRole->givePermissionTo($dispatcherRole->permissions->pluck('name')->all());
+        $operatorRole->givePermissionTo(['view complain', 'create complain']);
+
         // give permissions to finance role.
         // Ride reassignment (status/driver) = View only.
         $financeRole->givePermissionTo(['view ride']);
@@ -347,6 +359,7 @@ class UserRolePermissionSeeder extends Seeder
                 ]);
 
         $dispatcherUser->assignRole($dispatcherRole);
+        $dispatcherUser->assignRole($operatorRole);
 
         $dispatcherProfile = $dispatcherUser->profile()->firstOrCreate([
             'user_id' => $dispatcherUser->id,
@@ -374,5 +387,31 @@ class UserRolePermissionSeeder extends Seeder
             'user_id' => $financeUser->id,
             'first_name' => $financeUser->name,
         ]);
+
+        // Admin Panel Workspace Restructure (Phase 1), continued.
+        // Give Operator to every existing user who has Dispatcher -- Dispatcher
+        // stays on them too, per spec ("keep Dispatcher on them too for now").
+        User::role('dispatcher')->get()->each(function (User $user) use ($operatorRole) {
+            if (!$user->hasRole('operator')) {
+                $user->assignRole($operatorRole);
+            }
+        });
+
+        // Workspace backfill -- every existing non-super-admin user gets all
+        // three workspaces so nobody is locked out right after this deploys.
+        // Narrow it down per-user afterwards from Admin Panel Users. Super
+        // admins don't need rows here -- they bypass the pivot entirely
+        // (see User::allowedWorkspaces()).
+        $allWorkspaceKeys = array_keys(config('workspaces.workspaces'));
+        User::whereDoesntHave('roles', fn ($q) => $q->where('name', 'super-admin'))
+            ->get()
+            ->each(function (User $user) use ($allWorkspaceKeys) {
+                foreach ($allWorkspaceKeys as $workspace) {
+                    \App\Models\UserWorkspace::firstOrCreate([
+                        'user_id' => $user->id,
+                        'workspace' => $workspace,
+                    ]);
+                }
+            });
     }
 }

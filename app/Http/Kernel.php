@@ -70,5 +70,6 @@ class Kernel extends HttpKernel
         'check.activation' => CheckAccountActivation::class,
         'locale' => LocaleMiddleware::class,
         'no.cache' => \App\Http\Middleware\PreventDashboardCaching::class,
+        'workspace' => \App\Http\Middleware\EnsureWorkspaceAccess::class,
     ];
 }
