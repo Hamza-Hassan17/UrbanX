@@ -59,4 +59,68 @@ class GeocodingService
             return null;
         }
     }
+
+    /**
+     * Just the city name, not a full address -- for clustering drivers by
+     * city at registration (see RegisterController). Google's response
+     * doesn't label anything "city" directly; 'locality' is the closest
+     * match, with administrative_area fallbacks for sparser areas where
+     * Google has no locality-level data.
+     */
+    public function reverseGeocodeCity(?float $lat, ?float $lng): ?string
+    {
+        if ($lat === null || $lng === null) {
+            return null;
+        }
+
+        $cacheKey = 'reverse_geocode_city_' . round($lat, 5) . '_' . round($lng, 5);
+
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        try {
+            $key = config('services.google_maps.key');
+            if (!$key) {
+                return null;
+            }
+
+            $response = Http::timeout(5)->get('https://maps.googleapis.com/maps/api/geocode/json', [
+                'latlng' => "{$lat},{$lng}",
+                'key' => $key,
+            ]);
+
+            $data = $response->json();
+
+            if (($data['status'] ?? null) !== 'OK' || empty($data['results'][0]['address_components'])) {
+                return null;
+            }
+
+            $components = $data['results'][0]['address_components'];
+            $city = $this->extractComponent($components, ['locality'])
+                ?? $this->extractComponent($components, ['administrative_area_level_2'])
+                ?? $this->extractComponent($components, ['administrative_area_level_1']);
+
+            if ($city) {
+                Cache::forever($cacheKey, $city);
+            }
+
+            return $city;
+        } catch (\Throwable $e) {
+            Log::error('GeocodingService::reverseGeocodeCity failed', ['lat' => $lat, 'lng' => $lng, 'error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
+    private function extractComponent(array $components, array $types): ?string
+    {
+        foreach ($components as $component) {
+            if (!empty(array_intersect($types, $component['types'] ?? []))) {
+                return $component['long_name'] ?? null;
+            }
+        }
+
+        return null;
+    }
 }

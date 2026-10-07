@@ -86,6 +86,16 @@ class RegisterController extends Controller
             $profile->user_id = $user->id;
             $profile->first_name = $user->name;
             $profile->phone_number = $request->phone;
+
+            // Cluster drivers by city automatically from their registration
+            // location, instead of an admin typing it in by hand (the
+            // GeocodingService call is skipped entirely for non-drivers and
+            // for anyone who didn't send lat/lang).
+            if ($request->role === 'driver' && $user->lat && $user->lang) {
+                $profile->city = app(\App\Services\GeocodingService::class)
+                    ->reverseGeocodeCity((float) $user->lat, (float) $user->lang);
+            }
+
             $profile->save();
 
             // Temporarily hardcoded while SMS delivery is paused.
