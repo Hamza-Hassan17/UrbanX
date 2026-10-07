@@ -26,6 +26,8 @@ class WorkspaceController extends Controller
 
         $landing = config("workspaces.workspaces.{$request->workspace}.landing_route", 'dashboard');
 
-        return redirect()->route($landing)->with('success', 'Switched workspace.');
+        // No success flash here -- the sidebar/dashboard changing is already
+        // the feedback; a popup on every switch was reported as annoying.
+        return redirect()->route($landing);
     }
 }
