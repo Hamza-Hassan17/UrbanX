@@ -1,19 +1,19 @@
 @extends('layouts.master')
 
-@section('title', __('Pending Verifications'))
+@section('title', $pageTitle ?? __('Pending Verifications'))
 
 @section('css')
 @endsection
 
 @section('breadcrumb-items')
-    <li class="breadcrumb-item"><a href="{{ route('dashboard.drivers.index') }}">{{ __('Drivers') }}</a></li>
-    <li class="breadcrumb-item active">{{ __('Pending Verifications') }}</li>
+    <li class="breadcrumb-item"><a href="{{ $indexRoute ?? route('dashboard.drivers.index') }}">{{ $indexLabel ?? __('Drivers') }}</a></li>
+    <li class="breadcrumb-item active">{{ $pageTitle ?? __('Pending Verifications') }}</li>
 @endsection
 
 @section('content')
     <div class="container-xxl flex-grow-1 container-p-y">
         <div class="card">
-            <h5 class="card-header">{{ __('Drivers Awaiting Verification') }}</h5>
+            <h5 class="card-header">{{ $pageTitle ?? __('Drivers Awaiting Verification') }}</h5>
             <div class="card-datatable table-responsive">
                 <table class="table border-top {{ $drivers->isNotEmpty() ? 'custom-datatables' : '' }}">
                     <thead>

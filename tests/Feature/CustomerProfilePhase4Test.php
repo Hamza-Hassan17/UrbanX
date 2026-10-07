@@ -53,23 +53,17 @@ class CustomerProfilePhase4Test extends TestCase
         $response->assertSee('Complaints');
     }
 
-    public function test_complaints_list_scoped_to_rides_workspace_excludes_null_service(): void
+    public function test_complaints_route_is_platform_only_rides_workspace_gets_403(): void
     {
+        // Superseded by a follow-up instruction: Complaints is now Platform-only
+        // (dashboard.complains.* in config/workspaces.php), not reachable from
+        // the Rides workspace at all -- the old per-service filtering this test
+        // used to check is dead code now and was removed from ComplainController.
         $user = $this->makeUser(['rides'], ['view complain']);
-
-        \App\Models\Complain::create([
-            'user_id' => $user->id,
-            'name' => 'Null Service Complaint',
-            'subject' => 'Untagged',
-            'complain_text' => 'test',
-            'status' => 'pending',
-            'service' => null,
-        ]);
 
         $response = $this->actingAs($user)->get(route('dashboard.complains.index'));
 
-        $response->assertStatus(200);
-        $response->assertDontSee('Null Service Complaint');
+        $response->assertForbidden();
     }
 
     public function test_complaints_list_platform_shows_null_service_complaint(): void

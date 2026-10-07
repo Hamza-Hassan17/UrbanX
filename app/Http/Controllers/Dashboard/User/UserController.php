@@ -125,6 +125,12 @@ class UserController extends Controller
     public function store(Request $request)
     {
         $this->authorize('create user');
+
+        // Only Super Admin can create another Super Admin account.
+        if ($request->input('role') === 'super-admin' && !auth()->user()->hasRole('super-admin')) {
+            return redirect()->back()->with('error', 'Only a Super Admin can create another Super Admin account.');
+        }
+
         $validate = Validator::make($request->all(), [
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
@@ -252,6 +258,16 @@ class UserController extends Controller
     public function update(Request $request, string $id)
     {
         $this->authorize('update user');
+
+        $targetUser = User::findOrFail($id);
+
+        // Only Super Admin can edit a Super Admin account, or promote
+        // anyone else to one.
+        if (!auth()->user()->hasRole('super-admin')
+            && ($targetUser->hasRole('super-admin') || $request->input('edit_role') === 'super-admin')) {
+            return redirect()->back()->with('error', 'Only a Super Admin can edit a Super Admin account.');
+        }
+
         $validate = Validator::make($request->all(), [
             'edit_first_name' => 'required|string|max:255',
             'edit_last_name' => 'required|string|max:255',
@@ -265,7 +281,7 @@ class UserController extends Controller
         try {
             DB::beginTransaction();
 
-            $user = User::findOrFail($id);
+            $user = $targetUser;
             $user->name = $request->edit_first_name . ' ' . $request->edit_last_name;
             $user->save();
 
@@ -324,8 +340,15 @@ class UserController extends Controller
     public function destroy(string $id)
     {
         $this->authorize('delete user');
+
+        $user = User::findOrFail($id);
+
+        // Only Super Admin can delete a Super Admin account.
+        if ($user->hasRole('super-admin') && !auth()->user()->hasRole('super-admin')) {
+            return redirect()->back()->with('error', 'Only a Super Admin can delete a Super Admin account.');
+        }
+
         try {
-            $user = User::findOrFail($id);
             $user->delete();
             return redirect()->back()->with('success', 'Account Deleted Successfully');
         } catch (\Throwable $th) {

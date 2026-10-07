@@ -8,7 +8,9 @@
 
     Expected variables:
     - $queueUrl, $queuePresetUrl (routes)
-    - $queuePresets, $lastQueueFilters (arrays, may be empty/null)
+    - $lastQueueFilters (array, may be null) -- the admin's auto-remembered
+      last-used filters for this queue. Named presets were removed per
+      follow-up instruction; only last-used + Reset to default remain.
     - $itemPrefix (string)      e.g. "RIDE-" / "ORDER-"
     - $queueTitle (string)      used in the count badge text
     - $hasTypeChips (bool)      whether #queue-type-tabs exists on this page
@@ -16,7 +18,6 @@
 <script>
     const queueUrl = @json($queueUrl);
     const queuePresetUrl = @json($queuePresetUrl);
-    const queuePresets = @json($queuePresets);
     const lastQueueFilters = @json($lastQueueFilters);
     const queueItemPrefix = @json($itemPrefix);
     const customerProfileUrlTemplate = @json(route('dashboard.customers.show', ['id' => '__ID__']));
@@ -134,7 +135,6 @@
 
     function resetQueueFilters() {
         queueFilters = { ...DEFAULT_QUEUE_FILTERS };
-        document.getElementById('qf-preset').value = 'default';
         onQueueChange();
     }
 
@@ -187,39 +187,6 @@
 
     document.getElementById('qf-reset-default').addEventListener('click', function() {
         resetQueueFilters();
-    });
-
-    document.getElementById('qf-preset').addEventListener('change', function() {
-        if (this.value === 'default') {
-            queueFilters = { ...DEFAULT_QUEUE_FILTERS };
-        } else {
-            queueFilters = { ...DEFAULT_QUEUE_FILTERS, ...queuePresets[this.value] };
-        }
-        onQueueChange();
-    });
-
-    document.getElementById('qf-save-preset').addEventListener('click', async function() {
-        const name = (window.prompt('Name for this preset (max 60 characters):') || '').trim();
-        if (!name) return;
-
-        const response = await fetch(queuePresetUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-CSRF-TOKEN': csrfToken,
-            },
-            body: JSON.stringify({ name, filters: queueFilters }),
-        });
-
-        if (!response.ok) {
-            window.alert('Could not save the preset. Check the name and try again.');
-            return;
-        }
-
-        queuePresets[name] = { ...queueFilters };
-        const option = new Option(name, name, true, true);
-        document.getElementById('qf-preset').add(option);
     });
 
     syncQueueToolbar();

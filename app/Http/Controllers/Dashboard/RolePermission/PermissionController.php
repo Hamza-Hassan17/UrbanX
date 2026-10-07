@@ -15,8 +15,8 @@ class PermissionController extends Controller
      */
     public function index()
     {
+        $this->authorize('view permission');
         try {
-            $this->authorize('view permission');
             $permissions  = Permission::get();
             return view('dashboard.role-permission.permission.index', compact('permissions'));
         } catch (\Throwable $th) {

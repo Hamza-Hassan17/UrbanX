@@ -1,19 +1,21 @@
 <?php
 
 /**
- * Admin panel workspaces. "rides" and "delivery" are the two service
- * workspaces a user is switched between; "platform" is the shared area
- * (Customers, Finance, Settings, etc.) and is NOT gated by the switcher --
- * it's always visible to anyone with the matching Spatie permission,
- * regardless of which service workspace is currently selected. See the
- * Phase 1 report for why this reads "shared" rather than "a third switcher
- * option" -- the data model (user_workspaces can still hold 'platform' per
- * user) supports moving to a literal 3-way switcher later without a new
- * migration, just a sidebar/middleware change.
+ * Admin panel workspaces. All three -- "rides", "delivery", "platform" --
+ * are real, switchable workspaces as of this revision (Platform used to be
+ * "always visible regardless of selection"; that's been replaced per
+ * explicit follow-up instruction -- see git history around this file for
+ * the earlier approach if it's ever needed again).
  *
- * route_prefixes maps a dashboard.* route-name prefix to the workspace it
- * requires. Any route name not matched here is unrestricted by workspace
- * (still protected by its own Spatie permission as before).
+ * route_prefixes maps a dashboard.* route name (exact name or a prefix
+ * ending in '.') to the workspace it requires. Any route name not matched
+ * here is unrestricted by workspace (still protected by its own Spatie
+ * permission as before) -- that's deliberate for things everyone needs
+ * regardless of workspace, like the notification bell's own inbox page
+ * (dashboard.notifications.index) or a driver's profile/KYC pages
+ * (dashboard.drivers.show/update/verification.*), which aren't
+ * workspace-specific even though the two LIST pages that link into them
+ * are.
  */
 return [
     'workspaces' => [
@@ -35,8 +37,10 @@ return [
     ],
 
     'route_prefixes' => [
+        // Rides
         'dashboard.rides.' => 'rides',
-        'dashboard.drivers.' => 'rides',
+        'dashboard.drivers.index' => 'rides',
+        'dashboard.drivers.pending-verifications' => 'rides',
         'dashboard.custom-rides.' => 'rides',
         'dashboard.live-tracking.' => 'rides',
         'dashboard.vehicle-types.' => 'rides',
@@ -46,10 +50,33 @@ return [
         'dashboard.chauffeur-vehicles.' => 'rides',
         'dashboard.chauffeur-bookings.' => 'rides',
 
+        // Delivery
         'dashboard.restaurants.' => 'delivery',
         'dashboard.restaurant-categories.' => 'delivery',
         'dashboard.restaurant-vouchers.' => 'delivery',
         'dashboard.restaurant-owners.' => 'delivery',
         'dashboard.delivery.' => 'delivery',
+        'dashboard.delivery-riders.' => 'delivery',
+
+        // Platform
+        'dashboard.user.' => 'platform',
+        'dashboard.archived-user.' => 'platform',
+        'dashboard.admin-users.' => 'platform',
+        'dashboard.customers.' => 'platform',
+        'dashboard.finance.' => 'platform',
+        'dashboard.payroll.' => 'platform',
+        'dashboard.reports.' => 'platform',
+        'dashboard.complains.' => 'platform',
+        'dashboard.support-requests.' => 'platform',
+        'dashboard.announcements.' => 'platform',
+        'dashboard.roles.' => 'platform',
+        'dashboard.permissions.' => 'platform',
+        'dashboard.setting.' => 'platform',
+        // Only the Send Notification feature, not the notification bell's
+        // own inbox (dashboard.notifications.index) -- everyone needs that
+        // regardless of workspace.
+        'dashboard.notifications.create' => 'platform',
+        'dashboard.notifications.store' => 'platform',
+        'dashboard.notifications.search-users' => 'platform',
     ],
 ];

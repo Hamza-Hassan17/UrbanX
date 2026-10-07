@@ -1,13 +1,13 @@
 @extends('layouts.master')
 
-@section('title', __('Drivers'))
+@section('title', $pageTitle ?? __('Drivers'))
 
 @section('css')
 @endsection
 
 
 @section('breadcrumb-items')
-    <li class="breadcrumb-item active">{{ __('Drivers') }}</li>
+    <li class="breadcrumb-item active">{{ $pageTitle ?? __('Drivers') }}</li>
 @endsection
 @section('content')
     <div class="container-xxl flex-grow-1 container-p-y">

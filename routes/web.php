@@ -183,6 +183,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('drivers/{id}/verification/reject', [DriverController::class, 'rejectVerification'])->name('drivers.verification.reject');
             Route::get('drivers/{id}/documents/pdf', [DriverController::class, 'exportDocumentsPdf'])->name('drivers.documents.pdf');
 
+            // Delivery workspace -- Riders / Rider Verifications (same driver
+            // records, same controller/views, filtered to is_delivery=true)
+            Route::get('delivery-riders', [DriverController::class, 'deliveryIndex'])->name('delivery-riders.index');
+            Route::get('delivery-riders/pending-verifications', [DriverController::class, 'deliveryPendingVerifications'])->name('delivery-riders.pending-verifications');
+
             //PromoCode Routes
             Route::resource('promo-codes', PromoCodeController::class);
             Route::get('promo-codes/status/{id}', [PromoCodeController::class, 'updateStatus'])->name('promo-codes.status.update');

@@ -33,7 +33,7 @@ class HomeController extends Controller
                 return view('dashboard.index', ['deliveryKpis' => $this->deliveryKpis()]);
             }
 
-            return view('dashboard.index');
+            return view('dashboard.index', ['platformKpis' => $this->platformKpis()]);
         } catch (\Throwable $th) {
             Log::error('Dashboard Index Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
@@ -108,12 +108,53 @@ class HomeController extends Controller
             'completed_today' => Ride::where('ride_type', 'delivery')->whereDate('completed_at', $today)->where('status', 'completed')->count(),
             'riders_available' => User::role('driver')
                 ->where('driver_status', 'available')
-                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', true))
+                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
                 ->count(),
             'revenue_today' => $canSeeRevenue
                 ? (float) Ride::where('ride_type', 'delivery')->whereDate('completed_at', $today)->where('status', 'completed')->sum('total_fare')
                 : null,
             'trend' => $trend,
+        ];
+    }
+
+    /**
+     * Platform workspace dashboard -- combined overview across both
+     * services, replacing the hardcoded placeholder numbers that used to
+     * live here (follow-up instruction to Phase 3; Phase 3 itself left
+     * Platform untouched per the original spec's wording, this supersedes
+     * that). revenue_today is null (not just hidden) for anyone without
+     * 'export payroll', same rule as the Rides/Delivery dashboards.
+     */
+    private function platformKpis(): array
+    {
+        $today = today();
+        $canSeeRevenue = auth()->user()->can('export payroll');
+
+        $ridesTrend = collect(range(6, 0))->map(fn ($daysAgo) => Ride::where('ride_type', 'ride')->whereDate('requested_at', now()->subDays($daysAgo))->count());
+        $ordersTrend = collect(range(6, 0))->map(fn ($daysAgo) => Ride::where('ride_type', 'delivery')->whereDate('requested_at', now()->subDays($daysAgo))->count());
+        $labels = collect(range(6, 0))->map(fn ($daysAgo) => now()->subDays($daysAgo)->format('D'));
+
+        $revenueToday = null;
+        if ($canSeeRevenue) {
+            $revenueToday = (float) Ride::whereIn('ride_type', ['ride', 'delivery'])
+                ->whereDate('completed_at', $today)
+                ->where('status', 'completed')
+                ->sum('total_fare');
+        }
+
+        return [
+            'rides_today' => Ride::where('ride_type', 'ride')->whereDate('requested_at', $today)->count(),
+            'orders_today' => Ride::where('ride_type', 'delivery')->whereDate('requested_at', $today)->count(),
+            'completed_today' => Ride::whereIn('ride_type', ['ride', 'delivery'])->whereDate('completed_at', $today)->where('status', 'completed')->count(),
+            'cancelled_today' => Ride::whereIn('ride_type', ['ride', 'delivery'])->whereDate('cancelled_at', $today)->where('status', 'cancelled')->count(),
+            'drivers_available' => User::role('driver')->where('driver_status', 'available')
+                ->whereDoesntHave('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))->count(),
+            'riders_available' => User::role('driver')->where('driver_status', 'available')
+                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))->count(),
+            'revenue_today' => $revenueToday,
+            'labels' => $labels,
+            'rides_trend' => $ridesTrend,
+            'orders_trend' => $ordersTrend,
         ];
     }
 

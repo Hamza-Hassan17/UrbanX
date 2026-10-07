@@ -55,14 +55,18 @@ class DashboardPhase3Test extends TestCase
         $response->assertDontSee('Top Cities');
     }
 
-    public function test_platform_workspace_dashboard_unchanged(): void
+    public function test_platform_workspace_dashboard_shows_real_combined_kpis(): void
     {
+        // Superseded by a follow-up instruction: Platform's dashboard is no
+        // longer the old hardcoded placeholder content (see
+        // HomeController::platformKpis()) -- updated here to match.
         $user = $this->makeUser(['platform']);
         $response = $this->actingAs($user)->get(route('dashboard'));
 
         $response->assertStatus(200);
-        $response->assertSee('Top Cities');
-        $response->assertDontSee('Rides Today');
+        $response->assertSee('Rides Today');
+        $response->assertSee('Orders Today');
+        $response->assertDontSee('Top Cities');
     }
 
     public function test_operator_without_export_payroll_does_not_see_revenue_on_rides_dashboard(): void

@@ -42,13 +42,10 @@
     </div>
     <div class="queue-toolbar" id="queue-toolbar">
         <div class="queue-toolbar-group">
-            <select id="qf-preset" class="queue-select" title="Presets">
-                <option value="default">Default</option>
-                @foreach ($queuePresets as $presetName => $presetFilters)
-                    <option value="{{ $presetName }}">{{ $presetName }}</option>
-                @endforeach
-            </select>
-            <button type="button" id="qf-save-preset" class="queue-tab">Save as preset</button>
+            {{-- Named presets removed per follow-up instruction -- filters
+                 auto-remember the admin's last-used state (queue-scripts.blade.php's
+                 onQueueChange() already POSTs that on every change) and
+                 "Reset" below returns to the hardcoded default. --}}
             <label class="queue-field">From
                 <input type="datetime-local" id="qf-from" class="queue-input">
             </label>

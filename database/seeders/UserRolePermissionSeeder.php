@@ -162,15 +162,19 @@ class UserRolePermissionSeeder extends Seeder
 
         // give permissions to admin role.
         // NOTE: additive only -- the RBAC matrix in the brief marks Admin as ∅
-        // (no access) on Roles & permissions management, but Admin already had
-        // 'view role'/'view permission' in this live app before this rollout.
-        // Per the brief ("extend Admin's existing permission set... don't
-        // recreate it") this only adds what Admin is missing; it does not revoke
-        // access Admin already had. Flagging this discrepancy rather than
-        // silently revoking it -- confirm if 'view role'/'view permission' should
-        // actually come off Admin.
-        $adminRole->givePermissionTo(['view role']);
-        $adminRole->givePermissionTo(['view permission']);
+        // (no access) on Roles & permissions management. Admin had 'view
+        // role'/'view permission' in this live app before the RBAC rollout,
+        // which that rollout deliberately left alone as "don't revoke access
+        // Admin already had." Explicit follow-up instruction to the admin
+        // workspace split now resolves that open question: Admin should not
+        // manage roles/permissions or Settings at all, or create/edit/delete
+        // Super Admin accounts. revokePermissionTo is needed (not just
+        // removing the givePermissionTo call) because this seeder is
+        // idempotent/re-run, not a fresh install -- an existing Admin role
+        // row already has these grants from a prior run.
+        $adminRole->revokePermissionTo(['view role', 'create role', 'update role', 'delete role']);
+        $adminRole->revokePermissionTo(['view permission', 'create permission', 'update permission', 'delete permission']);
+        $adminRole->revokePermissionTo(['view setting']);
         $adminRole->givePermissionTo(['create user', 'view user', 'update user']);
         // Preserves Admin's pre-existing ability to see Admin Panel Users (it was
         // bundled into 'view user' before the split above) -- not a new grant.
@@ -419,5 +423,16 @@ class UserRolePermissionSeeder extends Seeder
                     ]);
                 }
             });
+
+        // Finance users get Platform only -- Finance doesn't operate a
+        // service queue, its rides/orders access is the read-only lists
+        // under Platform (per the spec). Explicit follow-up instruction;
+        // prunes the 'rides'/'delivery' rows the backfill above just gave
+        // every non-super-admin user, for Finance-role users specifically.
+        User::role('finance')->get()->each(function (User $user) {
+            \App\Models\UserWorkspace::where('user_id', $user->id)
+                ->whereIn('workspace', ['rides', 'delivery'])
+                ->delete();
+        });
     }
 }

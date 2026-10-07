@@ -18,7 +18,7 @@
     @php
         $__allowedWorkspaces = auth()->check() ? auth()->user()->allowedWorkspaces() : [];
         $__currentWorkspace = session('workspace');
-        $__switchableWorkspaces = array_values(array_intersect(['rides', 'delivery'], $__allowedWorkspaces));
+        $__switchableWorkspaces = array_values(array_intersect(['rides', 'delivery', 'platform'], $__allowedWorkspaces));
     @endphp
     @if (count($__switchableWorkspaces) > 1)
         <div class="px-4 py-2">
@@ -195,6 +195,26 @@
             @endcan
         @endif
 
+        {{-- 4c. Riders / Rider Verifications -- same driver-role users as
+             Rides' Drivers/Pending Verifications, filtered to
+             vehicle_type.is_delivery=true. See DriverController::deliveryIndex(). --}}
+        @if($__currentWorkspace === 'delivery')
+            @can(['view driver'])
+                <li class="menu-item {{ request()->routeIs('dashboard.delivery-riders.index') ? 'active' : '' }}">
+                    <a href="{{ route('dashboard.delivery-riders.index') }}" class="menu-link" style="color: #fff !important;">
+                        <i class="menu-icon tf-icons ti ti-motorbike"></i>
+                        <div>{{__('Riders')}}</div>
+                    </a>
+                </li>
+                <li class="menu-item {{ request()->routeIs('dashboard.delivery-riders.pending-verifications') ? 'active' : '' }}">
+                    <a href="{{ route('dashboard.delivery-riders.pending-verifications') }}" class="menu-link" style="color: #fff !important;">
+                        <i class="menu-icon tf-icons ti ti-shield-check"></i>
+                        <div>{{__('Rider Verifications')}}</div>
+                    </a>
+                </li>
+            @endcan
+        @endif
+
         {{-- 5. Restaurants -- workspace-gated: only visible while "Delivery"
              is the selected service workspace. --}}
         @if($__currentWorkspace === 'delivery')
@@ -239,6 +259,12 @@
             </li>
         @endcanany
         @endif
+
+        {{-- Platform workspace from here down -- Customers, Admin Panel Users,
+             Finance, Admin Panel User Activity, Complaints, Support Requests,
+             Announcements, Settings, Send Notification. All workspace-gated
+             to "platform"; permission gates underneath are unchanged. --}}
+        @if($__currentWorkspace === 'platform')
 
         {{-- 6. Users -- scoped to Customers (+ Archived Users) only per the sidebar
              restructure spec. Drivers moved to Rides, Restaurant Owners moved to
@@ -420,5 +446,7 @@
                 </a>
             </li>
         @endcan
+
+        @endif
     </ul>
 </aside>
