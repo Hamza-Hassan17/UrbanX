@@ -20,6 +20,14 @@
 @endsection
 
 @section('content')
+@if (isset($ridesKpis))
+    @include('dashboard.partials.rides-dashboard')
+@elseif (isset($deliveryKpis))
+    @include('dashboard.partials.delivery-dashboard')
+@else
+{{-- Platform workspace -- combined overview, unchanged from before the
+     Phase 3 workspace split (still placeholder data, not touched here;
+     see the Phase 3 report). --}}
 <div class="row g-4">
     <!-- Welcome Section -->
     <div class="col-xl-4 col-lg-6">
@@ -186,9 +194,11 @@
         </div>
     </div>
 </div>
+@endif
 @endsection
 
 @section('script')
+@if (!isset($ridesKpis) && !isset($deliveryKpis))
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     // Ride Requests Trend
@@ -251,4 +261,5 @@
         }
     });
 </script>
+@endif
 @endsection

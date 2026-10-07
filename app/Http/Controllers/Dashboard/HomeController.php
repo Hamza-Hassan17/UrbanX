@@ -3,6 +3,9 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Models\Ride;
+use App\Models\RestaurantOrder;
+use App\Models\User;
 use App\Models\VehicleType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
@@ -16,12 +19,102 @@ class HomeController extends Controller
     public function index()
     {
         try {
+            $workspace = session('workspace');
+
+            // Platform keeps today's existing (placeholder) dashboard content
+            // unchanged -- the spec only asks Phase 3 to split out Rides and
+            // Delivery into their own, real KPIs; it explicitly says Platform
+            // stays "the combined overview (current dashboard content)".
+            if ($workspace === 'rides') {
+                return view('dashboard.index', ['ridesKpis' => $this->ridesKpis()]);
+            }
+
+            if ($workspace === 'delivery') {
+                return view('dashboard.index', ['deliveryKpis' => $this->deliveryKpis()]);
+            }
+
             return view('dashboard.index');
         } catch (\Throwable $th) {
             Log::error('Dashboard Index Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
             throw $th;
         }
+    }
+
+    /**
+     * Real KPIs for the Rides workspace dashboard (Phase 3 of the admin
+     * workspace split). Taxi only (ride_type='ride'), matching the Rides
+     * queue scope from Phase 2. canSeeRevenue mirrors the gate already used
+     * on the Payroll/Finance pages ('export payroll') -- Operator doesn't
+     * have it, Finance/Admin/Super Admin do, so the fare total is simply
+     * omitted from the payload (not just hidden in the view) for anyone
+     * who shouldn't see it.
+     */
+    private function ridesKpis(): array
+    {
+        $today = today();
+        $canSeeRevenue = auth()->user()->can('export payroll');
+
+        $trend = collect(range(6, 0))->map(function ($daysAgo) {
+            $date = now()->subDays($daysAgo);
+            return [
+                'label' => $date->format('D'),
+                'count' => Ride::where('ride_type', 'ride')->whereDate('requested_at', $date)->count(),
+            ];
+        })->values();
+
+        return [
+            'rides_today' => Ride::where('ride_type', 'ride')->whereDate('requested_at', $today)->count(),
+            'completed_today' => Ride::where('ride_type', 'ride')->whereDate('completed_at', $today)->where('status', 'completed')->count(),
+            'cancelled_today' => Ride::where('ride_type', 'ride')->whereDate('cancelled_at', $today)->where('status', 'cancelled')->count(),
+            'drivers_available' => User::role('driver')->where('driver_status', 'available')->count(),
+            'drivers_busy' => User::role('driver')->where('driver_status', 'busy')->count(),
+            'revenue_today' => $canSeeRevenue
+                ? (float) Ride::where('ride_type', 'ride')->whereDate('completed_at', $today)->where('status', 'completed')->sum('total_fare')
+                : null,
+            'trend' => $trend,
+        ];
+    }
+
+    /**
+     * Real KPIs for the Delivery workspace dashboard. Food vs Parcel split
+     * mirrors DeliveryController's queue logic -- a food job has a matching
+     * restaurant_orders row, a parcel job doesn't.
+     */
+    private function deliveryKpis(): array
+    {
+        $today = today();
+        $canSeeRevenue = auth()->user()->can('export payroll');
+
+        $deliveryRideIdsToday = Ride::where('ride_type', 'delivery')
+            ->whereDate('requested_at', $today)
+            ->pluck('id');
+
+        $foodToday = RestaurantOrder::whereIn('ride_id', $deliveryRideIdsToday)->count();
+        $parcelToday = max(0, $deliveryRideIdsToday->count() - $foodToday);
+
+        $trend = collect(range(6, 0))->map(function ($daysAgo) {
+            $date = now()->subDays($daysAgo);
+            return [
+                'label' => $date->format('D'),
+                'count' => Ride::where('ride_type', 'delivery')->whereDate('requested_at', $date)->count(),
+            ];
+        })->values();
+
+        return [
+            'orders_today' => $deliveryRideIdsToday->count(),
+            'food_today' => $foodToday,
+            'parcel_today' => $parcelToday,
+            'completed_today' => Ride::where('ride_type', 'delivery')->whereDate('completed_at', $today)->where('status', 'completed')->count(),
+            'riders_available' => User::role('driver')
+                ->where('driver_status', 'available')
+                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', true))
+                ->count(),
+            'revenue_today' => $canSeeRevenue
+                ? (float) Ride::where('ride_type', 'delivery')->whereDate('completed_at', $today)->where('status', 'completed')->sum('total_fare')
+                : null,
+            'trend' => $trend,
+        ];
     }
 
     public function getRoute(Request $request)
