@@ -140,7 +140,13 @@
                         @foreach ($users as $index => $user)
                             <tr>
                                 <td>{{ $index + 1 }}</td>
-                                <td>{{ $user->name }}</td>
+                                <td>
+                                    @can(['view user'])
+                                        <a href="{{ route('dashboard.customers.show', $user->id) }}">{{ $user->name }}</a>
+                                    @else
+                                        {{ $user->name }}
+                                    @endcan
+                                </td>
                                 <td>{{ $user->username }}</td>
                                 <td>{{ $user->email }}</td>
                                 <td>{{ $user->getRoleNames()->map(fn($r) => Str::title(str_replace('-', ' ', $r)))->implode(', ') }}</td>

@@ -15,6 +15,7 @@ class Complain extends Model
         'subject',
         'complain_text',
         'status',
+        'service',
     ];
 
     public function user()

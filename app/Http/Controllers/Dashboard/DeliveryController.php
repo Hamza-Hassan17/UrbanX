@@ -128,6 +128,7 @@ class DeliveryController extends Controller
                             ?? $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude,
             'driver'    => $ride->driver->name ?? null,
             'passenger' => $ride->passenger->name ?? null,
+            'passenger_id' => $ride->passenger_id,
             'phone'     => $ride->passenger->phone ?? null,
             'status'    => $ride->status,
             'queue'     => $queue,

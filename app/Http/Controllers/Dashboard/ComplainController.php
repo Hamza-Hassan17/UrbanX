@@ -12,12 +12,28 @@ class ComplainController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    /**
+     * Phase 4 of the admin workspace split: Rides/Delivery workspaces only
+     * see complaints tagged for their service; Platform sees everything,
+     * with an optional ?service= filter. Most existing complaints have no
+     * service tag (nothing to backfill from -- see BackfillServiceColumns),
+     * so they only ever show up in Platform, same as any other
+     * null-service row. New complaints start getting tagged once mobile
+     * sends an optional `service` field on submission.
+     */
+    public function index(Request $request)
     {
         $this->authorize('view complain');
         try {
-            $complains = Complain::latest()->get();
-            return view('dashboard.complains.index', compact('complains'));
+            $workspace = session('workspace');
+
+            $complains = Complain::latest()
+                ->when($workspace === 'rides', fn ($q) => $q->where('service', 'ride'))
+                ->when($workspace === 'delivery', fn ($q) => $q->whereIn('service', ['food', 'parcel']))
+                ->when($workspace !== 'rides' && $workspace !== 'delivery' && $request->filled('service'), fn ($q) => $q->where('service', $request->service))
+                ->get();
+
+            return view('dashboard.complains.index', compact('complains', 'workspace'));
         } catch (\Throwable $th) {
             Log::error('Complains Index Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");

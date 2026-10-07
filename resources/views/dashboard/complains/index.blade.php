@@ -11,6 +11,25 @@
 @endsection
 @section('content')
     <div class="container-xxl flex-grow-1 container-p-y">
+        @if ($workspace !== 'rides' && $workspace !== 'delivery')
+            {{-- Platform only -- Rides/Delivery workspaces are already scoped
+                 to their own service server-side (see ComplainController::index). --}}
+            <div class="card mb-4">
+                <div class="card-body">
+                    <form method="GET" class="row g-2 align-items-end">
+                        <div class="col-md-3">
+                            <label class="form-label">{{ __('Service') }}</label>
+                            <select name="service" class="form-select" onchange="this.form.submit()">
+                                <option value="">{{ __('All') }}</option>
+                                @foreach (['ride' => 'Ride', 'rental' => 'Rental', 'food' => 'Food', 'parcel' => 'Parcel'] as $value => $label)
+                                    <option value="{{ $value }}" {{ request('service') === $value ? 'selected' : '' }}>{{ __($label) }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        @endif
         <div class="card">
             <div class="card-datatable table-responsive">
                 <table class="datatables-users table border-top custom-datatables">
@@ -19,6 +38,7 @@
                             <th>{{ __('Sr.') }}</th>
                             <th>{{ __('Name') }}</th>
                             <th>{{ __('Subject') }}</th>
+                            <th>{{ __('Service') }}</th>
                             <th>{{ __('Status') }}</th>
                             <th>{{ __('Submitted At') }}</th>
                             @canany(['delete complain', 'update complain', 'view complain'])<th>{{ __('Action') }}</th>
@@ -31,6 +51,7 @@
                                 <td>{{ $index + 1 }}</td>
                                 <td>{{ $complain->name }}</td>
                                 <td>{{ $complain->subject }}</td>
+                                <td>{{ $complain->service ? ucfirst($complain->service) : '—' }}</td>
                                 <td>
                                     <span class="badge bg-label-{{ $complain->status == 'resolved'
                                             ? 'success'

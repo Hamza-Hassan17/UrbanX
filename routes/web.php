@@ -158,6 +158,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('user/restore/{id}', [ArchivedUserController::class, 'restoreUser'])->name('archived-user.restore');
             Route::get('user/status/{id}', [UserController::class, 'updateStatus'])->name('user.status.update');
             Route::get('admin-users', [UserController::class, 'adminUsers'])->name('admin-users.index');
+            Route::get('customers/{id}', [\App\Http\Controllers\Dashboard\CustomerProfileController::class, 'show'])->name('customers.show');
             Route::put('admin-users/{id}/workspaces', [UserController::class, 'updateWorkspaces'])->name('admin-users.workspaces.update');
             Route::get('restaurant-owners', [UserController::class, 'restaurantOwners'])->name('restaurant-owners.index');
 

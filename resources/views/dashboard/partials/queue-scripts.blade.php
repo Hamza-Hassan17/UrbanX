@@ -19,6 +19,8 @@
     const queuePresets = @json($queuePresets);
     const lastQueueFilters = @json($lastQueueFilters);
     const queueItemPrefix = @json($itemPrefix);
+    const customerProfileUrlTemplate = @json(route('dashboard.customers.show', ['id' => '__ID__']));
+    const canViewCustomerProfile = @json(auth()->user()->can('view user'));
     const queueTitleLabel = @json($queueTitle);
     const queueHasTypeChips = @json($hasTypeChips);
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
@@ -47,6 +49,9 @@
             const actionsCell = canEdit
                 ? `<button type="button" class="queue-edit-btn" data-id="${ride.id}" data-status="${ride.status}" data-pickup="${ride.pickup ?? ''}" data-dropoff="${ride.dropoff ?? ''}" data-type="${ride.type_key}" data-queue="${ride.queue}" data-fare="${ride.fare ?? ''}"><i class="fas fa-pen"></i> Edit</button>`
                 : '--';
+            const passengerCell = (ride.passenger_id && ride.passenger && canViewCustomerProfile)
+                ? `<a href="${customerProfileUrlTemplate.replace('__ID__', ride.passenger_id)}">${ride.passenger}</a>`
+                : (ride.passenger ?? '--');
             return `
                 <tr data-queue="${ride.queue}" data-type="${ride.type_key}">
                     <td class="muted-cell">${ride.time ?? ''}</td>
@@ -55,7 +60,7 @@
                     <td class="muted-cell">${ride.pickup ?? ''}</td>
                     <td class="muted-cell">${ride.dropoff ?? ''}</td>
                     <td>${ride.driver ?? 'Not assigned'}</td>
-                    <td>${ride.passenger ?? '--'}</td>
+                    <td>${passengerCell}</td>
                     <td class="muted-cell">${ride.phone ?? '--'}</td>
                     <td>Rs ${Math.round(ride.fare ?? 0)}</td>
                     <td><span class="trip-status ${badgeClass}">${statusLabel}</span></td>

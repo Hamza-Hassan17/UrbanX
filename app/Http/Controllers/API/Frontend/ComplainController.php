@@ -34,6 +34,7 @@ class ComplainController extends Controller
             'name' => 'required|string|max:255',
             'subject' => 'required|string|max:255',
             'complain_text' => 'required|string',
+            'service' => 'nullable|in:ride,rental,food,parcel',
         ]);
 
         if ($validator->fails()) {
@@ -51,6 +52,7 @@ class ComplainController extends Controller
             $complain->name = $request->input('name');
             $complain->subject = $request->input('subject');
             $complain->complain_text = $request->input('complain_text');
+            $complain->service = $request->input('service'); // optional -- see Phase 4 report
             $complain->save();
 
             app('notificationService')->notifyUsers(

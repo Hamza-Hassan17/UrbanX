@@ -106,7 +106,13 @@
                         <td class="muted-cell">{{ $ride['pickup'] }}</td>
                         <td class="muted-cell">{{ $ride['dropoff'] }}</td>
                         <td>{{ $ride['driver'] ?? 'Not assigned' }}</td>
-                        <td>{{ $ride['passenger'] ?? '--' }}</td>
+                        <td>
+                            @if (!empty($ride['passenger_id']) && $ride['passenger'] && auth()->user()->can('view user'))
+                                <a href="{{ route('dashboard.customers.show', $ride['passenger_id']) }}">{{ $ride['passenger'] }}</a>
+                            @else
+                                {{ $ride['passenger'] ?? '--' }}
+                            @endif
+                        </td>
                         <td class="muted-cell">{{ $ride['phone'] ?? '--' }}</td>
                         <td>Rs {{ number_format($ride['fare']) }}</td>
                         <td>
