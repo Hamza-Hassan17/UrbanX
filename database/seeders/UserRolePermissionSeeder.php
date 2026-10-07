@@ -122,6 +122,10 @@ class UserRolePermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'update restaurant voucher']);
         Permission::firstOrCreate(['name' => 'delete restaurant voucher']);
 
+        // Delivery workspace (Phase 2 of the admin workspace split) -- the
+        // orders queue (food + parcel jobs, both rides with ride_type='delivery').
+        Permission::firstOrCreate(['name' => 'view delivery']);
+
         // RBAC rollout (dispatcher/finance) -- see UrbanX_RBAC_ClaudeCode_Brief.md.
         // 'assign ride' fixes a real gap: CustomRideController::requestCustomRide()
         // and the dispatch-queue "Assign Driver" action had no permission check at
@@ -176,6 +180,7 @@ class UserRolePermissionSeeder extends Seeder
         $adminRole->givePermissionTo(['delete user']);
         $adminRole->givePermissionTo(['view driver', 'create driver', 'update driver', 'delete driver']);
         $adminRole->givePermissionTo(['view restaurant', 'create restaurant', 'update restaurant', 'delete restaurant']);
+        $adminRole->givePermissionTo(['view delivery']);
         $adminRole->givePermissionTo(['view archived user', 'create archived user', 'update archived user', 'delete archived user']);
         // Pricing, promo codes, boost hours = Full for Admin.
         $adminRole->givePermissionTo(['view promo code', 'create promo code', 'update promo code', 'delete promo code']);
@@ -229,6 +234,7 @@ class UserRolePermissionSeeder extends Seeder
         $operatorRole = Role::firstOrCreate(['name' => 'operator']);
         $operatorRole->givePermissionTo($dispatcherRole->permissions->pluck('name')->all());
         $operatorRole->givePermissionTo(['view complain', 'create complain']);
+        $operatorRole->givePermissionTo(['view delivery']);
 
         // give permissions to finance role.
         // Ride reassignment (status/driver) = View only.

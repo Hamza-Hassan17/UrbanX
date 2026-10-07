@@ -181,6 +181,20 @@
         @endcanany
         @endif
 
+        {{-- 4b. Delivery Orders Queue -- workspace-gated alongside Restaurants
+             below (same "Delivery" workspace). Phase 2 of the admin workspace
+             split: food + parcel jobs, both `rides` rows with ride_type=delivery. --}}
+        @if($__currentWorkspace === 'delivery')
+            @can(['view delivery'])
+                <li class="menu-item {{ request()->routeIs('dashboard.delivery.*') ? 'active' : '' }}">
+                    <a href="{{ route('dashboard.delivery.index') }}" class="menu-link" style="color: #fff !important;">
+                        <i class="menu-icon tf-icons ti ti-list-check"></i>
+                        <div>{{__('Orders Queue')}}</div>
+                    </a>
+                </li>
+            @endcan
+        @endif
+
         {{-- 5. Restaurants -- workspace-gated: only visible while "Delivery"
              is the selected service workspace. --}}
         @if($__currentWorkspace === 'delivery')

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Dashboard\Concerns\HasQueuePresets;
 use App\Models\RestaurantOrder;
 use App\Models\Ride;
 use App\Models\User;
@@ -16,6 +17,8 @@ use Illuminate\Validation\ValidationException;
 
 class CustomRideController extends Controller
 {
+    use HasQueuePresets;
+
     public function index()
     {
         $this->authorize('view custom rides');
@@ -31,12 +34,7 @@ class CustomRideController extends Controller
 
             $dispatch = $this->getDispatchSnapshot();
 
-            $presets = \App\Models\AdminQueuePreset::where('user_id', auth()->id())
-                ->get(['name', 'filters'])
-                ->keyBy('name');
-
-            $queuePresets = $presets->except('__last__')->map(fn ($p) => $p->filters)->all();
-            $lastQueueFilters = $presets->get('__last__')?->filters ?? null;
+            [$queuePresets, $lastQueueFilters] = $this->loadQueuePresets('rides');
 
             return view('dashboard.custom-rides.index', array_merge(
                 compact('drivers', 'driver', 'queuePresets', 'lastQueueFilters'),
@@ -252,15 +250,18 @@ class CustomRideController extends Controller
 
         $activeStatuses = ['requested', 'accepted', 'en_route', 'arrived', 'started'];
 
+        // Taxi only (ride_type='ride') -- this page is the Rides workspace's
+        // queue as of Phase 2; delivery jobs moved to their own page/stats.
         $rideCounts = [
-            'dispatch'  => Ride::where('status', 'requested')->whereNull('driver_id')->count(),
-            'booked'    => Ride::whereIn('status', ['requested', 'accepted', 'en_route', 'arrived', 'started'])
+            'dispatch'  => Ride::where('ride_type', 'ride')->where('status', 'requested')->whereNull('driver_id')->count(),
+            'booked'    => Ride::where('ride_type', 'ride')->whereIn('status', $activeStatuses)
                                 ->whereNotNull('driver_id')->count(),
-            'completed' => Ride::whereDate('completed_at', today())->where('status', 'completed')->count(),
-            'cancelled' => Ride::whereDate('cancelled_at', today())->where('status', 'cancelled')->count(),
+            'completed' => Ride::where('ride_type', 'ride')->whereDate('completed_at', today())->where('status', 'completed')->count(),
+            'cancelled' => Ride::where('ride_type', 'ride')->whereDate('cancelled_at', today())->where('status', 'cancelled')->count(),
         ];
 
-        $rides = Ride::with(['driver:id,name', 'passenger:id,name,phone'])
+        $rides = Ride::where('ride_type', 'ride')
+            ->with(['driver:id,name', 'passenger:id,name,phone'])
             ->whereIn('status', array_merge($activeStatuses, ['completed', 'cancelled']))
             ->latest('requested_at')
             ->take(50)
@@ -299,59 +300,35 @@ class CustomRideController extends Controller
             'queue'     => $queue,
             'fare'      => (float) $ride->total_fare,
             'ride_type' => $ride->ride_type,
+            'type_key'  => 'ride',
+            'type_label' => 'Taxi',
         ];
     }
 
     /**
-     * Filtered ride queue for the Manual Ride Assignment page. A ride shows when
-     * its effective pickup (scheduled, else requested) falls in the window, or when
-     * it is still active with a past pickup, so overdue jobs never drop out.
+     * Filtered ride queue for the Manual Ride Assignment page (Rides
+     * workspace). Taxi rides only -- Chauffeur/Rentals bookings are a
+     * different, pre-booked data model (chauffeur_bookings table, not a
+     * live-dispatch queue) and stay on their own existing page rather than
+     * being merged in here; see the Phase 2 report for why. Delivery jobs
+     * (ride_type='delivery') moved to their own queue, DeliveryController::queue().
+     * A ride shows when its effective pickup (scheduled, else requested)
+     * falls in the window, or when it is still active with a past pickup,
+     * so overdue jobs never drop out.
      */
     public function queue(Request $request)
     {
         $this->authorize('view custom rides');
 
-        $tz = 'Asia/Karachi';
-        $from = $request->filled('from')
-            ? \Carbon\Carbon::parse($request->from, $tz)->utc()
-            : now();
+        $query = Ride::where('ride_type', 'ride')
+            ->with(['driver:id,name', 'passenger:id,name,phone']);
 
-        $until = $request->filled('until')
-            ? \Carbon\Carbon::parse($request->until, $tz)->utc()
-            : null;
-
-        $window = $request->input('window', '4');
-        if (!$until && $window !== 'all') {
-            $until = $from->copy()->addHours((int) $window);
-        }
-
-        $activeStatuses = ['requested', 'accepted', 'en_route', 'arrived', 'started'];
-        $effective = 'COALESCE(scheduled_pickup_at, requested_at)';
-
-        $query = Ride::with(['driver:id,name', 'passenger:id,name,phone'])
-            ->when($until, fn ($q) => $q->where(function ($q) use ($from, $until, $effective, $activeStatuses) {
-                $q->whereRaw("$effective BETWEEN ? AND ?", [$from, $until])
-                    ->orWhere(function ($q) use ($from, $effective, $activeStatuses) {
-                        $q->whereIn('status', $activeStatuses)
-                            ->whereRaw("$effective < ?", [$from])
-                            ->whereRaw("$effective >= ?", [$from->copy()->subHours(24)]);
-                    });
-            }), fn ($q) => $q->whereRaw("$effective >= ?", [$from]))
-            ->when($request->type === 'ride', fn ($q) => $q->where('ride_type', 'ride'))
-            ->when($request->type === 'delivery', fn ($q) => $q->where('ride_type', 'delivery'));
-
-        match ($request->status) {
-            'dispatch' => $query->where('status', 'requested')->whereNull('driver_id'),
-            'booked' => $query->whereIn('status', $activeStatuses)->whereNotNull('driver_id'),
-            'completed' => $query->where('status', 'completed'),
-            'cancelled' => $query->where('status', 'cancelled'),
-            default => $query->whereIn('status', array_merge($activeStatuses, ['completed', 'cancelled'])),
-        };
+        \App\Services\RideQueueFilterService::apply($query, $request);
 
         $geocoder = app(\App\Services\GeocodingService::class);
 
         $total = (clone $query)->count();
-        $rides = $query->orderByRaw("$effective ASC")->take(200)->get()
+        $rides = $query->take(200)->get()
             ->map(fn ($ride) => $this->queueRow($ride, $geocoder))
             ->values();
 
@@ -365,19 +342,7 @@ class CustomRideController extends Controller
     {
         $this->authorize('view custom rides');
 
-        $validated = $request->validate([
-            'name' => 'nullable|string|max:60',
-            'filters' => 'required|array',
-        ]);
-
-        $name = $validated['name'] ?? '__last__';
-
-        \App\Models\AdminQueuePreset::updateOrCreate(
-            ['user_id' => $request->user()->id, 'name' => $name],
-            ['filters' => $validated['filters']]
-        );
-
-        return response()->json(['saved' => $name]);
+        return $this->saveQueuePreset($request, 'rides');
     }
 
 

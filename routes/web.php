@@ -281,6 +281,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             //Restaurant Voucher
             Route::resource('restaurant-vouchers', RestaurantVoucherController::class);
             Route::get('restaurant-vouchers/status/{id}', [RestaurantVoucherController::class, 'updateStatus'])->name('restaurant-vouchers.status.update');
+
+            //Delivery workspace -- Orders Queue (Phase 2 of the admin workspace split)
+            Route::get('delivery', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'index'])->name('delivery.index');
+            Route::get('delivery/queue', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'queue'])->name('delivery.queue');
+            Route::post('delivery/queue/presets', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'savePreset'])->name('delivery.queue.presets');
         });
     });
 

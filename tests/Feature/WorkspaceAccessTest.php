@@ -65,6 +65,18 @@ class WorkspaceAccessTest extends TestCase
         $response->assertForbidden();
     }
 
+    public function test_user_without_delivery_workspace_gets_403_on_delivery_queue_route(): void
+    {
+        $role = Role::firstOrCreate(['name' => 'operator']);
+        $role->givePermissionTo(\Spatie\Permission\Models\Permission::firstOrCreate(['name' => 'view delivery']));
+
+        $user = $this->makeUser(['rides', 'platform']);
+
+        $response = $this->actingAs($user)->get(route('dashboard.delivery.index'));
+
+        $response->assertForbidden();
+    }
+
     public function test_user_with_no_workspace_is_redirected_to_no_workspace_page(): void
     {
         $user = $this->makeUser([]);

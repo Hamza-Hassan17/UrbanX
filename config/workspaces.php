@@ -50,5 +50,6 @@ return [
         'dashboard.restaurant-categories.' => 'delivery',
         'dashboard.restaurant-vouchers.' => 'delivery',
         'dashboard.restaurant-owners.' => 'delivery',
+        'dashboard.delivery.' => 'delivery',
     ],
 ];
