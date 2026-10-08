@@ -213,6 +213,14 @@
                     </a>
                 </li>
             @endcan
+            @can(['manage rider cash'])
+                <li class="menu-item {{ request()->routeIs('dashboard.rider-cash.*') ? 'active' : '' }}">
+                    <a href="{{ route('dashboard.rider-cash.index') }}" class="menu-link" style="color: #fff !important;">
+                        <i class="menu-icon tf-icons ti ti-cash"></i>
+                        <div>{{__('Rider Cash')}}</div>
+                    </a>
+                </li>
+            @endcan
         @endif
 
         {{-- 5. Restaurants -- workspace-gated: only visible while "Delivery"

@@ -106,6 +106,15 @@ class RideController extends Controller
             //     return response()->json(['rides' => []], 200);
             // }
 
+            // Batch 1 Part 8 -- riders at or above their cash-in-hand limit
+            // get no new offers until they settle with Admin/Finance.
+            if (\App\Services\RiderCashService::isOverLimit($driver->id)) {
+                return response()->json([
+                    'rides' => [],
+                    'message' => 'Your cash-in-hand balance is over the limit. Please settle with the office before accepting new deliveries.',
+                ], 200);
+            }
+
             // -------------------------
             // Time windows
             // -------------------------
@@ -483,6 +492,15 @@ class RideController extends Controller
         //     ], Response::HTTP_FORBIDDEN);
         // }
 
+        // Batch 1 Part 8 -- second line of defense against the cash-limit
+        // gate in getLatestRides(): a ride already fetched before the
+        // limit was hit shouldn't still be acceptable.
+        if (\App\Services\RiderCashService::isOverLimit(auth()->id())) {
+            return response()->json([
+                'message' => 'Your cash-in-hand balance is over the limit. Please settle with the office before accepting new deliveries.'
+            ], Response::HTTP_FORBIDDEN);
+        }
+
         DB::beginTransaction();
 
         try {
@@ -691,6 +709,68 @@ class RideController extends Controller
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('markParcelReceiverUnreachable failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Batch 1 Part 8 -- rider confirms COD cash collected on a parcel,
+     * with the amount. Parcel equivalent of
+     * Restaurant\DeliveryController::confirmCashCollected().
+     */
+    public function confirmParcelCashCollected(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'ride_id' => 'required|exists:rides,id',
+            'amount' => 'required|numeric|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $ride = Ride::find($request->ride_id);
+
+            if (!$ride->delivery_code) {
+                return response()->json([
+                    'message' => 'This is not a parcel delivery.'
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            if ((int) $ride->driver_id !== (int) auth()->id()) {
+                return response()->json([
+                    'message' => 'You are not assigned to this parcel.'
+                ], Response::HTTP_FORBIDDEN);
+            }
+
+            if ($ride->payment_method !== 'cod') {
+                return response()->json([
+                    'message' => 'This parcel is not cash on delivery.'
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            if ($ride->payment_status === 'collected') {
+                return response()->json([
+                    'message' => 'Cash already confirmed for this parcel.'
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $ride->payment_status = 'collected';
+            $ride->save();
+
+            \App\Services\RiderCashService::recordCollected(auth()->id(), (float) $request->amount, Ride::class, $ride->id);
+
+            return response()->json([
+                'message' => 'Cash collection confirmed.',
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('confirmParcelCashCollected failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);

@@ -96,6 +96,7 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
         Route::post('/accept-ride', [DriverRideController::class, 'acceptRide']);
         Route::post('/update-ride-status', [DriverRideController::class, 'updateRideStatus']);
         Route::post('/parcel-receiver-unreachable', [DriverRideController::class, 'markParcelReceiverUnreachable']);
+        Route::post('/confirm-parcel-cash-collected', [DriverRideController::class, 'confirmParcelCashCollected']);
         Route::get('/get-ride-details/{ride_id}', [DriverRideController::class, 'getRideDetails']);
         Route::get('/get-current-ride', [DriverRideController::class, 'getCurrentRide']);
 
@@ -208,6 +209,7 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
             Route::post('/accept-ride', [DeliveryController::class, 'acceptRide']);
             Route::post('/reject-ride', [DeliveryController::class, 'rejectRide']);
             Route::post('/update-order-status', [DeliveryController::class, 'updateDeliveryStatus']);
+            Route::post('/confirm-cash-collected', [DeliveryController::class, 'confirmCashCollected']);
             Route::post('/update-location', [DeliveryController::class, 'updateRiderLocation']);
         });
     });

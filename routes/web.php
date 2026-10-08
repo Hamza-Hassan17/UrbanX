@@ -306,6 +306,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('delivery/order/{order_id}/cancel', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'cancelOrder'])->name('delivery.order.cancel');
             Route::post('delivery/order/{order_id}/override-delivery', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'overrideFoodDelivery'])->name('delivery.order.override-delivery');
             Route::post('delivery/ride/{ride_id}/override-delivery', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'overrideParcelDelivery'])->name('delivery.ride.override-delivery');
+
+            //Rider Cash (Batch 1 Part 8)
+            Route::get('rider-cash', [\App\Http\Controllers\Dashboard\RiderCashController::class, 'index'])->name('rider-cash.index');
+            Route::get('rider-cash/{riderId}', [\App\Http\Controllers\Dashboard\RiderCashController::class, 'show'])->name('rider-cash.show');
+            Route::post('rider-cash/{riderId}/settle', [\App\Http\Controllers\Dashboard\RiderCashController::class, 'recordSettlement'])->name('rider-cash.settle');
         });
     });
 

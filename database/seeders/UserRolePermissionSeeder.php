@@ -149,6 +149,11 @@ class UserRolePermissionSeeder extends Seeder
         // to the admin role below), same pattern as 'manage vehicle type icons'.
         Permission::firstOrCreate(['name' => 'manage pricing fees']);
 
+        // Batch 1 Part 8 -- Rider Cash page (balances, ledger, record
+        // settlement). Granted to admin and finance below, per the brief's
+        // "for Admin/Finance".
+        Permission::firstOrCreate(['name' => 'manage rider cash']);
+
         // Create Roles
         $superAdminRole = Role::firstOrCreate(['name' => 'super-admin']); //as super-admin
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
@@ -218,6 +223,8 @@ class UserRolePermissionSeeder extends Seeder
         $adminRole->givePermissionTo(['view announcement', 'create announcement', 'update announcement', 'delete announcement']);
         // Driver support requests (approve/reject/reply) = Full for Admin.
         $adminRole->givePermissionTo(['view support requests', 'manage support requests']);
+        // Rider Cash (Batch 1 Part 8) = Full for Admin.
+        $adminRole->givePermissionTo(['manage rider cash']);
 
         // give permissions to dispatcher role.
         // Users/drivers/restaurants = View only.
@@ -259,6 +266,9 @@ class UserRolePermissionSeeder extends Seeder
         $financeRole->givePermissionTo(['view report']);
         // Payroll exports (PDF/Excel, bulk-send) = Full.
         $financeRole->givePermissionTo(['export payroll']);
+        // Rider Cash (Batch 1 Part 8) = Full, per the brief's explicit
+        // "Finance role gets access".
+        $financeRole->givePermissionTo(['manage rider cash']);
 
 
         // Create User and assign Role to it.

@@ -459,6 +459,76 @@ class DeliveryController extends Controller
         }
     }
 
+    /**
+     * Batch 1 Part 8 -- rider confirms COD cash collected, with the
+     * amount. Separate from updateDeliveryStatus(delivered) since cash
+     * confirmation and the delivery-code check are two independent
+     * confirmations, not one combined step (an order could be non-COD and
+     * never need this at all).
+     */
+    public function confirmCashCollected(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'order_id' => 'required|exists:restaurant_orders,id',
+            'amount' => 'required|numeric|min:0',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $order = RestaurantOrder::find($request->order_id);
+
+            $hasOffer = RideOffer::where('ride_id', $order->ride_id)
+                ->where('driver_id', auth()->id())
+                ->where('status', 'accepted')
+                ->exists();
+
+            if (!$hasOffer) {
+                return response()->json([
+                    'message' => 'You are not assigned to this delivery.'
+                ], Response::HTTP_FORBIDDEN);
+            }
+
+            if ($order->payment_method !== 'cod') {
+                return response()->json([
+                    'message' => 'This order is not cash on delivery.'
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            if ($order->payment_status === 'collected') {
+                return response()->json([
+                    'message' => 'Cash already confirmed for this order.'
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            $order->payment_status = 'collected';
+            $order->save();
+
+            \App\Services\RiderCashService::recordCollected(auth()->id(), (float) $request->amount, RestaurantOrder::class, $order->id);
+
+            try {
+                broadcast(new \App\Events\RestaurantOrderUpdated($order));
+            } catch (\Throwable $e) {
+                Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+            }
+
+            return response()->json([
+                'message' => 'Cash collection confirmed.',
+                'order' => $order,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('confirmCashCollected failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public function updateRiderLocation(Request $request)
     {
         $validator = Validator::make($request->all(), [

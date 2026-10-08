@@ -57,6 +57,7 @@ return [
         'dashboard.restaurant-owners.' => 'delivery',
         'dashboard.delivery.' => 'delivery',
         'dashboard.delivery-riders.' => 'delivery',
+        'dashboard.rider-cash.' => 'delivery',
 
         // Platform
         'dashboard.user.' => 'platform',
