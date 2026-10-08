@@ -30,10 +30,13 @@ class RestaurantOrder extends Model
         'payment_method',
         'payment_status',
         'ride_id',
+        'discount_funded_by',
+        'fare_breakdown',
     ];
 
     protected $casts = [
         'rider_location_updated_at' => 'datetime',
+        'fare_breakdown' => 'array',
     ];
 
     public function restaurant()

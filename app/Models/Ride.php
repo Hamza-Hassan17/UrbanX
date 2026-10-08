@@ -21,6 +21,7 @@ class Ride extends Model
         'accepted_at'  => 'datetime',
         'arrived_at'   => 'datetime',
         'scheduled_pickup_at' => 'datetime',
+        'fare_breakdown' => 'array',
     ];
 
 
@@ -34,6 +35,7 @@ class Ride extends Model
         'dropoff_latitude',
         'dropoff_longitude',
         'distance_km',
+        'distance_charged_km',
         'duration_minutes',
         'subtotal',
         'discount_amount',
@@ -53,6 +55,7 @@ class Ride extends Model
         'status_updated_by',
         'status_updated_by_role',
         'created_by',
+        'fare_breakdown',
     ];
 
     public function rideOffers()

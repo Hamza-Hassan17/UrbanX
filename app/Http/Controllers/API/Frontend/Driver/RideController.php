@@ -686,6 +686,23 @@ class RideController extends Controller
                 }
             } elseif ($request->status === 'completed') {
                 $ride->completed_at = now();
+
+                // Batch 1 Part 2 -- snapshot the final money breakdown now,
+                // not at creation, since total_fare can still change before
+                // this point (wait penalty). Stored on fare_breakdown so
+                // later Pricing & Fees changes never alter this ride's
+                // history; payroll/exports/admin views read this instead
+                // of recalculating from current settings.
+                if ($ride->distance_km !== null) {
+                    $ride->distance_charged_km = FareBreakdownService::roundUpToKm((float) $ride->distance_km);
+                }
+
+                $ride->fare_breakdown = FareBreakdownService::buildRideSnapshot([
+                    'subtotal' => $ride->total_fare,
+                    'is_delivery' => $ride->ride_type === 'delivery',
+                    'distance_actual_km' => $ride->distance_km,
+                    'distance_charged_km' => $ride->distance_charged_km,
+                ]);
             }
 
             $ride->status_updated_by = auth()->id();

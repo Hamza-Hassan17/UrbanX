@@ -100,4 +100,86 @@ class FareBreakdownService
             'income_percent' => $grossFare > 0 ? round($driverIncome / $grossFare * 100, 2) : 0,
         ];
     }
+
+    /**
+     * Distance is always charged rounded UP to the next whole km (3.4 km
+     * bills as 4 km) -- see Pricing & Fees.
+     */
+    public static function roundUpToKm(float $distanceKm): int
+    {
+        return (int) ceil($distanceKm);
+    }
+
+    /**
+     * Batch 1 Part 2 snapshot for a restaurant_orders row -- called once,
+     * at order creation, and stored on fare_breakdown so later rate
+     * changes never alter this order's history. Commission is always on
+     * the full food price (subtotal), before any discount, per the brief.
+     * The delivery leg (platform share / rider net) is split out
+     * separately from the food leg (restaurant payable), since they're
+     * paid to two different parties.
+     */
+    public static function buildOrderSnapshot(array $input): array
+    {
+        $subtotal = (float) $input['subtotal'];
+        $discount = (float) ($input['discount'] ?? 0);
+        $fundedBy = $input['discount_funded_by'] ?? null; // 'platform' | 'restaurant' | null
+        $deliveryFee = (float) ($input['delivery_fee'] ?? 0);
+
+        $commissionRate = self::restaurantCommissionPercent();
+        $commissionAmount = round($subtotal * $commissionRate / 100, 2);
+        $restaurantFundedDiscount = $fundedBy === 'restaurant' ? $discount : 0;
+        $restaurantPayable = round($subtotal - $commissionAmount - $restaurantFundedDiscount, 2);
+
+        $riderBreakdown = self::calculate($deliveryFee, self::platformSharePercent());
+
+        return [
+            'subtotal' => $subtotal,
+            'discount' => $discount,
+            'discount_funded_by' => $fundedBy,
+            'distance_actual_km' => $input['distance_actual_km'] ?? null,
+            'distance_charged_km' => $input['distance_charged_km'] ?? null,
+            'delivery_fee' => $deliveryFee,
+            'total_payable_by_customer' => round($subtotal - $discount + $deliveryFee, 2),
+            'commission_rate' => $commissionRate,
+            'commission_amount' => $commissionAmount,
+            'restaurant_payable' => $restaurantPayable,
+            'platform_share_rate' => self::platformSharePercent(),
+            'platform_share_amount' => $riderBreakdown['commission'],
+            'rider_gross' => $deliveryFee,
+            'sst_rate' => self::sstRideFarePercent(),
+            'sst_amount' => round($riderBreakdown['sst_on_commission'] + $riderBreakdown['sst_on_ride_fare'], 2),
+            'rider_net' => $riderBreakdown['driver_income'],
+            'calculated_at' => now()->toDateTimeString(),
+        ];
+    }
+
+    /**
+     * Batch 1 Part 2 snapshot for a rides row (taxi ride or parcel/food
+     * delivery ride) -- called once, at the point status flips to
+     * 'completed' (not at creation), since total_fare can still change
+     * before then (wait penalty). $isDelivery picks platform_share_percent
+     * over the taxi-only commission_percent.
+     */
+    public static function buildRideSnapshot(array $input): array
+    {
+        $subtotal = (float) $input['subtotal'];
+        $isDelivery = (bool) ($input['is_delivery'] ?? false);
+        $commissionRate = $isDelivery ? self::platformSharePercent() : self::commissionPercent();
+        $breakdown = self::calculate($subtotal, $commissionRate);
+
+        return [
+            'subtotal' => $subtotal,
+            'distance_actual_km' => $input['distance_actual_km'] ?? null,
+            'distance_charged_km' => $input['distance_charged_km'] ?? null,
+            'total_payable_by_customer' => $subtotal,
+            'commission_rate' => $commissionRate,
+            'commission_amount' => $breakdown['commission'],
+            'rider_gross' => $subtotal,
+            'sst_rate' => self::sstRideFarePercent(),
+            'sst_amount' => round($breakdown['sst_on_commission'] + $breakdown['sst_on_ride_fare'], 2),
+            'rider_net' => $breakdown['driver_income'],
+            'calculated_at' => now()->toDateTimeString(),
+        ];
+    }
 }

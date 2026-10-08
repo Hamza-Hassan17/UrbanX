@@ -176,19 +176,51 @@ class PayrollController extends Controller
                 ->whereBetween('completed_at', [$startDate . ' 00:00:00', $endDate . ' 23:59:59'])
                 ->get();
 
-            $grossFare = (float) $rides->sum('total_fare');
-            $breakdown = FareBreakdownService::calculate($grossFare);
+            // Batch 1 Part 2 -- sum each ride's OWN stored snapshot rather
+            // than aggregating gross fare first and splitting it once at
+            // today's rate. Summing first would silently misprice any
+            // period spanning a Pricing & Fees change, and would apply the
+            // taxi-only commission rate to delivery rides mixed into the
+            // same driver_id. Rides completed before this feature shipped
+            // have no snapshot yet -- fall back to a live calculation for
+            // those only, same as the old behavior.
+            $grossFare = 0.0;
+            $commission = 0.0;
+            $sstOnCommission = 0.0;
+            $sstOnRideFare = 0.0;
+            $totalEarnings = 0.0;
+
+            foreach ($rides as $ride) {
+                $fare = (float) $ride->total_fare;
+                $grossFare += $fare;
+
+                if ($ride->fare_breakdown) {
+                    $snapshot = $ride->fare_breakdown;
+                    $commission += (float) $snapshot['commission_amount'];
+                    $sstOnRideFare += (float) $snapshot['sst_amount'];
+                    $totalEarnings += (float) $snapshot['rider_net'];
+                } else {
+                    $breakdown = FareBreakdownService::calculate(
+                        $fare,
+                        $ride->ride_type === 'delivery' ? FareBreakdownService::platformSharePercent() : null
+                    );
+                    $commission += $breakdown['commission'];
+                    $sstOnCommission += $breakdown['sst_on_commission'];
+                    $sstOnRideFare += $breakdown['sst_on_ride_fare'];
+                    $totalEarnings += $breakdown['driver_income'];
+                }
+            }
 
             return [
                 'driver_id' => $driver->id,
                 'driver_name' => $driver->name,
                 'is_active' => $driver->is_active,
                 'total_rides' => $rides->count(),
-                'gross_fare' => $breakdown['gross_fare'],
-                'commission' => $breakdown['commission'],
-                'sst_on_commission' => $breakdown['sst_on_commission'],
-                'sst_on_ride_fare' => $breakdown['sst_on_ride_fare'],
-                'total_earnings' => $breakdown['driver_income'],
+                'gross_fare' => round($grossFare, 2),
+                'commission' => round($commission, 2),
+                'sst_on_commission' => round($sstOnCommission, 2),
+                'sst_on_ride_fare' => round($sstOnRideFare, 2),
+                'total_earnings' => round($totalEarnings, 2),
                 'rides' => $rides,
             ];
         })->values();

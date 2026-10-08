@@ -11,6 +11,7 @@ use App\Models\RestaurantItem;
 use App\Models\RestaurantMenu;
 use App\Models\RestaurantOrder;
 use App\Models\VoucherCode;
+use App\Services\FareBreakdownService;
 use App\Models\RestaurantFavourite;
 use App\Models\RestaurantReview;
 use App\Models\VehicleType;
@@ -607,6 +608,8 @@ class CustomerController extends Controller
             'delivery_lat' => 'required',
             'delivery_lang' => 'required',
             'rider_note' => 'nullable|string|max:255',
+            'distance_km' => 'nullable|numeric|min:0',
+            'duration_minutes' => 'nullable|integer|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -646,6 +649,28 @@ class CustomerController extends Controller
             $order->payment_method = $request->payment_method;
             $order->payment_status = $request->payment_method == 'cod' ? 'unpaid' : 'paid';
             $order->status = 'pending';
+
+            // Batch 1 Part 2 -- snapshot the full money breakdown now, at
+            // creation, so later Pricing & Fees changes never alter this
+            // order's history. Part 3 wires discount_funded_by from the
+            // voucher itself; until then every discount is treated as
+            // platform-funded (restaurant payable unaffected), which
+            // matches today's actual behavior (nothing deducts from it).
+            $voucher = $cart->voucher_code_id ? VoucherCode::find($cart->voucher_code_id) : null;
+            $order->discount_funded_by = $voucher->funded_by ?? 'platform';
+
+            $distanceActualKm = $request->distance_km !== null ? (float) $request->distance_km : null;
+            $distanceChargedKm = $distanceActualKm !== null ? FareBreakdownService::roundUpToKm($distanceActualKm) : null;
+
+            $order->fare_breakdown = FareBreakdownService::buildOrderSnapshot([
+                'subtotal' => $order->subtotal,
+                'discount' => $order->discount,
+                'discount_funded_by' => $order->discount_funded_by,
+                'distance_actual_km' => $distanceActualKm,
+                'distance_charged_km' => $distanceChargedKm,
+                'delivery_fee' => $order->delivery_fee,
+            ]);
+
             $order->save();
 
             foreach ($cart->cartItems as $cartItem) {
