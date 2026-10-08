@@ -650,6 +650,71 @@ class RestaurantController extends Controller
         }
     }
 
+    /**
+     * Batch 1 Part 6 -- restaurant can cancel after accepting (unlike
+     * rejectOrder(), which only covers pending orders, before acceptance).
+     * Releases any assigned rider and notifies them, same as the admin
+     * cancel path -- see RestaurantOrderCancellationService.
+     */
+    public function cancelOrder(Request $request, $order_id)
+    {
+        $validator = Validator::make($request->all(), [
+            'reason' => 'required|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $user = $request->user();
+            $restaurant = Restaurant::where('user_id', $user->id)->first();
+
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            $order = RestaurantOrder::where('id', $order_id)
+                ->where('restaurant_id', $restaurant->id)
+                ->first();
+
+            if (!$order) {
+                return response()->json([
+                    'message' => 'Order not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            if (in_array($order->status, ['delivered', 'completed', 'cancelled', 'rejected'], true)) {
+                return response()->json([
+                    'message' => 'This order is already finalized and cannot be cancelled.'
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            if ($order->status === 'pending') {
+                return response()->json([
+                    'message' => 'Use reject for an order that has not been accepted yet.'
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            \App\Services\RestaurantOrderCancellationService::cancel($order, 'restaurant', $request->reason);
+
+            return response()->json([
+                'message' => 'Order cancelled successfully',
+                'order' => $order,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Restaurant Cancel Order failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public function updateOrderStatus(Request $request, $order_id)
     {
         $validator = Validator::make($request->all(), [

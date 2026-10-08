@@ -7,8 +7,11 @@ use App\Http\Controllers\Dashboard\Concerns\HasQueuePresets;
 use App\Models\Ride;
 use App\Models\RestaurantOrder;
 use App\Services\GeocodingService;
+use App\Services\RestaurantOrderCancellationService;
 use App\Services\RideQueueFilterService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 /**
  * Delivery workspace orders queue (Phase 2 of the admin workspace split).
@@ -82,6 +85,40 @@ class DeliveryController extends Controller
         $this->authorize('view delivery');
 
         return $this->saveQueuePreset($request, 'delivery');
+    }
+
+    /**
+     * Batch 1 Part 6 -- admin can cancel a restaurant order at ANY status
+     * (unlike the customer/restaurant paths, which are gated by status),
+     * since this is the Delivery workspace's escalation path for a job
+     * that's stuck or needs manual intervention.
+     */
+    public function cancelOrder(Request $request, $order_id)
+    {
+        $this->authorize('view delivery');
+
+        $validator = Validator::make($request->all(), [
+            'reason' => 'required|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->with('error', 'Validation Error!');
+        }
+
+        try {
+            $order = RestaurantOrder::findOrFail($order_id);
+
+            if ($order->status === 'cancelled') {
+                return redirect()->back()->with('error', 'This order is already cancelled.');
+            }
+
+            RestaurantOrderCancellationService::cancel($order, 'admin', $request->reason);
+
+            return redirect()->back()->with('success', 'Order cancelled successfully');
+        } catch (\Throwable $th) {
+            Log::error('Admin Cancel Order Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', 'Something went wrong! Please try again later');
+        }
     }
 
     /**

@@ -303,6 +303,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('delivery', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'index'])->name('delivery.index');
             Route::get('delivery/queue', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'queue'])->name('delivery.queue');
             Route::post('delivery/queue/presets', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'savePreset'])->name('delivery.queue.presets');
+            Route::post('delivery/order/{order_id}/cancel', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'cancelOrder'])->name('delivery.order.cancel');
         });
     });
 

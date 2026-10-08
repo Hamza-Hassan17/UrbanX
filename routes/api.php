@@ -172,6 +172,7 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
         Route::get('/order-details/{order_id}', [RestaurantController::class, 'getOrderDetails']);
         Route::post('/order/{order_id}/accept', [RestaurantController::class, 'acceptOrder']);
         Route::post('/order/{order_id}/reject', [RestaurantController::class, 'rejectOrder']);
+        Route::post('/order/{order_id}/cancel', [RestaurantController::class, 'cancelOrder']);
         Route::post('/order/{order_id}/status', [RestaurantController::class, 'updateOrderStatus']);
 
         Route::get('/toggle-status', [RestaurantController::class, 'toggleStatus']);
@@ -190,6 +191,7 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
             Route::get('/get-vouchers', [CustomerController::class, 'getVouchers']);
             Route::post('/apply-voucher', [CustomerController::class, 'applyVoucher']);
             Route::post('/place-order', [CustomerController::class, 'placeOrder']);
+            Route::post('/cancel-order/{order_id}', [CustomerController::class, 'cancelOrder']);
             Route::get('/orders', [CustomerController::class, 'getOrders']);
             Route::get('/order-details/{order_id}', [CustomerController::class, 'getOrderDetails']);
             Route::post('/post-review', [CustomerController::class, 'postReview']);

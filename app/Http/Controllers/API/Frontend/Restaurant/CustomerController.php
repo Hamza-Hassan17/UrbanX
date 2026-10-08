@@ -797,6 +797,55 @@ class CustomerController extends Controller
         }
     }
 
+    /**
+     * Batch 1 Part 6 -- customer can only cancel while the order is still
+     * pending (before the restaurant accepts it). No rider to release at
+     * this status -- acceptance is the gate that lets a rider get assigned.
+     */
+    public function cancelOrder(Request $request, $order_id)
+    {
+        $validator = Validator::make($request->all(), [
+            'reason' => 'required|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $order = RestaurantOrder::where('id', $order_id)
+                ->where('customer_id', $request->user()->id)
+                ->first();
+
+            if (!$order) {
+                return response()->json([
+                    'message' => 'Order not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            if ($order->status !== 'pending') {
+                return response()->json([
+                    'message' => 'This order can no longer be cancelled -- the restaurant has already accepted it.'
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            \App\Services\RestaurantOrderCancellationService::cancel($order, 'customer', $request->reason);
+
+            return response()->json([
+                'message' => 'Order cancelled successfully',
+                'order' => $order,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Cancel Order failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public function getOrders(Request $request)
     {
         try {

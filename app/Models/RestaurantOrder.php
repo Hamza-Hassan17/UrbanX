@@ -32,11 +32,15 @@ class RestaurantOrder extends Model
         'ride_id',
         'discount_funded_by',
         'fare_breakdown',
+        'cancelled_by',
+        'cancel_reason',
+        'cancelled_at',
     ];
 
     protected $casts = [
         'rider_location_updated_at' => 'datetime',
         'fare_breakdown' => 'array',
+        'cancelled_at' => 'datetime',
     ];
 
     public function restaurant()
