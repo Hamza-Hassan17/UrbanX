@@ -11,4 +11,10 @@
         <a class="nav-link {{ request()->routeIs('dashboard.payroll.*') ? 'active' : '' }}"
             href="{{ route('dashboard.payroll.index') }}">{{ __('Payroll') }}</a>
     </li>
+    @can(['manage pricing fees'])
+        <li class="nav-item">
+            <a class="nav-link {{ request()->routeIs('dashboard.pricing-fees.*') ? 'active' : '' }}"
+                href="{{ route('dashboard.pricing-fees.index') }}">{{ __('Pricing & Fees') }}</a>
+        </li>
+    @endcan
 </ul>

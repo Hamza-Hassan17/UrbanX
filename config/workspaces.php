@@ -64,6 +64,7 @@ return [
         'dashboard.admin-users.' => 'platform',
         'dashboard.customers.' => 'platform',
         'dashboard.finance.' => 'platform',
+        'dashboard.pricing-fees.' => 'platform',
         'dashboard.payroll.' => 'platform',
         'dashboard.reports.' => 'platform',
         'dashboard.complains.' => 'platform',

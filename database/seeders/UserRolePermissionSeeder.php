@@ -145,6 +145,10 @@ class UserRolePermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'edit ride payment']);
         Permission::firstOrCreate(['name' => 'export payroll']);
 
+        // Batch 1 Part 1 -- Pricing & Fees, super-admin only (never granted
+        // to the admin role below), same pattern as 'manage vehicle type icons'.
+        Permission::firstOrCreate(['name' => 'manage pricing fees']);
+
         // Create Roles
         $superAdminRole = Role::firstOrCreate(['name' => 'super-admin']); //as super-admin
         $adminRole = Role::firstOrCreate(['name' => 'admin']);

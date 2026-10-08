@@ -23,6 +23,7 @@ use App\Http\Controllers\Dashboard\DriverController;
 use App\Http\Controllers\Dashboard\PromoCodeController;
 use App\Http\Controllers\Dashboard\RideController;
 use App\Http\Controllers\Dashboard\FinanceController;
+use App\Http\Controllers\Dashboard\PricingFeesController;
 use App\Http\Controllers\Dashboard\PayrollController;
 use App\Http\Controllers\Dashboard\SupportRequestController;
 use App\Http\Controllers\Dashboard\ReportController;
@@ -268,6 +269,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('finance/reports', [FinanceController::class, 'reports'])->name('finance.reports');
             Route::get('finance/reports/export-pdf', [FinanceController::class, 'exportReportPdf'])->name('finance.reports.export-pdf');
             Route::get('finance/reports/export-excel', [FinanceController::class, 'exportReportExcel'])->name('finance.reports.export-excel');
+
+            //Pricing & Fees (Batch 1 Part 1, super-admin only)
+            Route::get('pricing-fees', [PricingFeesController::class, 'index'])->name('pricing-fees.index');
+            Route::put('pricing-fees', [PricingFeesController::class, 'update'])->name('pricing-fees.update');
 
             //Driver Support Requests
             Route::get('support-requests', [SupportRequestController::class, 'index'])->name('support-requests.index');

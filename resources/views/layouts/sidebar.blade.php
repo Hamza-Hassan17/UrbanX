@@ -339,6 +339,13 @@
                             <div>{{__('Payroll')}}</div>
                         </a>
                     </li>
+                    @can(['manage pricing fees'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.pricing-fees.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.pricing-fees.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Pricing & Fees')}}</div>
+                            </a>
+                        </li>
+                    @endcan
                 </ul>
             </li>
         @endcan

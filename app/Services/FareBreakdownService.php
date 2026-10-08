@@ -33,9 +33,54 @@ class FareBreakdownService
         return (float) (SystemSetting::first()?->sst_ride_fare_percent ?? 5.00);
     }
 
-    public static function calculate(float $grossFare): array
+    public static function restaurantCommissionPercent(): float
     {
-        $commissionRate = self::commissionPercent() / 100;
+        return (float) (SystemSetting::first()?->restaurant_commission_percent ?? 15.00);
+    }
+
+    /**
+     * Platform's cut of a delivery fee (the delivery-rider equivalent of
+     * commissionPercent(), which is taxi-ride-fare specific).
+     */
+    public static function platformSharePercent(): float
+    {
+        return (float) (SystemSetting::first()?->platform_share_percent ?? 20.00);
+    }
+
+    public static function riderCashLimit(): float
+    {
+        return (float) (SystemSetting::first()?->rider_cash_limit ?? 5000.00);
+    }
+
+    public static function foodDeliveryFeeSettings(): array
+    {
+        $settings = SystemSetting::first();
+        return [
+            'first_km_fee' => (float) ($settings?->food_first_km_fee ?? 150.00),
+            'per_km_fee' => (float) ($settings?->food_per_km_fee ?? 45.00),
+            'max_distance_km' => (int) ($settings?->food_max_distance_km ?? 4),
+        ];
+    }
+
+    public static function parcelDeliveryFeeSettings(): array
+    {
+        $settings = SystemSetting::first();
+        return [
+            'first_km_fee' => (float) ($settings?->parcel_first_km_fee ?? 150.00),
+            'per_km_fee' => (float) ($settings?->parcel_per_km_fee ?? 45.00),
+            'max_distance_km' => (int) ($settings?->parcel_max_distance_km ?? 4),
+        ];
+    }
+
+    /**
+     * $commissionPercent lets callers swap in platformSharePercent() for
+     * delivery riders instead of the taxi-specific commissionPercent() --
+     * the rest of the breakdown (SST on commission, SST on remaining
+     * income) is identical math for both, per the brief's shared SST rate.
+     */
+    public static function calculate(float $grossFare, ?float $commissionPercent = null): array
+    {
+        $commissionRate = ($commissionPercent ?? self::commissionPercent()) / 100;
         $sstCommissionRate = self::sstCommissionPercent() / 100;
         $sstRideFareRate = self::sstRideFarePercent() / 100;
 
