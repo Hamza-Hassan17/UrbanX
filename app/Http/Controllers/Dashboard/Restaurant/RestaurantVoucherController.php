@@ -54,6 +54,7 @@ class RestaurantVoucherController extends Controller
             'code' => 'required|string|unique:voucher_codes,code',
             'discount_amount' => 'required|numeric|min:0',
             'discount_type' => 'required|in:fixed,percentage',
+            'funded_by' => 'required|in:platform,restaurant',
             'minimum_purchase' => 'required|numeric|min:0',
             'per_user_limit' => 'required|integer|min:0',
             'expires_at' => 'required|date',
@@ -70,6 +71,7 @@ class RestaurantVoucherController extends Controller
             $voucher->code = $request->code;
             $voucher->discount_amount = $request->discount_amount;
             $voucher->discount_type = $request->discount_type;
+            $voucher->funded_by = $request->funded_by;
             $voucher->minimum_purchase = $request->minimum_purchase;
             $voucher->per_user_limit = $request->per_user_limit;
             $voucher->expires_at = $request->expires_at;
@@ -120,6 +122,7 @@ class RestaurantVoucherController extends Controller
             'code' => 'required|string|unique:voucher_codes,code,'.$id,
             'discount_amount' => 'required|numeric|min:0',
             'discount_type' => 'required|in:fixed,percentage',
+            'funded_by' => 'required|in:platform,restaurant',
             'minimum_purchase' => 'required|numeric|min:0',
             'per_user_limit' => 'required|integer|min:0',
             'expires_at' => 'required|date',
@@ -136,6 +139,7 @@ class RestaurantVoucherController extends Controller
             $voucher->code = $request->code;
             $voucher->discount_amount = $request->discount_amount;
             $voucher->discount_type = $request->discount_type;
+            $voucher->funded_by = $request->funded_by;
             $voucher->minimum_purchase = $request->minimum_purchase;
             $voucher->per_user_limit = $request->per_user_limit;
             $voucher->expires_at = $request->expires_at;

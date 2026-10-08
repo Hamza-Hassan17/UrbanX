@@ -13,6 +13,7 @@ class VoucherCode extends Model
         'code',
         'discount_amount',
         'discount_type',
+        'funded_by',
         'minimum_purchase',
         'per_user_limit',
         'expires_at',

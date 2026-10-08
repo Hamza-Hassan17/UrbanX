@@ -29,6 +29,7 @@
                             <th>{{ __('Code') }}</th>
                             <th>{{ __('Type') }}</th>
                             <th>{{ __('Amt/Perc') }}</th>
+                            <th>{{ __('Funded By') }}</th>
                             <th>{{ __('Min. Purchase') }}</th>
                             <th>{{ __('Usage limit') }}</th>
                             <th>{{ __('Expires At') }}</th>
@@ -48,6 +49,9 @@
                                     @else
                                     {{ $voucher->discount_amount.'%' }}
                                     @endif
+                                </td>
+                                <td>
+                                    <span class="badge bg-label-{{ $voucher->funded_by == 'restaurant' ? 'warning' : 'info' }}">{{ ucfirst($voucher->funded_by) }}</span>
                                 </td>
                                 <td>{{ \App\Helpers\Helper::formatCurrency($voucher->minimum_purchase) }}</td>
                                 <td>{{ $voucher->per_user_limit }}</td>

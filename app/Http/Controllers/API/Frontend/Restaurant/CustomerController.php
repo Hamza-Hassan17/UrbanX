@@ -650,12 +650,11 @@ class CustomerController extends Controller
             $order->payment_status = $request->payment_method == 'cod' ? 'unpaid' : 'paid';
             $order->status = 'pending';
 
-            // Batch 1 Part 2 -- snapshot the full money breakdown now, at
+            // Batch 1 Part 2/3 -- snapshot the full money breakdown now, at
             // creation, so later Pricing & Fees changes never alter this
-            // order's history. Part 3 wires discount_funded_by from the
-            // voucher itself; until then every discount is treated as
-            // platform-funded (restaurant payable unaffected), which
-            // matches today's actual behavior (nothing deducts from it).
+            // order's history. discount_funded_by is copied from the
+            // voucher actually used, defaulting to platform-funded when
+            // there's no voucher (no discount to fund either way).
             $voucher = $cart->voucher_code_id ? VoucherCode::find($cart->voucher_code_id) : null;
             $order->discount_funded_by = $voucher->funded_by ?? 'platform';
 

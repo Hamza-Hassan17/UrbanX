@@ -58,6 +58,19 @@
                             @enderror
                         </div>
                         <div class="mb-4 col-md-6">
+                            <label for="funded_by" class="form-label">{{ __('Funded By') }}<span
+                                class="text-danger">*</span></label>
+                            <select id="funded_by" name="funded_by" class="select2 form-select @error('funded_by') is-invalid @enderror" required>
+                                <option value="platform" {{ old('funded_by', 'platform') == 'platform' ? 'selected' : '' }}>{{__('Platform (restaurant payable unaffected)')}}</option>
+                                <option value="restaurant" {{ old('funded_by') == 'restaurant' ? 'selected' : '' }}>{{__('Restaurant (deducted from restaurant payable)')}}</option>
+                            </select>
+                            @error('funded_by')
+                                <span class="invalid-feedback" role="alert">
+                                    <strong>{{ $message }}</strong>
+                                </span>
+                            @enderror
+                        </div>
+                        <div class="mb-4 col-md-6">
                             <label for="minimum_purchase" class="form-label">{{ __('Minimum Purchase') }}</label>
                             <input class="form-control @error('minimum_purchase') is-invalid @enderror" type="integer" step="any" id="minimum_purchase"
                                 name="minimum_purchase" placeholder="{{ __('Enter minimum purchase') }}"
