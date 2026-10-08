@@ -11,6 +11,7 @@ use App\Models\Ride;
 use App\Models\User;
 use App\Models\RideOffer;
 use App\Models\VehicleType;
+use App\Services\FareBreakdownService;
 use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -486,6 +487,122 @@ class RideController extends Controller
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Store Ride failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Batch 1 Part 5 -- parcel booking. A parcel is a ride_type='delivery'
+     * row with no matching restaurant_orders row (the distinction the rest
+     * of the app already uses to tell parcels from food-delivery jobs --
+     * see Dashboard\DeliveryController). Unlike requestRide()/placeOrder(),
+     * which both trust a client-supplied fare, this is a brand new
+     * endpoint with no existing contract to preserve, so the delivery fee
+     * is computed server-side from Pricing & Fees -- never client-supplied.
+     * Goods COD (collecting the parcel's own value for the sender) is
+     * explicitly out of scope per the brief; payment_method/payment_status
+     * here only ever cover the delivery fee itself.
+     */
+    public function bookParcel(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'pickup_latitude' => 'required|numeric',
+            'pickup_longitude' => 'required|numeric',
+            'dropoff_latitude' => 'required|numeric',
+            'dropoff_longitude' => 'required|numeric',
+            'distance_km' => 'required|numeric|min:0',
+            'duration_minutes' => 'nullable|integer|min:0',
+            'sender_name' => 'required|string|max:255',
+            'sender_phone' => 'required|string|max:30',
+            'receiver_name' => 'required|string|max:255',
+            'receiver_phone' => 'required|string|max:30',
+            'package_type' => 'required|string|max:255',
+            'package_size' => 'required|in:small,medium,large',
+            'parcel_notes' => 'nullable|string|max:500',
+            'delivery_fee_paid_by' => 'required|in:sender,receiver',
+            'payment_method' => 'required|in:cod,card,cash,jazzcash,easypaisa',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $parcelSettings = FareBreakdownService::parcelDeliveryFeeSettings();
+            $distanceActualKm = (float) $request->distance_km;
+            $distanceChargedKm = FareBreakdownService::roundUpToKm($distanceActualKm);
+
+            if ($distanceChargedKm > $parcelSettings['max_distance_km']) {
+                return response()->json([
+                    'message' => "This address is beyond the {$parcelSettings['max_distance_km']} km parcel delivery limit."
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $deliveryFee = $parcelSettings['first_km_fee'];
+            if ($distanceChargedKm > 1) {
+                $deliveryFee += ($distanceChargedKm - 1) * $parcelSettings['per_km_fee'];
+            }
+            $deliveryFee = round($deliveryFee, 2);
+
+            $vehicleType = VehicleType::where('is_delivery', '1')->first();
+            if (!$vehicleType) {
+                return response()->json([
+                    'message' => 'No delivery vehicle type is configured.'
+                ], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+
+            $user = $request->user();
+
+            $ride = new Ride();
+            $ride->passenger_id = $user->id;
+            $ride->vehicle_type_id = $vehicleType->id;
+            $ride->pickup_latitude = $request->pickup_latitude;
+            $ride->pickup_longitude = $request->pickup_longitude;
+            $ride->dropoff_latitude = $request->dropoff_latitude;
+            $ride->dropoff_longitude = $request->dropoff_longitude;
+            $ride->distance_km = $distanceActualKm;
+            $ride->distance_charged_km = $distanceChargedKm;
+            $ride->duration_minutes = $request->duration_minutes;
+            $ride->subtotal = $deliveryFee;
+            $ride->total_fare = $deliveryFee;
+            $ride->requested_at = now();
+            $ride->status = 'requested';
+            $ride->ride_type = 'delivery';
+            $ride->sender_name = $request->sender_name;
+            $ride->sender_phone = $request->sender_phone;
+            $ride->receiver_name = $request->receiver_name;
+            $ride->receiver_phone = $request->receiver_phone;
+            $ride->package_type = $request->package_type;
+            $ride->package_size = $request->package_size;
+            $ride->parcel_notes = $request->parcel_notes;
+            $ride->delivery_fee_paid_by = $request->delivery_fee_paid_by;
+            $ride->payment_method = $request->payment_method;
+            $ride->payment_status = $request->payment_method === 'cod' ? 'unpaid' : 'paid';
+            $ride->created_by = $user->id;
+            $ride->save();
+
+            try {
+                broadcast(new \App\Events\RideStatusUpdated($ride));
+            } catch (\Throwable $e) {
+                Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+            }
+
+            $this->notifyNearbyDrivers($ride);
+
+            return response()->json([
+                'ride_id' => $ride->id,
+                'delivery_fee' => $deliveryFee,
+                'distance_actual_km' => $distanceActualKm,
+                'distance_charged_km' => $distanceChargedKm,
+                'message' => 'Parcel booked successfully!',
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Book Parcel failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);

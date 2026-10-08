@@ -123,6 +123,7 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
     Route::group(['prefix' => 'customer'], function () {
         //Customer Personal Information
         route::post('/request-ride', [RideController::class, 'requestRide']);
+        route::post('/book-parcel', [RideController::class, 'bookParcel']);
         route::post('/calculate-distance-fare', [RideController::class, 'calculateDistanceFare']);
         route::post('/get-vehicle-types', [RideController::class, 'getVehicleTypes']);
         route::post('/nearby-drivers/watch', [RideController::class, 'watchNearbyDrivers']);

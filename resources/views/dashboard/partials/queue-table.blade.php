@@ -96,7 +96,11 @@
                         <td class="muted-cell">{{ $ride['time'] }}</td>
                         <td>{{ $itemPrefix }}{{ $ride['id'] }}</td>
                         <td>
-                            <span class="trip-type-badge trip-type-{{ $ride['type_key'] }}">
+                            <span class="trip-type-badge trip-type-{{ $ride['type_key'] }}"
+                                @if ($ride['type_key'] === 'parcel' && !empty($ride['sender_name']))
+                                    title="{{ __('From') }}: {{ $ride['sender_name'] }} ({{ $ride['sender_phone'] }}) &#10;{{ __('To') }}: {{ $ride['receiver_name'] }} ({{ $ride['receiver_phone'] }}) &#10;{{ __('Package') }}: {{ $ride['package_type'] }}, {{ ucfirst($ride['package_size'] ?? '') }} &#10;{{ __('Fee paid by') }}: {{ ucfirst($ride['delivery_fee_paid_by'] ?? '') }}{{ !empty($ride['parcel_notes']) ? ' &#10;'.__('Notes').': '.$ride['parcel_notes'] : '' }}"
+                                @endif
+                            >
                                 {{ $ride['type_label'] }}
                             </span>
                         </td>

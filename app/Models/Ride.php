@@ -56,6 +56,16 @@ class Ride extends Model
         'status_updated_by_role',
         'created_by',
         'fare_breakdown',
+        'sender_name',
+        'sender_phone',
+        'receiver_name',
+        'receiver_phone',
+        'package_type',
+        'package_size',
+        'parcel_notes',
+        'delivery_fee_paid_by',
+        'payment_method',
+        'payment_status',
     ];
 
     public function rideOffers()

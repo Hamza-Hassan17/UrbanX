@@ -151,6 +151,65 @@
                     </div>
                 </div>
 
+                {{-- Batch 1 Part 5 -- parcel-specific fields, null for taxi/food rides --}}
+                @if($ride->ride_type === 'delivery' && $ride->sender_name)
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Parcel Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <div class="info-card p-3 bg-light">
+                                    <h6 class="info-label">Sender</h6>
+                                    <p class="info-value mb-1">{{ $ride->sender_name }}</p>
+                                    <small class="text-muted">{{ $ride->sender_phone }}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="info-card p-3 bg-light">
+                                    <h6 class="info-label">Receiver</h6>
+                                    <p class="info-value mb-1">{{ $ride->receiver_name }}</p>
+                                    <small class="text-muted">{{ $ride->receiver_phone }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-3">
+                                <div class="text-center p-2">
+                                    <h6 class="info-label">Package Type</h6>
+                                    <p class="info-value">{{ $ride->package_type ?? 'N/A' }}</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center p-2">
+                                    <h6 class="info-label">Package Size</h6>
+                                    <p class="info-value">{{ ucfirst($ride->package_size ?? 'N/A') }}</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center p-2">
+                                    <h6 class="info-label">Fee Paid By</h6>
+                                    <p class="info-value">{{ ucfirst($ride->delivery_fee_paid_by ?? 'N/A') }}</p>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="text-center p-2">
+                                    <h6 class="info-label">Payment</h6>
+                                    <p class="info-value">{{ strtoupper($ride->payment_method ?? 'N/A') }} &middot; {{ ucfirst($ride->payment_status ?? 'N/A') }}</p>
+                                </div>
+                            </div>
+                        </div>
+                        @if($ride->parcel_notes)
+                            <div class="mt-3">
+                                <h6 class="info-label">Notes</h6>
+                                <p class="info-value">{{ $ride->parcel_notes }}</p>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+                @endif
+
                 <!-- Ride Offers -->
                 @if($rideOffers->count() > 0)
                 <div class="card mb-4">

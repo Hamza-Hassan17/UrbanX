@@ -136,6 +136,15 @@ class DeliveryController extends Controller
             'ride_type' => $ride->ride_type,
             'type_key'  => $isFood ? 'food' : 'parcel',
             'type_label' => $isFood ? 'Food' : 'Parcel',
+            // Batch 1 Part 5 -- null for food rows, populated for parcels.
+            'sender_name' => $ride->sender_name,
+            'sender_phone' => $ride->sender_phone,
+            'receiver_name' => $ride->receiver_name,
+            'receiver_phone' => $ride->receiver_phone,
+            'package_type' => $ride->package_type,
+            'package_size' => $ride->package_size,
+            'parcel_notes' => $ride->parcel_notes,
+            'delivery_fee_paid_by' => $ride->delivery_fee_paid_by,
         ];
     }
 }

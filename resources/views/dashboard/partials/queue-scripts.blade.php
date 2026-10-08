@@ -53,11 +53,14 @@
             const passengerCell = (ride.passenger_id && ride.passenger && canViewCustomerProfile)
                 ? `<a href="${customerProfileUrlTemplate.replace('__ID__', ride.passenger_id)}">${ride.passenger}</a>`
                 : (ride.passenger ?? '--');
+            const parcelTitle = (ride.type_key === 'parcel' && ride.sender_name)
+                ? ` title="From: ${ride.sender_name} (${ride.sender_phone ?? ''})&#10;To: ${ride.receiver_name ?? ''} (${ride.receiver_phone ?? ''})&#10;Package: ${ride.package_type ?? ''}, ${ride.package_size ?? ''}&#10;Fee paid by: ${ride.delivery_fee_paid_by ?? ''}${ride.parcel_notes ? '&#10;Notes: ' + ride.parcel_notes : ''}"`
+                : '';
             return `
                 <tr data-queue="${ride.queue}" data-type="${ride.type_key}">
                     <td class="muted-cell">${ride.time ?? ''}</td>
                     <td>${queueItemPrefix}${ride.id}</td>
-                    <td><span class="trip-type-badge trip-type-${ride.type_key}">${ride.type_label}</span></td>
+                    <td><span class="trip-type-badge trip-type-${ride.type_key}"${parcelTitle}>${ride.type_label}</span></td>
                     <td class="muted-cell">${ride.pickup ?? ''}</td>
                     <td class="muted-cell">${ride.dropoff ?? ''}</td>
                     <td>${ride.driver ?? 'Not assigned'}</td>
