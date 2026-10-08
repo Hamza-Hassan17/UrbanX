@@ -642,11 +642,69 @@ class RideController extends Controller
         ]);
     }
 
+    /**
+     * Batch 1 Part 7 -- a rider may upload a photo INSTEAD of the delivery
+     * code only when marking the receiver unreachable (e.g. no answer at
+     * the door) -- this never completes the parcel; it flags the job for
+     * admin review, same as any other stuck-job escalation.
+     */
+    public function markParcelReceiverUnreachable(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'ride_id' => 'required|exists:rides,id',
+            'photo' => 'required|image|max:5120',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $ride = Ride::find($request->ride_id);
+
+            if (!$ride->delivery_code) {
+                return response()->json([
+                    'message' => 'This is not a parcel delivery.'
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            if ((int) $ride->driver_id !== (int) auth()->id()) {
+                return response()->json([
+                    'message' => 'You are not assigned to this parcel.'
+                ], Response::HTTP_FORBIDDEN);
+            }
+
+            $ride->receiver_unreachable_photo = $request->file('photo')->store('uploads/parcel-unreachable', 'public');
+            $ride->flagged_for_review = true;
+            $ride->save();
+
+            Log::warning('Parcel receiver unreachable, flagged for review', [
+                'ride_id' => $ride->id,
+                'driver_id' => auth()->id(),
+            ]);
+
+            return response()->json([
+                'message' => 'Flagged for admin review.',
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('markParcelReceiverUnreachable failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public function updateRideStatus(Request $request)
     {
         $validator = Validator::make($request->all(), [
             'ride_id' => 'required|exists:rides,id',
             'status' => 'required|in:en_route,arrived,started,completed',
+            // Batch 1 Part 7 -- required only for a parcel marked completed
+            // (a parcel ride has its own delivery_code; a taxi ride doesn't).
+            'delivery_code' => 'nullable|string|size:4',
         ]);
 
         if ($validator->fails()) {
@@ -667,6 +725,40 @@ class RideController extends Controller
 
             if (!$ride->driver_id) {
                 $ride->driver_id = auth()->id();
+            }
+
+            // Batch 1 Part 7 -- proof of delivery for a parcel (identified
+            // by having its own delivery_code; a food-delivery ride's code
+            // lives on its restaurant_orders row instead, checked in
+            // Restaurant\DeliveryController::updateDeliveryStatus). Capped
+            // at 5 attempts before the ride locks and needs an admin
+            // override (Dashboard\DeliveryController::overrideParcelDelivery).
+            if ($request->status === 'completed' && $ride->delivery_code) {
+                if ($ride->delivery_code_locked) {
+                    return response()->json([
+                        'message' => 'Too many incorrect codes -- this parcel needs an admin override to mark delivered.'
+                    ], Response::HTTP_FORBIDDEN);
+                }
+
+                if ($request->delivery_code !== $ride->delivery_code) {
+                    $ride->delivery_code_attempts++;
+                    if ($ride->delivery_code_attempts >= 5) {
+                        $ride->delivery_code_locked = true;
+                    }
+                    $ride->save();
+
+                    Log::warning('Parcel delivery code attempt failed', [
+                        'ride_id' => $ride->id,
+                        'driver_id' => auth()->id(),
+                        'attempts' => $ride->delivery_code_attempts,
+                    ]);
+
+                    return response()->json([
+                        'message' => $ride->delivery_code_locked
+                            ? 'Too many incorrect codes -- this parcel now needs an admin override to mark delivered.'
+                            : 'Incorrect delivery code. ' . (5 - $ride->delivery_code_attempts) . ' attempt(s) remaining.'
+                    ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
             }
 
             $ride->status = $request->status;

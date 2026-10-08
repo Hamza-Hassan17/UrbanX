@@ -35,12 +35,20 @@ class RestaurantOrder extends Model
         'cancelled_by',
         'cancel_reason',
         'cancelled_at',
+        'delivery_code',
+        'delivery_code_attempts',
+        'delivery_code_locked',
+        'delivery_override_by',
+        'delivery_override_reason',
+        'delivery_override_at',
     ];
 
     protected $casts = [
         'rider_location_updated_at' => 'datetime',
         'fare_breakdown' => 'array',
         'cancelled_at' => 'datetime',
+        'delivery_code_locked' => 'boolean',
+        'delivery_override_at' => 'datetime',
     ];
 
     public function restaurant()

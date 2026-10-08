@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Dashboard\Concerns\HasQueuePresets;
+use App\Models\AdminActivityLog;
 use App\Models\Ride;
 use App\Models\RestaurantOrder;
 use App\Services\GeocodingService;
@@ -117,6 +118,90 @@ class DeliveryController extends Controller
             return redirect()->back()->with('success', 'Order cancelled successfully');
         } catch (\Throwable $th) {
             Log::error('Admin Cancel Order Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', 'Something went wrong! Please try again later');
+        }
+    }
+
+    /**
+     * Batch 1 Part 7 -- admin override when a rider can't get the delivery
+     * code (locked after 5 failed attempts, or any other reason). Mandatory
+     * reason, logged via AdminActivityLog same as Pricing & Fees changes.
+     */
+    public function overrideFoodDelivery(Request $request, $order_id)
+    {
+        $this->authorize('view delivery');
+
+        $validator = Validator::make($request->all(), [
+            'reason' => 'required|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->with('error', 'Validation Error!');
+        }
+
+        try {
+            $order = RestaurantOrder::findOrFail($order_id);
+            $order->status = 'delivered';
+            $order->delivery_code_locked = false;
+            $order->delivery_override_by = auth()->id();
+            $order->delivery_override_reason = $request->reason;
+            $order->delivery_override_at = now();
+            $order->save();
+
+            AdminActivityLog::record(
+                'Overrode food order delivery',
+                [],
+                ['order_id' => $order->id, 'reason' => $request->reason],
+                RestaurantOrder::class,
+                $order->id
+            );
+
+            try {
+                broadcast(new \App\Events\RestaurantOrderUpdated($order));
+            } catch (\Throwable $e) {
+                Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+            }
+
+            return redirect()->back()->with('success', 'Delivery overridden successfully');
+        } catch (\Throwable $th) {
+            Log::error('Override Food Delivery Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', 'Something went wrong! Please try again later');
+        }
+    }
+
+    public function overrideParcelDelivery(Request $request, $ride_id)
+    {
+        $this->authorize('view delivery');
+
+        $validator = Validator::make($request->all(), [
+            'reason' => 'required|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->with('error', 'Validation Error!');
+        }
+
+        try {
+            $ride = Ride::findOrFail($ride_id);
+            $ride->status = 'completed';
+            $ride->completed_at = now();
+            $ride->delivery_code_locked = false;
+            $ride->delivery_override_by = auth()->id();
+            $ride->delivery_override_reason = $request->reason;
+            $ride->delivery_override_at = now();
+            $ride->save();
+
+            AdminActivityLog::record(
+                'Overrode parcel delivery',
+                [],
+                ['ride_id' => $ride->id, 'reason' => $request->reason],
+                Ride::class,
+                $ride->id
+            );
+
+            return redirect()->back()->with('success', 'Delivery overridden successfully');
+        } catch (\Throwable $th) {
+            Log::error('Override Parcel Delivery Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', 'Something went wrong! Please try again later');
         }
     }

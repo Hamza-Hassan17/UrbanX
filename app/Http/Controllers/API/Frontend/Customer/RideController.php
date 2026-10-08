@@ -583,6 +583,10 @@ class RideController extends Controller
             $ride->delivery_fee_paid_by = $request->delivery_fee_paid_by;
             $ride->payment_method = $request->payment_method;
             $ride->payment_status = $request->payment_method === 'cod' ? 'unpaid' : 'paid';
+            // Batch 1 Part 7 -- 4-digit proof-of-delivery code, shown to the
+            // sender (who shares it with the receiver), required from the
+            // rider to mark delivered.
+            $ride->delivery_code = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
             $ride->created_by = $user->id;
             $ride->save();
 
@@ -599,6 +603,7 @@ class RideController extends Controller
                 'delivery_fee' => $deliveryFee,
                 'distance_actual_km' => $distanceActualKm,
                 'distance_charged_km' => $distanceChargedKm,
+                'delivery_code' => $ride->delivery_code,
                 'message' => 'Parcel booked successfully!',
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {

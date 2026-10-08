@@ -22,6 +22,9 @@ class Ride extends Model
         'arrived_at'   => 'datetime',
         'scheduled_pickup_at' => 'datetime',
         'fare_breakdown' => 'array',
+        'delivery_code_locked' => 'boolean',
+        'delivery_override_at' => 'datetime',
+        'flagged_for_review' => 'boolean',
     ];
 
 
@@ -66,6 +69,14 @@ class Ride extends Model
         'delivery_fee_paid_by',
         'payment_method',
         'payment_status',
+        'delivery_code',
+        'delivery_code_attempts',
+        'delivery_code_locked',
+        'delivery_override_by',
+        'delivery_override_reason',
+        'delivery_override_at',
+        'receiver_unreachable_photo',
+        'flagged_for_review',
     ];
 
     public function rideOffers()

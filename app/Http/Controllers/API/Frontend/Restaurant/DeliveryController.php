@@ -381,6 +381,8 @@ class DeliveryController extends Controller
         $validator = Validator::make($request->all(), [
             'order_id' => 'required|exists:restaurant_orders,id',
             'status'   => 'required|in:picked_up,on_the_way,delivered',
+            // Batch 1 Part 7 -- required only when marking delivered.
+            'delivery_code' => 'required_if:status,delivered|nullable|string|size:4',
         ]);
 
         if ($validator->fails()) {
@@ -402,6 +404,37 @@ class DeliveryController extends Controller
                 return response()->json([
                     'message' => 'You are not assigned to this delivery.'
                 ], Response::HTTP_FORBIDDEN);
+            }
+
+            // Batch 1 Part 7 -- proof of delivery. Capped at 5 attempts
+            // (logged each time) before the order locks and needs an admin
+            // override (Dashboard\DeliveryController::overrideFoodDelivery).
+            if ($request->status === 'delivered') {
+                if ($order->delivery_code_locked) {
+                    return response()->json([
+                        'message' => 'Too many incorrect codes -- this order needs an admin override to mark delivered.'
+                    ], Response::HTTP_FORBIDDEN);
+                }
+
+                if ($request->delivery_code !== $order->delivery_code) {
+                    $order->delivery_code_attempts++;
+                    if ($order->delivery_code_attempts >= 5) {
+                        $order->delivery_code_locked = true;
+                    }
+                    $order->save();
+
+                    Log::warning('Delivery code attempt failed', [
+                        'order_id' => $order->id,
+                        'driver_id' => auth()->id(),
+                        'attempts' => $order->delivery_code_attempts,
+                    ]);
+
+                    return response()->json([
+                        'message' => $order->delivery_code_locked
+                            ? 'Too many incorrect codes -- this order now needs an admin override to mark delivered.'
+                            : 'Incorrect delivery code. ' . (5 - $order->delivery_code_attempts) . ' attempt(s) remaining.'
+                    ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
             }
 
             $order->status = $request->status;

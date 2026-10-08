@@ -95,6 +95,7 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
         Route::post('/offer-ride', [DriverRideController::class, 'OfferToRide']);
         Route::post('/accept-ride', [DriverRideController::class, 'acceptRide']);
         Route::post('/update-ride-status', [DriverRideController::class, 'updateRideStatus']);
+        Route::post('/parcel-receiver-unreachable', [DriverRideController::class, 'markParcelReceiverUnreachable']);
         Route::get('/get-ride-details/{ride_id}', [DriverRideController::class, 'getRideDetails']);
         Route::get('/get-current-ride', [DriverRideController::class, 'getCurrentRide']);
 

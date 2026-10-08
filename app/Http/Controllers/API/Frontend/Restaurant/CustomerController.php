@@ -718,6 +718,10 @@ class CustomerController extends Controller
             $order->payment_status = $request->payment_method == 'cod' ? 'unpaid' : 'paid';
             $order->status = 'pending';
 
+            // Batch 1 Part 7 -- 4-digit proof-of-delivery code, shown to the
+            // customer, required from the rider to mark delivered.
+            $order->delivery_code = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+
             // Batch 1 Part 2/3 -- snapshot the full money breakdown now, at
             // creation, so later Pricing & Fees changes never alter this
             // order's history. discount_funded_by is copied from the
