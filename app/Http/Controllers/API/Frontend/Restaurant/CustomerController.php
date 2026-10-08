@@ -74,6 +74,50 @@ class CustomerController extends Controller
         }
     }
 
+    /**
+     * Batch 1 Part 4 -- straight-line (Haversine) distance in km, same
+     * formula already used for nearby-driver matching in
+     * Customer\RideController::notifyNearbyDrivers(). This app has no
+     * routing-API integration anywhere, so "distance" is always
+     * straight-line, never road distance.
+     */
+    private function haversineDistanceKm($lat1, $lng1, $lat2, $lng2): float
+    {
+        $earthRadiusKm = 6371;
+        $lat1 = deg2rad((float) $lat1);
+        $lng1 = deg2rad((float) $lng1);
+        $lat2 = deg2rad((float) $lat2);
+        $lng2 = deg2rad((float) $lng2);
+
+        return $earthRadiusKm * acos(min(1, max(-1,
+            cos($lat1) * cos($lat2) * cos($lng2 - $lng1) + sin($lat1) * sin($lat2)
+        )));
+    }
+
+    /**
+     * Batch 1 Part 4 -- excludes restaurants beyond max delivery distance
+     * when the customer's delivery lat/lng is supplied. Optional (not
+     * required) so existing callers that don't pass it keep working
+     * unfiltered, per the "add fields, don't remove" compatibility rule.
+     */
+    private function filterByMaxDistance($restaurants, Request $request)
+    {
+        if (!$request->filled('lat') || !$request->filled('lang')) {
+            return $restaurants;
+        }
+
+        $maxDistanceKm = FareBreakdownService::foodDeliveryFeeSettings()['max_distance_km'];
+
+        return $restaurants->filter(function ($restaurant) use ($request, $maxDistanceKm) {
+            if (!$restaurant->latitude || !$restaurant->longitude) {
+                return true; // no location on file -- don't silently hide it
+            }
+            $distance = $this->haversineDistanceKm($request->lat, $request->lang, $restaurant->latitude, $restaurant->longitude);
+            $restaurant->distance_km = round($distance, 2);
+            return $distance <= $maxDistanceKm;
+        })->values();
+    }
+
     public function getRestaurants(Request $request, $category = null)
     {
         try {
@@ -90,6 +134,8 @@ class CustomerController extends Controller
                 $item->cover_image = $item->cover_image ? url('storage/' . $item->cover_image) : null;
                 return $item;
             });
+
+            $restaurants = $this->filterByMaxDistance($restaurants, $request);
 
             return response()->json([
                 'message' => 'Restaurants List',
@@ -119,6 +165,8 @@ class CustomerController extends Controller
                     $item->cover_image = $item->cover_image ? url('storage/' . $item->cover_image) : null;
                     return $item;
                 });
+
+            $restaurants = $this->filterByMaxDistance($restaurants, $request);
 
             return response()->json([
                 'message' => 'Search Results',
@@ -626,11 +674,31 @@ class CustomerController extends Controller
                 ], Response::HTTP_NOT_FOUND);
             }
 
+            $restaurant = Restaurant::find($cart->restaurant_id);
+
+            // Batch 1 Part 4 -- reject if the delivery address is beyond
+            // the restaurant's max delivery distance. Checked here (not
+            // just at listing time) since the cart/voucher may have been
+            // built earlier, before the customer picked their final
+            // delivery address.
+            if ($restaurant && $restaurant->latitude && $restaurant->longitude) {
+                $maxDistanceKm = FareBreakdownService::foodDeliveryFeeSettings()['max_distance_km'];
+                $distanceToDelivery = $this->haversineDistanceKm(
+                    $restaurant->latitude,
+                    $restaurant->longitude,
+                    $request->delivery_lat,
+                    $request->delivery_lang
+                );
+                if ($distanceToDelivery > $maxDistanceKm) {
+                    return response()->json([
+                        'message' => "This restaurant doesn't deliver to your address -- it's " . round($distanceToDelivery, 1) . " km away, beyond the {$maxDistanceKm} km delivery limit."
+                    ], Response::HTTP_BAD_REQUEST);
+                }
+            }
+
             DB::beginTransaction();
 
             $vehicleType = VehicleType::where('is_delivery', '1')->first();
-
-            $restaurant = Restaurant::find($cart->restaurant_id);
 
             $order = new RestaurantOrder();
             $order->restaurant_id = $cart->restaurant_id;
