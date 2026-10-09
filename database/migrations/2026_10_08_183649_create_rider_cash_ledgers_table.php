@@ -26,7 +26,11 @@ return new class extends Migration
             $table->enum('entry_type', ['collected', 'settled']);
             $table->decimal('amount', 10, 2);
             $table->decimal('balance_after', 10, 2);
-            $table->string('reference_type')->nullable();
+            // Capped at 100 (not Laravel's default 255) -- see
+            // 2026_10_08_124634_create_admin_activity_logs_table for why a
+            // *_type string paired with a numeric id in a composite index
+            // needs this on strict MySQL configs.
+            $table->string('reference_type', 100)->nullable();
             $table->unsignedBigInteger('reference_id')->nullable();
             $table->string('method')->nullable(); // settlement method (cash/bank transfer/...)
             $table->string('note', 500)->nullable();
