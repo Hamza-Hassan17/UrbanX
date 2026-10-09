@@ -24,7 +24,12 @@ return new class extends Migration
             $table->id();
             $table->foreignId('admin_id')->constrained('users')->cascadeOnDelete();
             $table->string('action');
-            $table->string('subject_type')->nullable();
+            // Capped at 100 (not Laravel's default 255) -- paired with
+            // subject_id in a composite index, and utf8mb4's 4 bytes/char
+            // pushes a 255-length string index past MySQL's 1000-byte
+            // limit on servers without the innodb_large_prefix/DYNAMIC row
+            // format our local dev happens to have.
+            $table->string('subject_type', 100)->nullable();
             $table->unsignedBigInteger('subject_id')->nullable();
             $table->json('old_values')->nullable();
             $table->json('new_values')->nullable();
