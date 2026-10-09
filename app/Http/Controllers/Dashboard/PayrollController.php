@@ -132,6 +132,47 @@ class PayrollController extends Controller
         }
     }
 
+    /**
+     * Batch 1 Part 9 -- "Mark as paid" for a driver/rider payout. Doesn't
+     * touch the earnings calculation itself (that stays live, from the
+     * Part 2 snapshot) -- this is purely a paid/unpaid audit record.
+     */
+    public function markAsPaid(Request $request)
+    {
+        $this->authorize('export payroll');
+
+        $validator = Validator::make($request->all(), [
+            'driver_id' => 'required|exists:users,id',
+            'period_start' => 'required|date',
+            'period_end' => 'required|date|after_or_equal:period_start',
+            'amount' => 'required|numeric|min:0.01',
+            'method' => 'required|string|max:255',
+            'reference' => 'nullable|string|max:255',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->withInput()->with('error', 'Validation Error!');
+        }
+
+        try {
+            \App\Models\DriverPayout::create([
+                'driver_id' => $request->driver_id,
+                'period_start' => $request->period_start,
+                'period_end' => $request->period_end,
+                'amount' => $request->amount,
+                'method' => $request->method,
+                'reference' => $request->reference,
+                'paid_by' => auth()->id(),
+                'paid_at' => now(),
+            ]);
+
+            return redirect()->back()->with('success', 'Payout recorded successfully');
+        } catch (\Throwable $th) {
+            Log::error('Payroll Mark As Paid Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', 'Something went wrong! Please try again later');
+        }
+    }
+
     private function buildSummary(Request $request): array
     {
         $validator = Validator::make($request->all(), [

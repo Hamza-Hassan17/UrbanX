@@ -261,6 +261,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('payroll/export-pdf', [PayrollController::class, 'exportPdf'])->name('payroll.export-pdf');
             Route::get('payroll/export-excel', [PayrollController::class, 'exportExcel'])->name('payroll.export-excel');
             Route::post('payroll/bulk-send', [PayrollController::class, 'bulkSend'])->name('payroll.bulk-send');
+            Route::post('payroll/mark-paid', [PayrollController::class, 'markAsPaid'])->name('payroll.mark-paid');
 
             //Finance (Tax & Commission settings, ride-level reports, payroll tab)
             Route::get('finance', fn () => redirect()->route('dashboard.finance.tax-commission'))->name('finance.index');
@@ -269,6 +270,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('finance/reports', [FinanceController::class, 'reports'])->name('finance.reports');
             Route::get('finance/reports/export-pdf', [FinanceController::class, 'exportReportPdf'])->name('finance.reports.export-pdf');
             Route::get('finance/reports/export-excel', [FinanceController::class, 'exportReportExcel'])->name('finance.reports.export-excel');
+            Route::get('finance/restaurant-payable', [FinanceController::class, 'restaurantPayable'])->name('finance.restaurant-payable');
+            Route::post('finance/restaurant-payable/mark-paid', [FinanceController::class, 'markRestaurantPayoutAsPaid'])->name('finance.restaurant-payable.mark-paid');
 
             //Pricing & Fees (Batch 1 Part 1, super-admin only)
             Route::get('pricing-fees', [PricingFeesController::class, 'index'])->name('pricing-fees.index');

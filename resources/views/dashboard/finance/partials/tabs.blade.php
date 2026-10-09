@@ -17,4 +17,8 @@
                 href="{{ route('dashboard.pricing-fees.index') }}">{{ __('Pricing & Fees') }}</a>
         </li>
     @endcan
+    <li class="nav-item">
+        <a class="nav-link {{ request()->routeIs('dashboard.finance.restaurant-payable') ? 'active' : '' }}"
+            href="{{ route('dashboard.finance.restaurant-payable') }}">{{ __('Restaurant Payable') }}</a>
+    </li>
 </ul>

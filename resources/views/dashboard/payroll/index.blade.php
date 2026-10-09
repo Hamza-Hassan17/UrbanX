@@ -91,6 +91,7 @@
                                 <th>{{ __('SST on Ride Fare') }}</th>
                                 <th>{{ __('Driver\'s Net Income') }}</th>
                                 <th>{{ __('Rides') }}</th>
+                                <th>{{ __('Payout') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -114,9 +115,18 @@
                                             <i class="ti ti-eye"></i> {{ __('View Rides') }}
                                         </a>
                                     </td>
+                                    <td>
+                                        <button type="button" class="btn btn-sm btn-success mark-paid-btn"
+                                            data-bs-toggle="modal" data-bs-target="#markPaidModal"
+                                            data-driver-id="{{ $row['driver_id'] }}"
+                                            data-driver-name="{{ $row['driver_name'] }}"
+                                            data-amount="{{ $row['total_earnings'] }}">
+                                            {{ __('Mark as Paid') }}
+                                        </button>
+                                    </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="9" class="text-center text-muted">{{ __('No earnings found for this selection.') }}</td></tr>
+                                <tr><td colspan="10" class="text-center text-muted">{{ __('No earnings found for this selection.') }}</td></tr>
                             @endforelse
                         </tbody>
                         <tfoot>
@@ -127,6 +137,7 @@
                                 <th>({{ \App\Helpers\Helper::formatCurrency($summary['grand_total_commission']) }})</th>
                                 <th colspan="2">({{ \App\Helpers\Helper::formatCurrency($summary['grand_total_sst']) }})</th>
                                 <th>{{ \App\Helpers\Helper::formatCurrency($summary['grand_total']) }}</th>
+                                <th></th>
                                 <th></th>
                             </tr>
                         </tfoot>
@@ -161,5 +172,58 @@
             </div>
         </div>
 
+        {{-- Batch 1 Part 9 -- Mark as Paid modal --}}
+        <div class="modal fade" id="markPaidModal" tabindex="-1">
+            <div class="modal-dialog">
+                <form method="POST" action="{{ route('dashboard.payroll.mark-paid') }}">
+                    @csrf
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">{{ __('Record Payout') }} -- <span id="markPaidDriverName"></span></h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" name="driver_id" id="markPaidDriverId">
+                            <input type="hidden" name="period_start" value="{{ request('start_date') }}">
+                            <input type="hidden" name="period_end" value="{{ request('end_date') }}">
+                            <div class="mb-3">
+                                <label class="form-label">{{ __('Amount') }}</label>
+                                <input type="number" step="0.01" min="0.01" name="amount" id="markPaidAmount" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">{{ __('Method') }}</label>
+                                <select name="method" class="form-select" required>
+                                    <option value="bank_transfer">{{ __('Bank Transfer') }}</option>
+                                    <option value="cash">{{ __('Cash') }}</option>
+                                    <option value="easypaisa">{{ __('Easypaisa') }}</option>
+                                    <option value="jazzcash">{{ __('JazzCash') }}</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">{{ __('Reference') }}</label>
+                                <input type="text" name="reference" class="form-control">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ __('Cancel') }}</button>
+                            <button type="submit" class="btn btn-success">{{ __('Record Payout') }}</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
     </div>
+@endsection
+
+@section('script')
+    <script>
+        document.addEventListener('click', function (e) {
+            const btn = e.target.closest('.mark-paid-btn');
+            if (!btn) return;
+            document.getElementById('markPaidDriverId').value = btn.dataset.driverId;
+            document.getElementById('markPaidDriverName').textContent = btn.dataset.driverName;
+            document.getElementById('markPaidAmount').value = btn.dataset.amount;
+        });
+    </script>
 @endsection
