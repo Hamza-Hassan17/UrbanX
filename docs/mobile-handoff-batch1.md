@@ -439,12 +439,15 @@ photo: <image file, max 5MB>
 { "message": "This is not a parcel delivery." }
 ```
 
-### 3. Parcel cash collection confirmation (kept for backward compatibility only)
+### 3. Parcel cash collection confirmation
 
 `POST /api/driver/confirm-parcel-cash-collected`
 
-**New app builds don't need to call this anymore** — send `cash_collected_amount` directly in the status
-update above instead.
+**Corrected** — this is NOT just a backward-compatibility fallback. It's still required for the
+sender-funded case: when `delivery_fee_paid_by: "sender"`, call this right after pickup (see section 1's
+"When to collect the cash" note) since the cash is collected before the parcel is ever completed. For the
+receiver-funded case, new builds can skip it and send `cash_collected_amount` inline at completion
+instead — that part of the original wording still holds.
 
 **Request**
 ```json
