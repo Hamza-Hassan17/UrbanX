@@ -23,11 +23,21 @@ class Restaurant extends Model
         'special_opening_hours',
         'is_open',
         'is_active',
+        'is_approved',
     ];
 
     public function category()
     {
         return $this->belongsTo(RestaurantCategory::class, 'restaurant_category_id');
+    }
+
+    /**
+     * Batch 2 Part 4 -- the submitted-documents row (overwritten each
+     * submit/review cycle, not a history table -- see the migration).
+     */
+    public function verification()
+    {
+        return $this->hasOne(RestaurantVerification::class);
     }
 
     public function user()

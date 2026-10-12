@@ -180,6 +180,8 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
         Route::post('/order/{order_id}/status', [RestaurantController::class, 'updateOrderStatus']);
 
         Route::get('/toggle-status', [RestaurantController::class, 'toggleStatus']);
+        Route::post('/verification/submit', [RestaurantController::class, 'submitVerificationDocuments']);
+        Route::get('/verification/status', [RestaurantController::class, 'getVerificationStatus']);
 
         Route::group(['prefix' => 'customer'], function () {
             Route::get('/home', [CustomerController::class, 'getHomeData']);

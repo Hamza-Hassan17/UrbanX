@@ -298,6 +298,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::put('restaurants/schedule/update/{id}', [RestaurantsController::class, 'updateRestaurantSchedule'])->name('restaurants.schedule.update');
             Route::put('restaurants/review/update/{id}', [RestaurantsController::class, 'updateRestaurantReview'])->name('restaurants.reviews.update');
 
+            //Restaurant Verifications (Batch 2 Part 4)
+            Route::get('restaurant-verifications', [\App\Http\Controllers\Dashboard\Restaurant\RestaurantVerificationController::class, 'index'])->name('restaurant-verifications.index');
+            Route::get('restaurant-verifications/{verification}', [\App\Http\Controllers\Dashboard\Restaurant\RestaurantVerificationController::class, 'show'])->name('restaurant-verifications.show');
+            Route::post('restaurant-verifications/{verification}/approve', [\App\Http\Controllers\Dashboard\Restaurant\RestaurantVerificationController::class, 'approve'])->name('restaurant-verifications.approve');
+            Route::post('restaurant-verifications/{verification}/reject', [\App\Http\Controllers\Dashboard\Restaurant\RestaurantVerificationController::class, 'reject'])->name('restaurant-verifications.reject');
+
             //Restaurant Voucher
             Route::resource('restaurant-vouchers', RestaurantVoucherController::class);
             Route::get('restaurant-vouchers/status/{id}', [RestaurantVoucherController::class, 'updateStatus'])->name('restaurant-vouchers.status.update');

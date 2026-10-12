@@ -50,6 +50,7 @@ class CustomerController extends Controller
                 }
             ])
                 ->where('is_active', 'active')
+                ->where('is_approved', true)
                 ->orderByDesc('total_orders')
                 ->limit(5)
                 ->get();
@@ -121,7 +122,7 @@ class CustomerController extends Controller
     public function getRestaurants(Request $request, $category = null)
     {
         try {
-            $query = Restaurant::where('is_active', 'active');
+            $query = Restaurant::where('is_active', 'active')->where('is_approved', true);
 
             if ($category) {
                 $query->whereHas('category', function ($q) use ($category) {
@@ -155,6 +156,7 @@ class CustomerController extends Controller
             $searchTerm = $request->search;
 
             $restaurants = Restaurant::where('is_active', 'active')
+                ->where('is_approved', true)
                 ->where(function ($query) use ($searchTerm) {
                     $query->where('name', 'like', "%$searchTerm%")
                         ->orWhere('description', 'like', "%$searchTerm%");
@@ -183,7 +185,7 @@ class CustomerController extends Controller
     public function getRestaurantDetails(Request $request, $restaurant_id)
     {
         try {
-            $restaurant = Restaurant::with('category')->where('id', $restaurant_id)->where('is_active', 'active')->first();
+            $restaurant = Restaurant::with('category')->where('id', $restaurant_id)->where('is_active', 'active')->where('is_approved', true)->first();
 
             if (!$restaurant) {
                 return response()->json([
@@ -703,6 +705,15 @@ class CustomerController extends Controller
             }
 
             $restaurant = Restaurant::find($cart->restaurant_id);
+
+            // Batch 2 Part 4 -- an unapproved restaurant cannot receive
+            // orders, even if the cart was built back when it was still
+            // (incorrectly) visible, or via a stale deep link.
+            if (!$restaurant || !$restaurant->is_approved) {
+                return response()->json([
+                    'message' => 'This restaurant is not currently accepting orders.'
+                ], Response::HTTP_BAD_REQUEST);
+            }
 
             // Batch 1 Part 4 -- reject if the delivery address is beyond
             // the restaurant's max delivery distance. Checked here (not

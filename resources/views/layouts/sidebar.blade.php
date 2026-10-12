@@ -270,6 +270,17 @@
                             </a>
                         </li>
                     @endcan
+                    @can(['view restaurant'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.restaurant-verifications.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.restaurant-verifications.index')}}" class="menu-link d-flex justify-content-between align-items-center" style="color: #fff !important;">
+                                <div>{{__('Restaurant Verifications')}}</div>
+                                @php $pendingRestaurantVerifications = \App\Models\RestaurantVerification::where('status', 'submitted')->count(); @endphp
+                                @if ($pendingRestaurantVerifications > 0)
+                                    <span class="badge bg-warning rounded-pill">{{ $pendingRestaurantVerifications }}</span>
+                                @endif
+                            </a>
+                        </li>
+                    @endcan
                     {{-- Orders -- omitted: no standalone dashboard list page exists yet, only an inline update route. --}}
                     {{-- Moved here from Users per the sidebar restructure spec -- restaurant owner accounts are a Restaurants concept, not a generic Users one. --}}
                     @can(['view user'])

@@ -10,6 +10,7 @@ use App\Models\RestaurantMenu;
 use App\Models\RestaurantOrder;
 use App\Models\RestaurantReview;
 use App\Models\Ride;
+use App\Models\User;
 use App\Services\FirebaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -803,6 +804,137 @@ class RestaurantController extends Controller
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Restaurant Toggle Status failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Batch 2 Part 4 -- restaurant registration & approval. One combined
+     * submit/update-documents call (unlike the driver side's per-document
+     * endpoints) since a restaurant has fewer, more varied document
+     * types with no reason to split them. Every field is optional on each
+     * call so the owner can fill the form over several visits; actual
+     * submission for review only happens once every required document is
+     * present (same all-or-nothing gate submitVerification() uses on the
+     * driver side).
+     */
+    public function submitVerificationDocuments(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'owner_cnic_front' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+            'owner_cnic_back' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+            'ntn_number' => 'nullable|string|max:255',
+            'food_authority_license' => 'nullable|file|mimes:jpeg,png,jpg,pdf|max:5120',
+            'bank_account_title' => 'nullable|string|max:255',
+            'bank_iban' => 'nullable|string|max:255',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+            'storefront_photo' => 'nullable|image|mimes:jpeg,png,jpg|max:5120',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $user = $request->user();
+            $restaurant = Restaurant::where('user_id', $user->id)->first();
+
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant profile not found -- complete your shop details first.'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            $verification = \App\Models\RestaurantVerification::firstOrNew(['restaurant_id' => $restaurant->id]);
+            $verification->restaurant_id = $restaurant->id;
+
+            foreach (['owner_cnic_front', 'owner_cnic_back', 'food_authority_license', 'logo', 'storefront_photo'] as $fileField) {
+                if ($request->hasFile($fileField)) {
+                    if ($verification->{$fileField}) {
+                        Storage::disk('public')->delete($verification->{$fileField});
+                    }
+                    $verification->{$fileField} = $request->file($fileField)->store('uploads/restaurant-verifications', 'public');
+                }
+            }
+
+            foreach (['ntn_number', 'bank_account_title', 'bank_iban'] as $textField) {
+                if ($request->filled($textField)) {
+                    $verification->{$textField} = $request->input($textField);
+                }
+            }
+
+            $missing = [];
+            foreach (['owner_cnic_front', 'owner_cnic_back', 'ntn_number', 'food_authority_license', 'bank_account_title', 'bank_iban', 'logo'] as $required) {
+                if (!$verification->{$required}) {
+                    $missing[] = $required;
+                }
+            }
+
+            if (empty($missing)) {
+                $verification->status = 'submitted';
+                $verification->submitted_at = now();
+                $verification->rejection_reason = null;
+                $verification->reviewed_by = null;
+                $verification->reviewed_at = null;
+            }
+
+            $verification->save();
+
+            if ($verification->status === 'submitted') {
+                $admins = User::role(['super admin', 'admin', 'operator', 'dispatcher'])->get();
+                app('notificationService')->notifyUsers(
+                    $admins,
+                    'New Restaurant Verification Request',
+                    "{$restaurant->name} submitted documents for verification.",
+                    'restaurant_verifications',
+                    $verification->id,
+                    'pending_restaurant_verifications'
+                );
+            }
+
+            return response()->json([
+                'message' => $verification->status === 'submitted'
+                    ? 'Verification submitted successfully.'
+                    : 'Documents saved. Still missing: ' . implode(', ', $missing),
+                'status' => $verification->status,
+                'missing' => $verification->status === 'submitted' ? [] : $missing,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Submit Restaurant Verification failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function getVerificationStatus(Request $request)
+    {
+        try {
+            $user = $request->user();
+            $restaurant = Restaurant::where('user_id', $user->id)->first();
+
+            if (!$restaurant) {
+                return response()->json([
+                    'message' => 'Restaurant profile not found'
+                ], Response::HTTP_NOT_FOUND);
+            }
+
+            $verification = $restaurant->verification;
+
+            return response()->json([
+                'status' => $verification->status ?? 'not_submitted',
+                'rejection_reason' => $verification->rejection_reason ?? null,
+                'submitted_at' => $verification?->submitted_at?->toIso8601String(),
+                'reviewed_at' => $verification?->reviewed_at?->toIso8601String(),
+                'is_approved' => (bool) $restaurant->is_approved,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Get Restaurant Verification Status failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);

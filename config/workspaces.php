@@ -52,6 +52,7 @@ return [
 
         // Delivery
         'dashboard.restaurants.' => 'delivery',
+        'dashboard.restaurant-verifications.' => 'delivery',
         'dashboard.restaurant-categories.' => 'delivery',
         'dashboard.restaurant-vouchers.' => 'delivery',
         'dashboard.restaurant-owners.' => 'delivery',
