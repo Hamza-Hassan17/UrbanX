@@ -65,4 +65,16 @@ class DispatchSettingsService
     {
         return false;
     }
+
+    /**
+     * Review follow-up -- default true (on), so accept-ride keeps
+     * accepting a direct tap with no prior poll (e.g. straight from a
+     * push notification), same as it always has. Switch off once
+     * updated app builds -- which actually poll and see the pending
+     * offer -- are rolled out; see the migration's own comment.
+     */
+    public static function allowLegacyDirectAccept(): bool
+    {
+        return (bool) (SystemSetting::first()?->allow_legacy_direct_accept ?? true);
+    }
 }

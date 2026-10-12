@@ -54,6 +54,7 @@ class PricingFeesController extends Controller
             'stale_restaurant_accept_minutes' => 'required|integer|min:1',
             'stale_ready_for_pickup_minutes' => 'required|integer|min:1',
             'taxi_outstanding_limit' => 'required|numeric|min:0',
+            'allow_legacy_direct_accept' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -63,6 +64,10 @@ class PricingFeesController extends Controller
         try {
             $setting = SystemSetting::first() ?? new SystemSetting();
             $fields = $validator->validated();
+            // A checkbox omits itself from the request entirely when
+            // unchecked, so validated() would never carry a "false" --
+            // read it explicitly instead of relying on the field being present.
+            $fields['allow_legacy_direct_accept'] = $request->boolean('allow_legacy_direct_accept');
 
             $old = $setting->only(array_keys($fields));
 

@@ -14,6 +14,8 @@ class RestaurantVerification extends Model
         'food_authority_license',
         'bank_account_title',
         'bank_iban',
+        'pending_bank_account_title',
+        'pending_bank_iban',
         'logo',
         'storefront_photo',
         'status',
@@ -36,5 +38,10 @@ class RestaurantVerification extends Model
     public function reviewer()
     {
         return $this->belongsTo(User::class, 'reviewed_by');
+    }
+
+    public function hasPendingBankChange(): bool
+    {
+        return $this->pending_bank_account_title !== null || $this->pending_bank_iban !== null;
     }
 }

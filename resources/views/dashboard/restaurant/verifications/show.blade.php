@@ -59,6 +59,43 @@
                         @endif
                     </div>
                 </div>
+
+                @if ($verification->hasPendingBankChange())
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h5 class="mb-0">{{ __('Pending Bank Detail Change') }}</h5>
+                            <small class="text-muted">{{ __('Payouts and the Restaurant Payable report keep using the current details below until approved.') }}</small>
+                        </div>
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <h6 class="info-label">{{ __('Current Account Title') }}</h6>
+                                    <p class="info-value">{{ $verification->bank_account_title ?? 'N/A' }}</p>
+                                    <h6 class="info-label text-primary">{{ __('Requested Account Title') }}</h6>
+                                    <p class="info-value">{{ $verification->pending_bank_account_title ?? __('(unchanged)') }}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="info-label">{{ __('Current IBAN') }}</h6>
+                                    <p class="info-value">{{ $verification->bank_iban ?? 'N/A' }}</p>
+                                    <h6 class="info-label text-primary">{{ __('Requested IBAN') }}</h6>
+                                    <p class="info-value">{{ $verification->pending_bank_iban ?? __('(unchanged)') }}</p>
+                                </div>
+                            </div>
+                            @can(['update restaurant'])
+                                <div class="d-flex gap-2">
+                                    <form method="POST" action="{{ route('dashboard.restaurant-verifications.approve-bank-change', $verification->id) }}">
+                                        @csrf
+                                        <button type="submit" class="btn btn-success">{{ __('Approve Change') }}</button>
+                                    </form>
+                                    <form method="POST" action="{{ route('dashboard.restaurant-verifications.reject-bank-change', $verification->id) }}">
+                                        @csrf
+                                        <button type="submit" class="btn btn-outline-danger">{{ __('Reject Change') }}</button>
+                                    </form>
+                                </div>
+                            @endcan
+                        </div>
+                    </div>
+                @endif
             </div>
             <div class="col-md-4">
                 <div class="card">

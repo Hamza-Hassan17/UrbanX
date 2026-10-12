@@ -303,6 +303,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('restaurant-verifications/{verification}', [\App\Http\Controllers\Dashboard\Restaurant\RestaurantVerificationController::class, 'show'])->name('restaurant-verifications.show');
             Route::post('restaurant-verifications/{verification}/approve', [\App\Http\Controllers\Dashboard\Restaurant\RestaurantVerificationController::class, 'approve'])->name('restaurant-verifications.approve');
             Route::post('restaurant-verifications/{verification}/reject', [\App\Http\Controllers\Dashboard\Restaurant\RestaurantVerificationController::class, 'reject'])->name('restaurant-verifications.reject');
+            Route::post('restaurant-verifications/{verification}/approve-bank-change', [\App\Http\Controllers\Dashboard\Restaurant\RestaurantVerificationController::class, 'approveBankChange'])->name('restaurant-verifications.approve-bank-change');
+            Route::post('restaurant-verifications/{verification}/reject-bank-change', [\App\Http\Controllers\Dashboard\Restaurant\RestaurantVerificationController::class, 'rejectBankChange'])->name('restaurant-verifications.reject-bank-change');
 
             //Restaurant Voucher
             Route::resource('restaurant-vouchers', RestaurantVoucherController::class);

@@ -576,11 +576,20 @@ class RideController extends Controller
                 ], Response::HTTP_BAD_REQUEST);
             }
 
+            // Review follow-up -- an admin-pre-assigned ride (driver_id set
+            // ahead of time, before this driver ever called accept) is a
+            // deliberate human choice, not the broadcast/poll race -- it
+            // never gets a RideOffer row (see Dashboard\RideController's
+            // "Assign Trip") and is unaffected by allowLegacyDirectAccept()
+            // either way.
+            $wasPreAssignedToThisDriver = (int) $ride->driver_id === (int) auth()->id();
+
             // Batch 2 Part 2 -- a driver who polled getLatestRides holds a
             // formal pending offer with an expiry; honor/enforce that here.
             // A driver who tapped Accept straight from the NewRideRequested
             // push (no poll, no offer row) falls through to the direct
-            // accepted-record creation below, same as before this change.
+            // accepted-record creation below, same as before this change,
+            // as long as allowLegacyDirectAccept() is still on (the default).
             $existingOffer = RideOffer::where('ride_id', $ride->id)
                 ->where('driver_id', auth()->id())
                 ->where('status', 'pending')
@@ -592,6 +601,13 @@ class RideController extends Controller
                 return response()->json([
                     'message' => 'This offer has expired.'
                 ], 410);
+            }
+
+            if (!$existingOffer && !$wasPreAssignedToThisDriver && !\App\Services\DispatchSettingsService::allowLegacyDirectAccept()) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'You were not offered this ride.'
+                ], Response::HTTP_FORBIDDEN);
             }
 
             if ($existingOffer) {

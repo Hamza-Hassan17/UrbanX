@@ -162,6 +162,15 @@
                     </div>
 
                     <div class="col-12">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="allow_legacy_direct_accept" name="allow_legacy_direct_accept" value="1"
+                                {{ old('allow_legacy_direct_accept', $settings->allow_legacy_direct_accept ?? true) ? 'checked' : '' }}>
+                            <label class="form-check-label" for="allow_legacy_direct_accept">{{ __('Allow Legacy Direct Accept') }}</label>
+                        </div>
+                        <small class="text-muted d-block">{{ __('When on (default), accept-ride still works for an app build that taps Accept without ever polling for a formal offer -- the pre-Batch-2 behaviour. Turn off once updated app builds (which poll and see the offer countdown) are rolled out, so accept-ride then requires a valid, unexpired offer for that specific driver.') }}</small>
+                    </div>
+
+                    <div class="col-12">
                         <small class="text-muted d-block mb-2">{{ __('SST on driver/rider income is shared with the Tax & Commission page\'s "SST on Ride Fare" setting -- applies to both taxi drivers and delivery riders.') }}</small>
                         <button type="submit" class="btn btn-primary">{{ __('Save') }}</button>
                     </div>

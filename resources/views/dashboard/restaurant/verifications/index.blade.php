@@ -45,7 +45,12 @@
                                         <span class="badge bg-label-secondary">{{ __('Not Submitted') }}</span>
                                     @endif
                                 </td>
-                                <td>{{ $verification->reviewer->name ?? '--' }}</td>
+                                <td>
+                                    {{ $verification->reviewer->name ?? '--' }}
+                                    @if ($verification->hasPendingBankChange())
+                                        <span class="badge bg-label-info d-block mt-1">{{ __('Pending Bank Change') }}</span>
+                                    @endif
+                                </td>
                                 <td>
                                     <a href="{{ route('dashboard.restaurant-verifications.show', $verification->id) }}" class="btn btn-sm btn-primary">{{ __('Review') }}</a>
                                 </td>

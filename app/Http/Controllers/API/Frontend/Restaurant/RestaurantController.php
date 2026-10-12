@@ -862,9 +862,32 @@ class RestaurantController extends Controller
                 }
             }
 
-            foreach (['ntn_number', 'bank_account_title', 'bank_iban'] as $textField) {
-                if ($request->filled($textField)) {
-                    $verification->{$textField} = $request->input($textField);
+            if ($request->filled('ntn_number')) {
+                $verification->ntn_number = $request->input('ntn_number');
+            }
+
+            // Review follow-up -- an already-approved restaurant changing
+            // its bank details doesn't get to redirect its own payouts on
+            // the spot. The new value sits as pending_* until an admin
+            // approves it; bank_account_title/bank_iban (what payouts and
+            // the Restaurant Payable report actually read) stay as they
+            // were. A restaurant that was never approved, or whose own
+            // bank fields were never set yet, just saves normally --
+            // there's nothing legitimate to protect before a first
+            // approval exists.
+            $alreadyApproved = $restaurant->is_approved && $verification->status === 'approved';
+
+            foreach (['bank_account_title' => 'pending_bank_account_title', 'bank_iban' => 'pending_bank_iban'] as $liveField => $pendingField) {
+                if (!$request->filled($liveField)) {
+                    continue;
+                }
+
+                $newValue = $request->input($liveField);
+
+                if ($alreadyApproved && $verification->{$liveField} !== null && $newValue !== $verification->{$liveField}) {
+                    $verification->{$pendingField} = $newValue;
+                } else {
+                    $verification->{$liveField} = $newValue;
                 }
             }
 
@@ -932,6 +955,7 @@ class RestaurantController extends Controller
                 'submitted_at' => $verification?->submitted_at?->toIso8601String(),
                 'reviewed_at' => $verification?->reviewed_at?->toIso8601String(),
                 'is_approved' => (bool) $restaurant->is_approved,
+                'pending_bank_change' => (bool) $verification?->hasPendingBankChange(),
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Get Restaurant Verification Status failed', ['error' => $th->getMessage()]);
