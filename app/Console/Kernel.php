@@ -15,6 +15,7 @@ class Kernel extends ConsoleKernel
         // $schedule->command('inspire')->hourly();
 
         $schedule->command('app:ride-anomaly-scan')->everyMinute();
+        $schedule->command('app:sweep-expired-offers')->everyMinute();
     }
 
     /**

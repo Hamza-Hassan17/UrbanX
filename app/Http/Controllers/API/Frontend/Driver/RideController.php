@@ -121,7 +121,6 @@ class RideController extends Controller
             // Time windows
             // -------------------------
             $tenMinutesAgo   = now()->subMinutes(10);   // ride life
-            $logWindowStart  = now()->subHours(10);     // logs window
 
             // -------------------------
             // Driver vehicle type
@@ -148,6 +147,10 @@ class RideController extends Controller
                 $assignedRide->boost_multiplier = 1.0;
                 $assignedRide->is_boost = false;
                 $assignedRide->final_fare = $assignedRide->total_fare;
+                // Batch 2 Part 2 -- an admin-assigned ride has no offer
+                // timeout; null here keeps the response shape consistent.
+                $assignedRide->offer_expires_at = null;
+                $assignedRide->offer_seconds_remaining = null;
 
                 return response()->json([
                     'rides' => collect([$assignedRide]),
@@ -155,58 +158,90 @@ class RideController extends Controller
             }
 
             // -------------------------
-            // Rides already sent / accepted (last 10 hours)
+            // Batch 2 Part 2 -- does this driver already hold an active
+            // (unexpired, pending) offer? If so, that's the ride to show
+            // them -- no new offer gets created on top of it.
             // -------------------------
-            $busyRideIds = DB::table('ride_driver_logs')
-                ->whereIn('action', ['sent', 'accepted'])
-                ->where('created_at', '>=', $logWindowStart)
-                ->pluck('ride_id');
+            $myActiveOffer = RideOffer::where('driver_id', $driver->id)
+                ->where('status', 'pending')
+                ->where('expires_at', '>', now())
+                ->latest('offered_at')
+                ->first();
 
-            // -------------------------
-            // Rides rejected by this driver (last 10 hours)
-            // -------------------------
-            $rejectedByMe = DB::table('ride_driver_logs')
-                ->where('driver_id', $driver->id)
-                ->where('action', 'rejected')
-                ->where('created_at', '>=', $logWindowStart)
-                ->pluck('ride_id');
+            $ride = null;
 
-            // -------------------------
-            // Fetch nearest single ride
-            // -------------------------
-            $rides = Ride::selectRaw("
-                    rides.*,
-                    (6371 * acos(
-                        cos(radians(?)) *
-                        cos(radians(pickup_latitude)) *
-                        cos(radians(pickup_longitude) - radians(?)) +
-                        sin(radians(?)) *
-                        sin(radians(pickup_latitude))
-                    )) AS distance
-                ", [
-                    $driver->lat,
-                    $driver->lang,
-                    $driver->lat
-                ])
-                ->where('status', 'requested')
-                ->where('requested_at', '>=', $tenMinutesAgo)
-                ->where('vehicle_type_id', $driverVehicleType)
-                ->whereNotIn('id', $busyRideIds)
-                ->whereNotIn('id', $rejectedByMe)
-                ->orderBy('distance')
-                ->limit(1)
-                ->get();
+            if ($myActiveOffer) {
+                $ride = Ride::where('id', $myActiveOffer->ride_id)->where('status', 'requested')->first();
+                if (!$ride) {
+                    // Ride moved on without this offer being cleaned up
+                    // (shouldn't normally happen -- defensive only).
+                    $myActiveOffer = null;
+                }
+            }
 
-            // -------------------------
-            // Log ride as "sent"
-            // -------------------------
-            if ($rides->count()) {
-                RideDriverLog::create([
-                    'ride_id'   => $rides[0]->id,
-                    'driver_id' => $driver->id,
-                    'action'    => 'sent',
-                    'note'      => 'Ride sent to nearest driver'
-                ]);
+            if (!$myActiveOffer) {
+                // Rides this driver has already been offered before, in
+                // any status -- never re-offer the same job to them twice.
+                $offeredToMe = RideOffer::where('driver_id', $driver->id)->pluck('ride_id');
+
+                // Rides currently out on an active offer to someone else.
+                $activelyOfferedToOthers = RideOffer::where('status', 'pending')
+                    ->where('expires_at', '>', now())
+                    ->pluck('ride_id');
+
+                $candidate = Ride::selectRaw("
+                        rides.*,
+                        (6371 * acos(
+                            cos(radians(?)) *
+                            cos(radians(pickup_latitude)) *
+                            cos(radians(pickup_longitude) - radians(?)) +
+                            sin(radians(?)) *
+                            sin(radians(pickup_latitude))
+                        )) AS distance
+                    ", [
+                        $driver->lat,
+                        $driver->lang,
+                        $driver->lat
+                    ])
+                    ->where('status', 'requested')
+                    ->where('requested_at', '>=', $tenMinutesAgo)
+                    ->where('vehicle_type_id', $driverVehicleType)
+                    ->whereNotIn('id', $offeredToMe)
+                    ->whereNotIn('id', $activelyOfferedToOthers)
+                    ->orderBy('distance')
+                    ->limit(1)
+                    ->first();
+
+                if ($candidate) {
+                    // Re-check under lock -- two drivers could poll at the
+                    // same instant and both see the same candidate ride.
+                    DB::beginTransaction();
+                    try {
+                        $lockedRide = Ride::where('id', $candidate->id)
+                            ->where('status', 'requested')
+                            ->lockForUpdate()
+                            ->first();
+
+                        $stillUnoffered = $lockedRide && !RideOffer::where('ride_id', $lockedRide->id)
+                            ->where('status', 'pending')
+                            ->where('expires_at', '>', now())
+                            ->exists();
+
+                        if ($lockedRide && $stillUnoffered) {
+                            $myActiveOffer = \App\Services\OfferDispatchService::createOffer($lockedRide, $driver);
+                            $ride = $lockedRide;
+                        }
+
+                        DB::commit();
+                    } catch (\Throwable $e) {
+                        DB::rollBack();
+                        Log::error('getLatestRides offer creation failed', ['ride_id' => $candidate->id, 'error' => $e->getMessage()]);
+                    }
+                }
+            }
+
+            if (!$ride) {
+                return response()->json(['rides' => []], 200);
             }
 
             // -------------------------
@@ -220,17 +255,20 @@ class RideController extends Controller
 
             $multiplier = $busyHour ? (float)$busyHour->multiplier : 1.0;
 
-            $rides->transform(function ($ride) use ($multiplier) {
-                $ride->boost_multiplier = $multiplier;
-                $ride->is_boost = $multiplier > 1;
-                $ride->final_fare = isset($ride->total_fare)
-                    ? $ride->total_fare * $multiplier
-                    : null;
-                return $ride;
-            });
+            $ride->boost_multiplier = $multiplier;
+            $ride->is_boost = $multiplier > 1;
+            $ride->final_fare = isset($ride->total_fare)
+                ? $ride->total_fare * $multiplier
+                : null;
+
+            // Batch 2 Part 2 -- countdown info for the app.
+            $ride->offer_expires_at = $myActiveOffer->expires_at?->toIso8601String();
+            $ride->offer_seconds_remaining = $myActiveOffer->expires_at
+                ? max(0, $myActiveOffer->expires_at->getTimestamp() - now()->getTimestamp())
+                : null;
 
             return response()->json([
-                'rides' => $rides
+                'rides' => collect([$ride])
             ], 200);
 
         } catch (\Throwable $e) {
@@ -515,16 +553,41 @@ class RideController extends Controller
                 ], Response::HTTP_BAD_REQUEST);
             }
 
-            $rideOffer = new RideOffer();
-            $rideOffer->ride_id = $ride->id;
-            $rideOffer->driver_id = auth()->id();
-            $rideOffer->proposed_price = $ride->total_fare;
-            $rideOffer->eta_minutes = 0;
-            $rideOffer->note = 'Direct accept (fixed price)';
-            $rideOffer->offered_at = now();
-            $rideOffer->accepted_at = now();
-            $rideOffer->status = 'accepted';
-            $rideOffer->save();
+            // Batch 2 Part 2 -- a driver who polled getLatestRides holds a
+            // formal pending offer with an expiry; honor/enforce that here.
+            // A driver who tapped Accept straight from the NewRideRequested
+            // push (no poll, no offer row) falls through to the direct
+            // accepted-record creation below, same as before this change.
+            $existingOffer = RideOffer::where('ride_id', $ride->id)
+                ->where('driver_id', auth()->id())
+                ->where('status', 'pending')
+                ->first();
+
+            if ($existingOffer && $existingOffer->expires_at && $existingOffer->expires_at->isPast()) {
+                DB::rollBack();
+                \App\Services\OfferDispatchService::expireOffer($existingOffer);
+                return response()->json([
+                    'message' => 'This offer has expired.'
+                ], 410);
+            }
+
+            if ($existingOffer) {
+                $existingOffer->status = 'accepted';
+                $existingOffer->accepted_at = now();
+                $existingOffer->save();
+                $rideOffer = $existingOffer;
+            } else {
+                $rideOffer = new RideOffer();
+                $rideOffer->ride_id = $ride->id;
+                $rideOffer->driver_id = auth()->id();
+                $rideOffer->proposed_price = $ride->total_fare;
+                $rideOffer->eta_minutes = 0;
+                $rideOffer->note = 'Direct accept (fixed price)';
+                $rideOffer->offered_at = now();
+                $rideOffer->accepted_at = now();
+                $rideOffer->status = 'accepted';
+                $rideOffer->save();
+            }
 
             $ride->driver_id = auth()->id();
             $ride->status = 'accepted';
@@ -656,6 +719,20 @@ class RideController extends Controller
         $rideDriverLog->action = 'rejected';
         $rideDriverLog->note = 'Driver rejected the ride offer';
         $rideDriverLog->save();
+
+        // Batch 2 Part 2 -- mark the formal pending offer rejected too
+        // (if one exists -- it might not, for a push-only accept flow that
+        // never went through getLatestRides) and move the job on to the
+        // next eligible driver immediately, rather than waiting for this
+        // offer to merely expire.
+        $pendingOffer = RideOffer::where('ride_id', $request->ride_id)
+            ->where('driver_id', auth()->id())
+            ->where('status', 'pending')
+            ->first();
+
+        if ($pendingOffer) {
+            \App\Services\OfferDispatchService::rejectOffer($pendingOffer);
+        }
 
         return response()->json([
             'message' => 'Offer rejected successfully'
