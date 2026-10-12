@@ -113,6 +113,55 @@
                     </div>
 
                     <div class="col-12">
+                        <hr class="mt-2 mb-3">
+                        <h6 class="mb-3">{{ __('Dispatch') }}</h6>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="offer_acceptance_timeout_seconds" class="form-label">{{ __('Offer Acceptance Timeout (seconds)') }}</label><span class="text-danger">*</span>
+                        <input class="form-control @error('offer_acceptance_timeout_seconds') is-invalid @enderror" type="number"
+                            min="5" id="offer_acceptance_timeout_seconds" name="offer_acceptance_timeout_seconds"
+                            value="{{ old('offer_acceptance_timeout_seconds', $settings->offer_acceptance_timeout_seconds ?? 30) }}" required/>
+                        @error('offer_acceptance_timeout_seconds')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="col-md-3">
+                        <label for="max_reoffer_attempts" class="form-label">{{ __('Max Re-offer Attempts') }}</label><span class="text-danger">*</span>
+                        <small class="fw-medium text-primary d-block">({{ __('Before a job is flagged as stale') }})</small>
+                        <input class="form-control @error('max_reoffer_attempts') is-invalid @enderror" type="number"
+                            min="1" id="max_reoffer_attempts" name="max_reoffer_attempts"
+                            value="{{ old('max_reoffer_attempts', $settings->max_reoffer_attempts ?? 5) }}" required/>
+                        @error('max_reoffer_attempts')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="col-md-3">
+                        <label for="taxi_outstanding_limit" class="form-label">{{ __('Taxi Driver Outstanding Limit') }}</label><span class="text-danger">*</span>
+                        <small class="fw-medium text-primary d-block">({{ __('Commission+SST owed on cash fares') }})</small>
+                        <input class="form-control @error('taxi_outstanding_limit') is-invalid @enderror" type="number"
+                            step="0.01" min="0" id="taxi_outstanding_limit" name="taxi_outstanding_limit"
+                            value="{{ old('taxi_outstanding_limit', $settings->taxi_outstanding_limit ?? 5000) }}" required/>
+                        @error('taxi_outstanding_limit')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="col-md-3">
+                        <label for="stale_unassigned_minutes" class="form-label">{{ __('Stale: Unassigned Job (minutes)') }}</label><span class="text-danger">*</span>
+                        <input class="form-control @error('stale_unassigned_minutes') is-invalid @enderror" type="number"
+                            min="1" id="stale_unassigned_minutes" name="stale_unassigned_minutes"
+                            value="{{ old('stale_unassigned_minutes', $settings->stale_unassigned_minutes ?? 5) }}" required/>
+                        @error('stale_unassigned_minutes')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="col-md-4">
+                        <label for="stale_restaurant_accept_minutes" class="form-label">{{ __('Stale: Restaurant Not Accepting (minutes)') }}</label><span class="text-danger">*</span>
+                        <input class="form-control @error('stale_restaurant_accept_minutes') is-invalid @enderror" type="number"
+                            min="1" id="stale_restaurant_accept_minutes" name="stale_restaurant_accept_minutes"
+                            value="{{ old('stale_restaurant_accept_minutes', $settings->stale_restaurant_accept_minutes ?? 5) }}" required/>
+                        @error('stale_restaurant_accept_minutes')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="col-md-4">
+                        <label for="stale_ready_for_pickup_minutes" class="form-label">{{ __('Stale: Rider Not Picking Up (minutes)') }}</label><span class="text-danger">*</span>
+                        <input class="form-control @error('stale_ready_for_pickup_minutes') is-invalid @enderror" type="number"
+                            min="1" id="stale_ready_for_pickup_minutes" name="stale_ready_for_pickup_minutes"
+                            value="{{ old('stale_ready_for_pickup_minutes', $settings->stale_ready_for_pickup_minutes ?? 10) }}" required/>
+                        @error('stale_ready_for_pickup_minutes')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+
+                    <div class="col-12">
                         <small class="text-muted d-block mb-2">{{ __('SST on driver/rider income is shared with the Tax & Commission page\'s "SST on Ride Fare" setting -- applies to both taxi drivers and delivery riders.') }}</small>
                         <button type="submit" class="btn btn-primary">{{ __('Save') }}</button>
                     </div>

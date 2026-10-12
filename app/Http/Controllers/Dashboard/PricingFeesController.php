@@ -47,6 +47,13 @@ class PricingFeesController extends Controller
             'platform_share_percent' => 'required|numeric|min:0|max:100',
             'rider_cash_limit' => 'required|numeric|min:0',
             'sst_ride_fare_method' => 'required|in:inclusive,exclusive',
+            // Batch 2 Part 1 -- Dispatch settings.
+            'offer_acceptance_timeout_seconds' => 'required|integer|min:5',
+            'max_reoffer_attempts' => 'required|integer|min:1',
+            'stale_unassigned_minutes' => 'required|integer|min:1',
+            'stale_restaurant_accept_minutes' => 'required|integer|min:1',
+            'stale_ready_for_pickup_minutes' => 'required|integer|min:1',
+            'taxi_outstanding_limit' => 'required|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
