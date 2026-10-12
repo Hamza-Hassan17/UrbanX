@@ -143,6 +143,17 @@
                             </a>
                         </li>
                     @endcan
+                    @can(['view stale alerts'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.rides.alerts') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.rides.alerts')}}" class="menu-link d-flex justify-content-between align-items-center" style="color: #fff !important;">
+                                <div>{{__('Alerts')}}</div>
+                                @php $ridesAlertCount = \App\Models\StaleJobAlert::where('workspace', 'rides')->where('status', 'open')->count(); @endphp
+                                @if ($ridesAlertCount > 0)
+                                    <span class="badge bg-danger rounded-pill">{{ $ridesAlertCount }}</span>
+                                @endif
+                            </a>
+                        </li>
+                    @endcan
                 </ul>
             </li>
         @endcanany
@@ -218,6 +229,18 @@
                     <a href="{{ route('dashboard.rider-cash.index') }}" class="menu-link" style="color: #fff !important;">
                         <i class="menu-icon tf-icons ti ti-cash"></i>
                         <div>{{__('Rider Cash')}}</div>
+                    </a>
+                </li>
+            @endcan
+            @can(['view stale alerts'])
+                <li class="menu-item {{ request()->routeIs('dashboard.delivery.alerts') ? 'active' : '' }}">
+                    <a href="{{ route('dashboard.delivery.alerts') }}" class="menu-link d-flex justify-content-between align-items-center" style="color: #fff !important;">
+                        <i class="menu-icon tf-icons ti ti-bell-exclamation"></i>
+                        <div>{{__('Alerts')}}</div>
+                        @php $deliveryAlertCount = \App\Models\StaleJobAlert::where('workspace', 'delivery')->where('status', 'open')->count(); @endphp
+                        @if ($deliveryAlertCount > 0)
+                            <span class="badge bg-danger rounded-pill">{{ $deliveryAlertCount }}</span>
+                        @endif
                     </a>
                 </li>
             @endcan

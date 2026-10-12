@@ -154,6 +154,11 @@ class UserRolePermissionSeeder extends Seeder
         // "for Admin/Finance".
         Permission::firstOrCreate(['name' => 'manage rider cash']);
 
+        // Batch 2 Part 3 -- Stale Job Alerts page + queue highlighting +
+        // resolve action. Granted to admin/operator/dispatcher below.
+        Permission::firstOrCreate(['name' => 'view stale alerts']);
+        Permission::firstOrCreate(['name' => 'resolve stale alerts']);
+
         // Create Roles
         $superAdminRole = Role::firstOrCreate(['name' => 'super-admin']); //as super-admin
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
@@ -225,6 +230,8 @@ class UserRolePermissionSeeder extends Seeder
         $adminRole->givePermissionTo(['view support requests', 'manage support requests']);
         // Rider Cash (Batch 1 Part 8) = Full for Admin.
         $adminRole->givePermissionTo(['manage rider cash']);
+        // Stale Job Alerts (Batch 2 Part 3) = Full for Admin.
+        $adminRole->givePermissionTo(['view stale alerts', 'resolve stale alerts']);
 
         // give permissions to dispatcher role.
         // Users/drivers/restaurants = View only.
@@ -239,6 +246,8 @@ class UserRolePermissionSeeder extends Seeder
         // Driver support requests (approve/reject/reply) = Full for dispatcher
         // too -- "operators" in the feature request maps to this role.
         $dispatcherRole->givePermissionTo(['view support requests', 'manage support requests']);
+        // Stale Job Alerts (Batch 2 Part 3) = Full for Dispatcher/Operator.
+        $dispatcherRole->givePermissionTo(['view stale alerts', 'resolve stale alerts']);
         // Operator/driver job-count reporting = Own (scoped to the dispatcher's
         // own activity row -- enforced in ReportController, not via a separate
         // permission).

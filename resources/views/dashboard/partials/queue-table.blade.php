@@ -91,8 +91,19 @@
                 </tr>
             </thead>
             <tbody id="queue-table-body">
+                {{-- Batch 2 Part 3 -- highlight rows with an open stale-job
+                     alert. Computed inline (same pattern the sidebar badge
+                     counts already use) rather than threading it through
+                     every controller that renders this partial. --}}
+                @php
+                    $openAlertRideIds = \App\Models\StaleJobAlert::where('status', 'open')
+                        ->where('subject_type', \App\Models\Ride::class)
+                        ->pluck('subject_id')
+                        ->all();
+                @endphp
                 @forelse($rides as $ride)
-                    <tr data-queue="{{ $ride['queue'] }}" data-type="{{ $ride['type_key'] }}">
+                    <tr data-queue="{{ $ride['queue'] }}" data-type="{{ $ride['type_key'] }}"
+                        @if(in_array($ride['id'], $openAlertRideIds)) class="table-danger" title="{{ __('Has an open stale-job alert') }}" @endif>
                         <td class="muted-cell">{{ $ride['time'] }}</td>
                         <td>{{ $itemPrefix }}{{ $ride['id'] }}</td>
                         <td>

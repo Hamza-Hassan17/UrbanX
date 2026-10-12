@@ -315,6 +315,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('rider-cash', [\App\Http\Controllers\Dashboard\RiderCashController::class, 'index'])->name('rider-cash.index');
             Route::get('rider-cash/{riderId}', [\App\Http\Controllers\Dashboard\RiderCashController::class, 'show'])->name('rider-cash.show');
             Route::post('rider-cash/{riderId}/settle', [\App\Http\Controllers\Dashboard\RiderCashController::class, 'recordSettlement'])->name('rider-cash.settle');
+
+            //Stale Job Alerts (Batch 2 Part 3) -- one page per workspace.
+            Route::get('rides/alerts', [\App\Http\Controllers\Dashboard\StaleJobAlertController::class, 'index'])->name('rides.alerts')->defaults('workspace', 'rides');
+            Route::get('delivery/alerts', [\App\Http\Controllers\Dashboard\StaleJobAlertController::class, 'index'])->name('delivery.alerts')->defaults('workspace', 'delivery');
+            Route::post('alerts/{alert}/resolve', [\App\Http\Controllers\Dashboard\StaleJobAlertController::class, 'resolve'])->name('alerts.resolve');
         });
     });
 
