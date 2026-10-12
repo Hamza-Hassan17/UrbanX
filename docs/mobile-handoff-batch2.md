@@ -77,6 +77,30 @@ else sees the job.
 **Recommended but not required:** update to show the countdown and handle `410` with a clear "this job was
 taken while you were deciding" message, rather than the generic error fallback.
 
+### 5. "Legacy direct accept" will eventually be switched off — update before then
+
+Right now, `accept-ride` still accepts a direct tap with no prior poll/offer (the old push-only flow),
+controlled by a new admin setting — **Dispatch → "Allow Legacy Direct Accept"** — that defaults to **on**.
+This is deliberate, to give already-shipped app builds time to update before anything actually breaks for
+them.
+
+**Once that setting is switched off** (we'll coordinate the timing with you), `accept-ride` will require a
+real, unexpired pending offer for that specific driver and ride. An old build tapping Accept with no such
+offer on record will get:
+```json
+{ "message": "You were not offered this ride." }
+```
+**HTTP status: `403`.** This is distinct from the `410` "This offer has expired." case in #2 above — `403`
+means no offer was ever created for you on this job at all (e.g. you never polled), `410` means you had one
+and it ran out.
+
+**Admin-assigned rides are unaffected either way** — a ride the admin manually assigned to a driver has no
+formal offer record to begin with and was never subject to this check, on or off.
+
+**What to do now:** make sure your app always polls `get-rides` before showing an Accept button, so a real
+offer exists by the time the driver taps it. Once you've shipped that, let us know and we'll flip the
+switch — until then, nothing changes for you.
+
 ---
 
 ## Customer App
@@ -96,6 +120,35 @@ a card payment gateway wired up for taxi rides (same situation parcels were in b
 those to COD-only), so `cash` is the only value that reflects anything real right now. Added so the backend
 can track whether a completed ride was a cash fare — needed for Part 5 (driver outstanding balance) — not
 because card payment actually works yet. Safe to leave this field out entirely; nothing breaks.
+
+### 2. ⚠️ Not yet decided — what happens when a job exhausts all re-offer attempts with no driver
+
+**This is current behaviour, documented as-is for visibility — we have not changed anything here and are
+holding off until the client confirms what should happen.** Flagging it now so you know exactly what the
+app receives (or doesn't) in this case today.
+
+When a ride/parcel/food-delivery job has been offered to every eligible nearby driver in turn (Part 2's
+automatic re-offer) and none of them accepted — either because `reoffer_attempts` hits the admin-configured
+max, or because there's simply nobody left eligible to offer it to — **the customer app receives nothing
+further.** Concretely:
+
+- `status` stays `requested` indefinitely. There is no `failed`, `no_driver_found`, or similar status.
+- The only broadcast the customer's own ride channel (`private-ride.{ride_id}`) receives during the whole
+  re-offer sequence is a `ride.offer.created` event **each time a new driver is offered the job** — same
+  event, same shape, whether it's the 1st driver tried or the 5th. There's no distinct signal for "this was
+  the last eligible driver and nobody is left to try." A customer app that renders every `ride.offer.created`
+  as "a driver is reviewing your request" will keep showing that same reassuring state even after the
+  system has quietly given up.
+- No push notification is sent to the customer in this case either.
+- The only place this becomes visible at all is admin-side: once the job crosses the stale-unassigned
+  threshold or the `max_reoffer_attempts` count, it shows up on the Rides/Delivery → Alerts page (Batch 2
+  Part 3) for an admin to notice and act on manually (e.g. via "Assign Trip"). There is currently no
+  automatic customer-facing fallback (cancel-and-refund, "no drivers available" message, widening the
+  search radius, etc.).
+
+We're not changing this yet — please confirm with the client what the intended behavior should be (an
+explicit failure status the app can show, a timeout-and-cancel flow, something else), and we'll implement
+whichever is decided.
 
 ---
 
@@ -133,7 +186,7 @@ Batch 1 already does for delivery riders over their cash limit:
 ```json
 {
   "rides": [],
-  "message": "Your outstanding balance is over the limit. Please settle with the office before accepting new deliveries."
+  "message": "Your outstanding balance is over the limit. Please settle with the office before accepting new rides."
 }
 ```
 Show this message prominently, same as the existing cash-limit one.
@@ -142,7 +195,7 @@ Show this message prominently, same as the existing cash-limit one.
 
 `POST /api/driver/accept-ride` — second line of defense, same pattern as the existing cash-limit check:
 ```json
-{ "message": "Your outstanding balance is over the limit. Please settle with the office before accepting new deliveries." }
+{ "message": "Your outstanding balance is over the limit. Please settle with the office before accepting new rides." }
 ```
 (HTTP `403`)
 
@@ -178,6 +231,14 @@ storefront_photo: <image file, optional even for final submission>
 `storefront_photo` is the only field that stays optional even for a complete submission — everything else
 is required before status flips to `submitted`.
 
+**Bank detail changes after approval go to a pending state, not live immediately.** If the restaurant is
+already approved and the owner changes `bank_account_title` or `bank_iban` to a different value than what's
+currently on file, the restaurant **stays live/approved** but the new value is held as pending instead of
+replacing the live one — payouts and the Restaurant Payable report keep using the old, approved details
+until an admin reviews and approves the change from the dashboard. This only applies to an *already
+approved* restaurant changing an *existing* value; a restaurant submitting its bank details for the first
+time (nothing approved yet) saves normally, no pending state involved.
+
 **Success (200) — still missing documents**
 ```json
 {
@@ -209,7 +270,8 @@ is required before status flips to `submitted`.
   "rejection_reason": "CNIC photo is blurry, please resubmit a clearer copy.",
   "submitted_at": "2026-10-10T09:00:00+00:00",
   "reviewed_at": "2026-10-11T14:30:00+00:00",
-  "is_approved": false
+  "is_approved": false,
+  "pending_bank_change": false
 }
 ```
 `status`: `not_submitted` \| `submitted` \| `approved` \| `rejected`. `is_approved` is the actual live flag
@@ -218,11 +280,16 @@ unusual) for `status` to show `rejected` from the most recent review while `is_a
 from an earlier approval, if the owner resubmitted after already being live; always gate the "you're live"
 UI state off `is_approved`, not off `status` alone.
 
+`pending_bank_change` (new) is `true` whenever a submitted bank detail change (see above) is still awaiting
+admin review. Show something like "Your new bank details are pending approval" on the status screen when
+this is `true` — the owner's live `bank_account_title`/`bank_iban` aren't returned by this endpoint (only
+the flag is), since the app has no reason to show the old values back to the owner while they wait.
+
 **Screens needed:**
 - A verification form collecting all the documents/fields above, allowing partial saves.
 - A status screen: pending ("waiting for review"), rejected (show `rejection_reason`, let them resubmit —
   same submit endpoint, same fields, any already-uploaded file can be left out to keep it), approved
-  ("you're live").
+  ("you're live"), and a "bank details pending approval" note when `pending_bank_change` is `true`.
 - Until `is_approved` is `true`, the restaurant won't appear in customer search/listing and any order
   placed against it will be rejected — there's no separate "preview as unapproved" mode, so don't let the
   owner think customers can see them yet.
@@ -237,3 +304,11 @@ UI state off `is_approved`, not off `status` alone.
 | `payment_method` | taxi `request-ride` request | optional, defaults to `cash` |
 | `cash_balance`/`cash_limit`/`outstanding_balance`/`outstanding_limit` | `earnings` response | always both pairs, regardless of driver type |
 | `is_approved` | restaurant verification status response | the actual live/visible flag — gate UI on this, not `status` |
+| `pending_bank_change` | restaurant verification status response | `true` while a submitted bank detail change awaits admin approval |
+
+**Error codes to add handling for, if not already present:**
+
+| Code | When | Message |
+|---|---|---|
+| `410` | `accept-ride` on an offer that expired | "This offer has expired." |
+| `403` | `accept-ride` with no offer on record at all, **once "Allow Legacy Direct Accept" is switched off** (not yet — see the Breaking Changes section) | "You were not offered this ride." |
