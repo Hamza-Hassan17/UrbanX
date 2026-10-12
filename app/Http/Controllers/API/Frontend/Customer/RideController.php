@@ -494,6 +494,66 @@ class RideController extends Controller
     }
 
     /**
+     * Review follow-up -- lets the checkout screen show the delivery fee
+     * before the customer commits to booking (bookParcel() itself only
+     * returns the fee after creating the ride). Same server-side distance
+     * calculation and pricing as bookParcel() -- this endpoint creates
+     * nothing, it only previews the number bookParcel() would charge for
+     * the same two points right now.
+     */
+    public function quoteParcelFee(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'pickup_latitude' => 'required|numeric',
+            'pickup_longitude' => 'required|numeric',
+            'dropoff_latitude' => 'required|numeric',
+            'dropoff_longitude' => 'required|numeric',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $parcelSettings = FareBreakdownService::parcelDeliveryFeeSettings();
+
+            $distanceActualKm = $this->haversineDistanceKm(
+                $request->pickup_latitude,
+                $request->pickup_longitude,
+                $request->dropoff_latitude,
+                $request->dropoff_longitude
+            );
+            $distanceChargedKm = FareBreakdownService::roundUpToKm($distanceActualKm);
+
+            if ($distanceChargedKm > $parcelSettings['max_distance_km']) {
+                return response()->json([
+                    'message' => "This address is beyond the {$parcelSettings['max_distance_km']} km parcel delivery limit."
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $deliveryFee = $parcelSettings['first_km_fee'];
+            if ($distanceChargedKm > 1) {
+                $deliveryFee += ($distanceChargedKm - 1) * $parcelSettings['per_km_fee'];
+            }
+
+            return response()->json([
+                'distance_actual_km' => round($distanceActualKm, 2),
+                'distance_charged_km' => $distanceChargedKm,
+                'delivery_fee' => round($deliveryFee, 2),
+                'max_distance_km' => $parcelSettings['max_distance_km'],
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('Quote Parcel Fee Failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
      * Batch 1 Part 5 -- parcel booking. A parcel is a ride_type='delivery'
      * row with no matching restaurant_orders row (the distinction the rest
      * of the app already uses to tell parcels from food-delivery jobs --
@@ -512,7 +572,11 @@ class RideController extends Controller
             'pickup_longitude' => 'required|numeric',
             'dropoff_latitude' => 'required|numeric',
             'dropoff_longitude' => 'required|numeric',
-            'distance_km' => 'required|numeric|min:0',
+            // Security follow-up -- kept accepted (not removed) for
+            // backward compatibility with app builds that still send a
+            // client-estimated distance for display, but never trusted for
+            // pricing or the distance limit below; see $distanceActualKm.
+            'distance_km' => 'nullable|numeric|min:0',
             'duration_minutes' => 'nullable|integer|min:0',
             'sender_name' => 'required|string|max:255',
             'sender_phone' => 'required|string|max:30',
@@ -522,6 +586,10 @@ class RideController extends Controller
             'package_size' => 'required|in:small,medium,large',
             'parcel_notes' => 'nullable|string|max:500',
             'delivery_fee_paid_by' => 'required|in:sender,receiver',
+            // Security follow-up -- only 'cod' actually works end to end
+            // today (confirm-cash-collected, the rider cash ledger). The
+            // other values validated before but had no real payment
+            // handling behind them.
             'payment_method' => 'required|in:cod,card,cash,jazzcash,easypaisa',
         ]);
 
@@ -532,9 +600,26 @@ class RideController extends Controller
             ], Response::HTTP_BAD_REQUEST);
         }
 
+        if ($request->payment_method !== 'cod') {
+            return response()->json([
+                'message' => 'Only cash on delivery (cod) is supported for parcels right now.'
+            ], Response::HTTP_UNPROCESSABLE_ENTITY);
+        }
+
         try {
             $parcelSettings = FareBreakdownService::parcelDeliveryFeeSettings();
-            $distanceActualKm = (float) $request->distance_km;
+            // Security follow-up -- distance is always computed server-side
+            // from the pickup/dropoff coordinates (same haversine formula
+            // Restaurant\CustomerController uses for the food delivery
+            // limit), never trusted from the client's distance_km. A
+            // client-sent distance could otherwise undercharge the
+            // delivery fee or sneak a booking past the distance limit.
+            $distanceActualKm = $this->haversineDistanceKm(
+                $request->pickup_latitude,
+                $request->pickup_longitude,
+                $request->dropoff_latitude,
+                $request->dropoff_longitude
+            );
             $distanceChargedKm = FareBreakdownService::roundUpToKm($distanceActualKm);
 
             if ($distanceChargedKm > $parcelSettings['max_distance_km']) {
@@ -623,6 +708,26 @@ class RideController extends Controller
      * socket reconnecting, etc). A failure here must never fail the ride
      * request itself, since polling still works without it.
      */
+    /**
+     * Security follow-up on bookParcel() -- same formula as
+     * Restaurant\CustomerController::haversineDistanceKm(), kept as its own
+     * copy here rather than extracted to a shared service, matching this
+     * codebase's existing pattern of a private per-controller copy
+     * (Driver\RideController has its own too, in meters).
+     */
+    private function haversineDistanceKm($lat1, $lng1, $lat2, $lng2): float
+    {
+        $earthRadiusKm = 6371;
+        $lat1 = deg2rad((float) $lat1);
+        $lng1 = deg2rad((float) $lng1);
+        $lat2 = deg2rad((float) $lat2);
+        $lng2 = deg2rad((float) $lng2);
+
+        return $earthRadiusKm * acos(min(1, max(-1,
+            cos($lat1) * cos($lat2) * cos($lng2 - $lng1) + sin($lat1) * sin($lat2)
+        )));
+    }
+
     private function notifyNearbyDrivers(Ride $ride): void
     {
         try {

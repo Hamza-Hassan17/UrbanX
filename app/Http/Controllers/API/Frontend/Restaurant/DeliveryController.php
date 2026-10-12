@@ -383,6 +383,11 @@ class DeliveryController extends Controller
             'status'   => 'required|in:picked_up,on_the_way,delivered',
             // Batch 1 Part 7 -- required only when marking delivered.
             'delivery_code' => 'required_if:status,delivered|nullable|string|size:4',
+            // Batch 1 Part 8 follow-up -- required when marking delivered
+            // on a still-uncollected COD order (checked below, since
+            // "still uncollected" depends on the order's own payment
+            // fields, not something a static rule can express).
+            'cash_collected_amount' => 'nullable|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -434,6 +439,43 @@ class DeliveryController extends Controller
                             ? 'Too many incorrect codes -- this order now needs an admin override to mark delivered.'
                             : 'Incorrect delivery code. ' . (5 - $order->delivery_code_attempts) . ' attempt(s) remaining.'
                     ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+
+                // Batch 1 Part 8 follow-up -- a COD order can no longer be
+                // marked delivered without the cash amount in this same
+                // request, unless it was already confirmed separately via
+                // confirmCashCollected() (kept for backward compatibility
+                // with app builds that still call it as a separate step).
+                if ($order->payment_method === 'cod' && $order->payment_status !== 'collected') {
+                    if (!$request->filled('cash_collected_amount')) {
+                        return response()->json([
+                            'message' => 'cash_collected_amount is required to mark a cash-on-delivery order as delivered.'
+                        ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                    }
+
+                    DB::transaction(function () use ($order, $request) {
+                        $order->payment_status = 'collected';
+                        $order->status = 'delivered';
+                        $order->save();
+
+                        \App\Services\RiderCashService::recordCollected(
+                            auth()->id(),
+                            (float) $request->cash_collected_amount,
+                            RestaurantOrder::class,
+                            $order->id
+                        );
+                    });
+
+                    try {
+                        broadcast(new \App\Events\RestaurantOrderUpdated($order));
+                    } catch (\Throwable $e) {
+                        Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+                    }
+
+                    return response()->json([
+                        'message' => 'Delivery status updated.',
+                        'order'   => $order,
+                    ], Response::HTTP_OK);
                 }
             }
 

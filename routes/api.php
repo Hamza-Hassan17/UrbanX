@@ -97,6 +97,7 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
         Route::post('/update-ride-status', [DriverRideController::class, 'updateRideStatus']);
         Route::post('/parcel-receiver-unreachable', [DriverRideController::class, 'markParcelReceiverUnreachable']);
         Route::post('/confirm-parcel-cash-collected', [DriverRideController::class, 'confirmParcelCashCollected']);
+        Route::get('/earnings', [DriverRideController::class, 'earnings']);
         Route::get('/get-ride-details/{ride_id}', [DriverRideController::class, 'getRideDetails']);
         Route::get('/get-current-ride', [DriverRideController::class, 'getCurrentRide']);
 
@@ -126,6 +127,7 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
         //Customer Personal Information
         route::post('/request-ride', [RideController::class, 'requestRide']);
         route::post('/book-parcel', [RideController::class, 'bookParcel']);
+        route::post('/quote-parcel-fee', [RideController::class, 'quoteParcelFee']);
         route::post('/calculate-distance-fare', [RideController::class, 'calculateDistanceFare']);
         route::post('/get-vehicle-types', [RideController::class, 'getVehicleTypes']);
         route::post('/nearby-drivers/watch', [RideController::class, 'watchNearbyDrivers']);

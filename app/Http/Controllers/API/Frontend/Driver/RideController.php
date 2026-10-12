@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\API\Frontend\Driver;
 
 use App\Http\Controllers\Controller;
+use App\Models\DriverPayout;
 use App\Models\DriverVehicle;
 use App\Models\Ride;
+use App\Models\RestaurantOrder;
 use App\Models\RideDriverLog;
 use App\Models\RideLocationPing;
 use App\Models\RideOffer;
@@ -697,6 +699,16 @@ class RideController extends Controller
 
             $ride->receiver_unreachable_photo = $request->file('photo')->store('uploads/parcel-unreachable', 'public');
             $ride->flagged_for_review = true;
+            // Review follow-up -- previously left on whatever status the
+            // rider was at (usually 'started'), which kept the ride
+            // permanently "in progress" and the rider stuck with it,
+            // unable to take new jobs, until an admin happened to notice.
+            // 'delivery_failed' is its own holding state: the parcel sits
+            // here (effectively "returned to sender" until admin acts --
+            // nothing re-attempts delivery on its own) and the rider is
+            // released immediately so they're free for new offers.
+            $ride->status = 'delivery_failed';
+            $ride->driver_id = null;
             $ride->save();
 
             Log::warning('Parcel receiver unreachable, flagged for review', [
@@ -705,7 +717,7 @@ class RideController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Flagged for admin review.',
+                'message' => 'Flagged for admin review. You have been released from this parcel and are now available for new offers.',
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('markParcelReceiverUnreachable failed', ['error' => $th->getMessage()]);
@@ -777,6 +789,137 @@ class RideController extends Controller
         }
     }
 
+    /**
+     * Review follow-up -- per-job earnings breakdown for the Driver and
+     * Delivery apps (one shared endpoint; a delivery rider is a driver
+     * account same as a taxi driver, same auth guard). Reads exclusively
+     * from the Part 2 fare_breakdown snapshot, same principle as
+     * Dashboard\PayrollController -- never recalculated from current
+     * commission rates.
+     *
+     * Taxi rides and parcels both live on `rides`; a food delivery's
+     * money breakdown instead lives on its `restaurant_orders` row (its
+     * own `rides` row only ever carries routing/offer state, not the
+     * food-leg commission split), so it's queried separately and the
+     * underlying ride excluded from the rides side to avoid double
+     * counting the same job twice.
+     */
+    public function earnings(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'type' => 'nullable|in:taxi_ride,parcel,food_delivery',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $driverId = auth()->id();
+            $start = $request->filled('start_date') ? $request->start_date . ' 00:00:00' : null;
+            $end = $request->filled('end_date') ? $request->end_date . ' 23:59:59' : null;
+
+            $foodRideIds = RestaurantOrder::whereNotNull('ride_id')->pluck('ride_id');
+
+            $rideRows = collect();
+            if ($request->type !== 'food_delivery') {
+                $ridesQuery = Ride::where('driver_id', $driverId)
+                    ->where('status', 'completed')
+                    ->whereNotNull('fare_breakdown')
+                    ->whereNotIn('id', $foodRideIds);
+
+                if ($start && $end) {
+                    $ridesQuery->whereBetween('completed_at', [$start, $end]);
+                }
+                if ($request->type === 'taxi_ride') {
+                    $ridesQuery->where('ride_type', 'ride');
+                } elseif ($request->type === 'parcel') {
+                    $ridesQuery->where('ride_type', 'delivery');
+                }
+
+                $rideRows = $ridesQuery->get()->map(function ($ride) {
+                    $fb = $ride->fare_breakdown ?? [];
+                    return [
+                        'type' => $ride->ride_type === 'ride' ? 'taxi_ride' : 'parcel',
+                        'id' => $ride->id,
+                        'completed_at' => $ride->completed_at?->toIso8601String(),
+                        'gross' => (float) ($fb['rider_gross'] ?? 0),
+                        'commission_rate' => $fb['commission_rate'] ?? null,
+                        'commission_amount' => (float) ($fb['commission_amount'] ?? 0),
+                        'sst_rate' => $fb['sst_rate'] ?? null,
+                        'sst_amount' => (float) ($fb['sst_amount'] ?? 0),
+                        'net' => (float) ($fb['rider_net'] ?? 0),
+                    ];
+                });
+            }
+
+            $orderRows = collect();
+            if ($request->type === null || $request->type === 'food_delivery') {
+                $deliveredRideIds = Ride::where('driver_id', $driverId)->where('ride_type', 'delivery')->pluck('id');
+
+                $ordersQuery = RestaurantOrder::whereIn('ride_id', $deliveredRideIds)
+                    ->where('status', 'delivered')
+                    ->whereNotNull('fare_breakdown');
+
+                if ($start && $end) {
+                    $ordersQuery->whereBetween('updated_at', [$start, $end]);
+                }
+
+                $orderRows = $ordersQuery->get()->map(function ($order) {
+                    $fb = $order->fare_breakdown ?? [];
+                    return [
+                        'type' => 'food_delivery',
+                        'id' => $order->id,
+                        'order_number' => $order->order_number,
+                        'completed_at' => $order->updated_at?->toIso8601String(),
+                        'gross' => (float) ($fb['rider_gross'] ?? 0),
+                        'commission_rate' => $fb['platform_share_rate'] ?? null,
+                        'commission_amount' => (float) ($fb['platform_share_amount'] ?? 0),
+                        'sst_rate' => $fb['sst_rate'] ?? null,
+                        'sst_amount' => (float) ($fb['sst_amount'] ?? 0),
+                        'net' => (float) ($fb['rider_net'] ?? 0),
+                    ];
+                });
+            }
+
+            $rows = $rideRows->concat($orderRows)->sortByDesc('completed_at')->values();
+
+            $totals = [
+                'gross' => round($rows->sum('gross'), 2),
+                'commission' => round($rows->sum('commission_amount'), 2),
+                'sst' => round($rows->sum('sst_amount'), 2),
+                'net' => round($rows->sum('net'), 2),
+                'count' => $rows->count(),
+            ];
+
+            $paidAmountQuery = DriverPayout::where('driver_id', $driverId);
+            if ($request->filled('start_date') && $request->filled('end_date')) {
+                $paidAmountQuery->where('period_start', '>=', $request->start_date)
+                    ->where('period_end', '<=', $request->end_date);
+            }
+            $paidAmount = round((float) $paidAmountQuery->sum('amount'), 2);
+
+            return response()->json([
+                'rows' => $rows,
+                'totals' => $totals,
+                'payout_status' => [
+                    'paid_amount' => $paidAmount,
+                    'is_fully_paid' => $totals['net'] > 0 && $paidAmount >= $totals['net'],
+                ],
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('Driver Earnings Failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public function updateRideStatus(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -785,6 +928,10 @@ class RideController extends Controller
             // Batch 1 Part 7 -- required only for a parcel marked completed
             // (a parcel ride has its own delivery_code; a taxi ride doesn't).
             'delivery_code' => 'nullable|string|size:4',
+            // Batch 1 Part 8 follow-up -- required when completing a
+            // still-uncollected COD parcel (checked below, since "still
+            // uncollected" depends on the ride's own payment fields).
+            'cash_collected_amount' => 'nullable|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -839,6 +986,18 @@ class RideController extends Controller
                             : 'Incorrect delivery code. ' . (5 - $ride->delivery_code_attempts) . ' attempt(s) remaining.'
                     ], Response::HTTP_UNPROCESSABLE_ENTITY);
                 }
+
+                // Batch 1 Part 8 follow-up -- a COD parcel can no longer be
+                // completed without the cash amount in this same request,
+                // unless it was already confirmed separately via
+                // confirmParcelCashCollected() (kept for backward
+                // compatibility with app builds that still call it as a
+                // separate step).
+                if ($ride->payment_method === 'cod' && $ride->payment_status !== 'collected' && !$request->filled('cash_collected_amount')) {
+                    return response()->json([
+                        'message' => 'cash_collected_amount is required to complete a cash-on-delivery parcel.'
+                    ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
             }
 
             $ride->status = $request->status;
@@ -875,12 +1034,29 @@ class RideController extends Controller
                     'distance_actual_km' => $ride->distance_km,
                     'distance_charged_km' => $ride->distance_charged_km,
                 ]);
+
+                if ($ride->delivery_code && $ride->payment_method === 'cod' && $ride->payment_status !== 'collected') {
+                    $ride->payment_status = 'collected';
+                }
             }
 
             $ride->status_updated_by = auth()->id();
             $ride->status_updated_by_role = 'driver';
 
-            $ride->save();
+            if ($request->status === 'completed' && $ride->delivery_code && $request->filled('cash_collected_amount') && $ride->getOriginal('payment_status') !== 'collected') {
+                DB::transaction(function () use ($ride, $request) {
+                    $ride->save();
+
+                    \App\Services\RiderCashService::recordCollected(
+                        auth()->id(),
+                        (float) $request->cash_collected_amount,
+                        Ride::class,
+                        $ride->id
+                    );
+                });
+            } else {
+                $ride->save();
+            }
             $passenger = $ride->passenger;
             if ($request->status === 'en_route') {
                 $title = 'Driver En Route';

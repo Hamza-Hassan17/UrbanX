@@ -207,6 +207,61 @@ class DeliveryController extends Controller
     }
 
     /**
+     * Review follow-up -- resolves a parcel an admin has investigated
+     * after Driver\RideController::markParcelReceiverUnreachable flagged
+     * it. Two outcomes: send it back (closes the job as cancelled, same
+     * as any other cancellation) or put it back in the dispatch queue for
+     * a fresh rider (status back to 'requested', driver already cleared
+     * when it was flagged).
+     */
+    public function resolveUnreachableParcel(Request $request, $ride_id)
+    {
+        $this->authorize('view delivery');
+
+        $validator = Validator::make($request->all(), [
+            'action' => 'required|in:return_to_sender,reassign',
+            'note' => 'nullable|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return redirect()->back()->withErrors($validator)->with('error', 'Validation Error!');
+        }
+
+        try {
+            $ride = Ride::findOrFail($ride_id);
+
+            if ($ride->status !== 'delivery_failed') {
+                return redirect()->back()->with('error', 'This parcel is not flagged for review.');
+            }
+
+            if ($request->action === 'return_to_sender') {
+                $ride->status = 'cancelled';
+                $ride->cancelled_at = now();
+                $ride->cancel_reason = 'Receiver unreachable -- returned to sender. ' . ($request->note ?? '');
+            } else {
+                $ride->status = 'requested';
+                $ride->driver_id = null;
+            }
+
+            $ride->flagged_for_review = false;
+            $ride->save();
+
+            AdminActivityLog::record(
+                'Resolved unreachable parcel (' . $request->action . ')',
+                [],
+                ['ride_id' => $ride->id, 'action' => $request->action, 'note' => $request->note],
+                Ride::class,
+                $ride->id
+            );
+
+            return redirect()->back()->with('success', 'Parcel resolved successfully');
+        } catch (\Throwable $th) {
+            Log::error('Resolve Unreachable Parcel Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', 'Something went wrong! Please try again later');
+        }
+    }
+
+    /**
      * Tags each Ride with a transient type_key/type_label (food/parcel)
      * based on whether a restaurant_orders row points at it. Batched into
      * one query rather than checked per-row.
