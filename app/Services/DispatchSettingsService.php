@@ -40,4 +40,29 @@ class DispatchSettingsService
     {
         return (float) (SystemSetting::first()?->taxi_outstanding_limit ?? 5000.00);
     }
+
+    /**
+     * Single switch for every driver-verification gate in the app --
+     * flip this one line to `true` to re-enable all of them at once:
+     *   - Customer\RideController::notifyNearbyDrivers() (taxi push)
+     *   - Driver\RideController::notifyNearbyDrivers() (parcel/delivery push)
+     *   - Driver\RideController::getLatestRides() (poll)
+     *   - Driver\RideController::acceptRide() (direct accept)
+     *   - DriverDetailsController::updateDriverStatus() (go-online)
+     *   - OfferDispatchService::findNextEligibleDriver() (Batch 2 Part 2
+     *     automatic re-offer -- added alongside this switch, not a
+     *     separate TEMP comment, so it can never drift out of sync with
+     *     the other five)
+     *
+     * Disabled since 2026-09-19 (see the TEMP comments at each site
+     * above) to isolate a mobile-testing issue. DO NOT ship to
+     * production with this still false -- unverified drivers/riders
+     * must not be reachable by customers or offered jobs, per the KYC
+     * requirement. See docs/mobile-handoff-batch2.md's deploy steps for
+     * the exact pre-launch checklist.
+     */
+    public static function driverVerificationEnabled(): bool
+    {
+        return false;
+    }
 }

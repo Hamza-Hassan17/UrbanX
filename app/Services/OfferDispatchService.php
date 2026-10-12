@@ -21,11 +21,13 @@ use Illuminate\Support\Facades\Log;
  * RideController's "Assign Trip") is a deliberate human choice, not an
  * automatic broadcast, and is left untouched by this service.
  *
- * Eligibility deliberately does NOT check driver verification status or an
- * "online" flag: verification is already disabled app-wide (see the TEMP
- * comments in Driver\RideController, dated 2026-09-19) and there is no
- * online/offline column yet (that's a later, unbuilt feature) -- enforcing
- * either here would be inconsistent with every other part of the app.
+ * Eligibility does NOT check an "online" flag -- there is no online/offline
+ * column yet (that's a later, unbuilt feature) -- but DOES check driver
+ * verification status, behind DispatchSettingsService::
+ * driverVerificationEnabled(), the same single switch every other
+ * verification gate in the app uses (currently false/disabled since
+ * 2026-09-19, so this check is a no-op today; flipping that one switch
+ * re-enables it here too, with nothing in this file to remember to change).
  */
 class OfferDispatchService
 {
@@ -53,7 +55,13 @@ class OfferDispatchService
         $nearest = null;
         $nearestDistance = null;
 
+        $verificationEnabled = DispatchSettingsService::driverVerificationEnabled();
+
         foreach ($drivers as $driver) {
+            if ($verificationEnabled && $driver->driverVerification?->status !== 'approved') {
+                continue;
+            }
+
             // Batch 1 Part 8 -- delivery riders over their cash-in-hand
             // limit get no new offers. Taxi drivers get the equivalent
             // outstanding-balance check added in Part 5.

@@ -743,17 +743,19 @@ class RideController extends Controller
         try {
             $radiusKm = 5;
 
-            // TEMP: verification gate disabled 2026-09-19 to isolate why
-            // rides weren't reaching the driver app during mobile testing --
-            // re-enable the join below once confirmed. Do not ship to
-            // production with this commented out; unverified drivers must
-            // not be reachable by customers per the KYC requirement.
+            // Verification gate disabled 2026-09-19 to isolate why rides
+            // weren't reaching the driver app during mobile testing -- see
+            // DispatchSettingsService::driverVerificationEnabled(), the
+            // single switch for every verification gate in the app
+            // (re-enabling this one re-enables all of them together).
             $driverIds = DriverVehicle::where('vehicle_type_id', $ride->vehicle_type_id)
                 ->join('users', 'users.id', '=', 'driver_vehicles.driver_id')
-                // ->join('driver_verifications', function ($join) {
-                //     $join->on('driver_verifications.driver_id', '=', 'driver_vehicles.driver_id')
-                //         ->where('driver_verifications.status', '=', 'approved');
-                // })
+                ->when(\App\Services\DispatchSettingsService::driverVerificationEnabled(), function ($q) {
+                    $q->join('driver_verifications', function ($join) {
+                        $join->on('driver_verifications.driver_id', '=', 'driver_vehicles.driver_id')
+                            ->where('driver_verifications.status', '=', 'approved');
+                    });
+                })
                 ->whereNotNull('users.lat')
                 ->whereNotNull('users.lang')
                 ->selectRaw("
