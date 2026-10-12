@@ -59,6 +59,9 @@ class RideController extends Controller
             $ride = Ride::with('passenger','driver','vehicleType','promoCode')->findOrFail($id);
             $rideOffers = RideOffer::where('ride_id', $id)->with('driver:id,name,phone')->get();
             $rideExtraCharges = RideExtraCharge::where('ride_id', $id)->get();
+            // Review follow-up -- a food-delivery ride's cash-discrepancy
+            // flag (if any) lives on its restaurant_orders row, not here.
+            $relatedOrder = RestaurantOrder::where('ride_id', $ride->id)->first();
 
             // Check for boost hour
             $requestedTime = \Carbon\Carbon::parse($ride->requested_at)->format('H:i:s');
@@ -66,7 +69,7 @@ class RideController extends Controller
                 ->where('end', '>=', $requestedTime)
                 ->first();
 
-            return view('dashboard.rides.show',compact('ride','rideOffers','rideExtraCharges','boostHour'));
+            return view('dashboard.rides.show',compact('ride','rideOffers','rideExtraCharges','boostHour','relatedOrder'));
         } catch (\Throwable $th) {
             Log::error('Ride Show Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");

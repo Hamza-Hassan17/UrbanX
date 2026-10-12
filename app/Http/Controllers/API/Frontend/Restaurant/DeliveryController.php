@@ -453,14 +453,29 @@ class DeliveryController extends Controller
                         ], Response::HTTP_UNPROCESSABLE_ENTITY);
                     }
 
-                    DB::transaction(function () use ($order, $request) {
+                    // Review follow-up -- the amount due is computed
+                    // server-side (never trusted from the rider's entry).
+                    // A mismatch doesn't block delivery -- it still
+                    // completes -- but the ledger always records what was
+                    // actually due, and the order is flagged with both
+                    // numbers for admin review.
+                    $amountDue = (float) $order->total_price;
+                    $amountEntered = (float) $request->cash_collected_amount;
+                    $mismatch = abs($amountDue - $amountEntered) > 0.01;
+
+                    DB::transaction(function () use ($order, $amountDue, $amountEntered, $mismatch) {
                         $order->payment_status = 'collected';
                         $order->status = 'delivered';
+                        if ($mismatch) {
+                            $order->cash_discrepancy_flagged = true;
+                            $order->cash_entered_amount = $amountEntered;
+                            $order->cash_due_amount = $amountDue;
+                        }
                         $order->save();
 
                         \App\Services\RiderCashService::recordCollected(
                             auth()->id(),
-                            (float) $request->cash_collected_amount,
+                            $amountDue,
                             RestaurantOrder::class,
                             $order->id
                         );
@@ -548,10 +563,21 @@ class DeliveryController extends Controller
                 ], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 
+            // Review follow-up -- same amount-due integrity check as the
+            // inline path in updateDeliveryStatus().
+            $amountDue = (float) $order->total_price;
+            $amountEntered = (float) $request->amount;
+            $mismatch = abs($amountDue - $amountEntered) > 0.01;
+
             $order->payment_status = 'collected';
+            if ($mismatch) {
+                $order->cash_discrepancy_flagged = true;
+                $order->cash_entered_amount = $amountEntered;
+                $order->cash_due_amount = $amountDue;
+            }
             $order->save();
 
-            \App\Services\RiderCashService::recordCollected(auth()->id(), (float) $request->amount, RestaurantOrder::class, $order->id);
+            \App\Services\RiderCashService::recordCollected(auth()->id(), $amountDue, RestaurantOrder::class, $order->id);
 
             try {
                 broadcast(new \App\Events\RestaurantOrderUpdated($order));

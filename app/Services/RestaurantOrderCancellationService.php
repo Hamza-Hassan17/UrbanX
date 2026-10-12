@@ -49,6 +49,12 @@ class RestaurantOrderCancellationService
                 $order->id,
                 'order_details'
             );
+
+            try {
+                broadcast(new \App\Events\AssignedOrderCancelled($releasedDriver->id, $order->id, $cancelledBy, $reason));
+            } catch (\Throwable $e) {
+                Log::error('AssignedOrderCancelled broadcast failed', ['order_id' => $order->id, 'driver_id' => $releasedDriver->id, 'error' => $e->getMessage()]);
+            }
         }
 
         $partiesToNotify = [];

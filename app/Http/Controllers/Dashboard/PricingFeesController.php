@@ -46,6 +46,7 @@ class PricingFeesController extends Controller
             'restaurant_commission_percent' => 'required|numeric|min:0|max:100',
             'platform_share_percent' => 'required|numeric|min:0|max:100',
             'rider_cash_limit' => 'required|numeric|min:0',
+            'sst_ride_fare_method' => 'required|in:inclusive,exclusive',
         ]);
 
         if ($validator->fails()) {

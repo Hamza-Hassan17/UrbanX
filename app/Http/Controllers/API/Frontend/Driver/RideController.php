@@ -773,10 +773,21 @@ class RideController extends Controller
                 ], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 
+            // Review follow-up -- same amount-due integrity check as the
+            // inline path in updateRideStatus().
+            $amountDue = (float) $ride->total_fare;
+            $amountEntered = (float) $request->amount;
+            $mismatch = abs($amountDue - $amountEntered) > 0.01;
+
             $ride->payment_status = 'collected';
+            if ($mismatch) {
+                $ride->cash_discrepancy_flagged = true;
+                $ride->cash_entered_amount = $amountEntered;
+                $ride->cash_due_amount = $amountDue;
+            }
             $ride->save();
 
-            \App\Services\RiderCashService::recordCollected(auth()->id(), (float) $request->amount, Ride::class, $ride->id);
+            \App\Services\RiderCashService::recordCollected(auth()->id(), $amountDue, Ride::class, $ride->id);
 
             return response()->json([
                 'message' => 'Cash collection confirmed.',
@@ -852,6 +863,7 @@ class RideController extends Controller
                         'commission_rate' => $fb['commission_rate'] ?? null,
                         'commission_amount' => (float) ($fb['commission_amount'] ?? 0),
                         'sst_rate' => $fb['sst_rate'] ?? null,
+                        'sst_method' => $fb['sst_method'] ?? null,
                         'sst_amount' => (float) ($fb['sst_amount'] ?? 0),
                         'net' => (float) ($fb['rider_net'] ?? 0),
                     ];
@@ -881,6 +893,7 @@ class RideController extends Controller
                         'commission_rate' => $fb['platform_share_rate'] ?? null,
                         'commission_amount' => (float) ($fb['platform_share_amount'] ?? 0),
                         'sst_rate' => $fb['sst_rate'] ?? null,
+                        'sst_method' => $fb['sst_method'] ?? null,
                         'sst_amount' => (float) ($fb['sst_amount'] ?? 0),
                         'net' => (float) ($fb['rider_net'] ?? 0),
                     ];
@@ -1044,12 +1057,27 @@ class RideController extends Controller
             $ride->status_updated_by_role = 'driver';
 
             if ($request->status === 'completed' && $ride->delivery_code && $request->filled('cash_collected_amount') && $ride->getOriginal('payment_status') !== 'collected') {
-                DB::transaction(function () use ($ride, $request) {
+                // Review follow-up -- amount due is computed server-side
+                // (never trusted from the rider's entry). A mismatch
+                // doesn't block completion -- it still completes -- but
+                // the ledger always records what was actually due, and
+                // the ride is flagged with both numbers for admin review.
+                $amountDue = (float) $ride->total_fare;
+                $amountEntered = (float) $request->cash_collected_amount;
+                $mismatch = abs($amountDue - $amountEntered) > 0.01;
+
+                if ($mismatch) {
+                    $ride->cash_discrepancy_flagged = true;
+                    $ride->cash_entered_amount = $amountEntered;
+                    $ride->cash_due_amount = $amountDue;
+                }
+
+                DB::transaction(function () use ($ride, $amountDue) {
                     $ride->save();
 
                     \App\Services\RiderCashService::recordCollected(
                         auth()->id(),
-                        (float) $request->cash_collected_amount,
+                        $amountDue,
                         Ride::class,
                         $ride->id
                     );

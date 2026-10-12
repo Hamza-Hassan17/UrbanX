@@ -701,6 +701,15 @@ class RestaurantController extends Controller
                 ], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 
+            // Review follow-up -- restaurant cancellation window closes at
+            // pickup. A rider already has the food in hand past that
+            // point, so only an admin can unwind it from there.
+            if (in_array($order->status, ['picked_up', 'on_the_way'], true)) {
+                return response()->json([
+                    'message' => 'This order has already been picked up -- only an admin can cancel it now.'
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
             \App\Services\RestaurantOrderCancellationService::cancel($order, 'restaurant', $request->reason);
 
             return response()->json([

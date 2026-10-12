@@ -587,10 +587,26 @@ class CustomerController extends Controller
         }
     }
 
+    /**
+     * Review follow-up -- this previously priced off VehicleType::
+     * first_km_price/other_km_price (a leftover from before Pricing &
+     * Fees existed) and trusted a client-sent distance_km entirely. Now
+     * reads from FareBreakdownService::foodDeliveryFeeSettings() (the
+     * same first-km/per-km/max-distance settings placeOrder() enforces)
+     * and computes distance server-side via haversine from the
+     * restaurant's stored coordinates, same as placeOrder()'s own
+     * distance-limit check -- the number this endpoint quotes now always
+     * matches what placeOrder() will actually charge.
+     */
     public function calculateDeliveryFare(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'distance_km' => 'required|numeric|min:1',
+            'restaurant_id' => 'required|exists:restaurants,id',
+            'delivery_lat' => 'required|numeric',
+            'delivery_lang' => 'required|numeric',
+            // Kept accepted for backward compatibility with already-shipped
+            // app builds that still send it, but never used for pricing.
+            'distance_km' => 'nullable|numeric|min:0',
         ]);
 
         if ($validator->fails()) {
@@ -601,10 +617,37 @@ class CustomerController extends Controller
         }
 
         try {
-            $vehicleType = VehicleType::where('is_delivery', '1')->first();
-            $distance = $request->distance_km;
+            $restaurant = Restaurant::find($request->restaurant_id);
 
-            /* 🔥 Get current boost hour */
+            if (!$restaurant || !$restaurant->latitude || !$restaurant->longitude) {
+                return response()->json([
+                    'message' => 'Restaurant location is not configured.'
+                ], Response::HTTP_INTERNAL_SERVER_ERROR);
+            }
+
+            $feeSettings = FareBreakdownService::foodDeliveryFeeSettings();
+
+            $distanceActualKm = $this->haversineDistanceKm(
+                $restaurant->latitude,
+                $restaurant->longitude,
+                $request->delivery_lat,
+                $request->delivery_lang
+            );
+            $distanceChargedKm = FareBreakdownService::roundUpToKm($distanceActualKm);
+
+            if ($distanceChargedKm > $feeSettings['max_distance_km']) {
+                return response()->json([
+                    'message' => "This restaurant doesn't deliver to your address -- it's " . round($distanceActualKm, 1) . " km away, beyond the {$feeSettings['max_distance_km']} km delivery limit."
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $totalFare = $feeSettings['first_km_fee'];
+            if ($distanceChargedKm > 1) {
+                $totalFare += ($distanceChargedKm - 1) * $feeSettings['per_km_fee'];
+            }
+
+            /* Current boost hour, if any -- unrelated to Pricing & Fees,
+             * kept as-is from before this fix. */
             $now = now()->format('H:i');
             $busyHour = DB::table('boost_hours')
                 ->where('start', '<=', $now)
@@ -613,26 +656,11 @@ class CustomerController extends Controller
 
             $multiplier = $busyHour ? (float) $busyHour->multiplier : 1.0;
             $isBoost = $multiplier > 1;
-
-            // Default prices
-            $firstKmPrice = 150.00;
-            $otherKmPrice = 45.00;
-
-            if ($vehicleType) {
-                $firstKmPrice = $vehicleType->first_km_price ?? $firstKmPrice;
-                $otherKmPrice = $vehicleType->other_km_price ?? $otherKmPrice;
-            }
-
-            // Fare calculation
-            $totalFare = $firstKmPrice;
-
-            if ($distance > 1) {
-                $totalFare += ($distance - 1) * $otherKmPrice;
-            }
-
             $boostedFare = $totalFare * $multiplier;
 
             return response()->json([
+                'distance_actual_km' => round($distanceActualKm, 2),
+                'distance_charged_km' => $distanceChargedKm,
                 'total_fare'       => round($totalFare, 2),
                 'is_boost'         => $isBoost,
                 'boost_multiplier' => $multiplier,
@@ -681,8 +709,17 @@ class CustomerController extends Controller
             // just at listing time) since the cart/voucher may have been
             // built earlier, before the customer picked their final
             // delivery address.
+            // Review follow-up -- cart.delivery_fee was never actually set
+            // anywhere (always 0), so total_price was silently missing the
+            // delivery charge. Computed here, server-side, from the same
+            // distance this block already calculates for the limit check,
+            // and folded into total_price the same way applyVoucher/
+            // addToCart already compute it (subtotal - discount + tax +
+            // platform_fee + delivery_fee).
+            $deliveryFee = 0;
             if ($restaurant && $restaurant->latitude && $restaurant->longitude) {
-                $maxDistanceKm = FareBreakdownService::foodDeliveryFeeSettings()['max_distance_km'];
+                $feeSettings = FareBreakdownService::foodDeliveryFeeSettings();
+                $maxDistanceKm = $feeSettings['max_distance_km'];
                 $distanceToDelivery = $this->haversineDistanceKm(
                     $restaurant->latitude,
                     $restaurant->longitude,
@@ -694,6 +731,13 @@ class CustomerController extends Controller
                         'message' => "This restaurant doesn't deliver to your address -- it's " . round($distanceToDelivery, 1) . " km away, beyond the {$maxDistanceKm} km delivery limit."
                     ], Response::HTTP_BAD_REQUEST);
                 }
+
+                $distanceChargedKm = FareBreakdownService::roundUpToKm($distanceToDelivery);
+                $deliveryFee = $feeSettings['first_km_fee'];
+                if ($distanceChargedKm > 1) {
+                    $deliveryFee += ($distanceChargedKm - 1) * $feeSettings['per_km_fee'];
+                }
+                $deliveryFee = round($deliveryFee, 2);
             }
 
             DB::beginTransaction();
@@ -709,8 +753,8 @@ class CustomerController extends Controller
             $order->discount = $cart->discount;
             $order->tax = $cart->tax;
             $order->platform_fee = $cart->platform_fee;
-            $order->delivery_fee = $cart->delivery_fee;
-            $order->total_price = $cart->total_price;
+            $order->delivery_fee = $deliveryFee;
+            $order->total_price = round($cart->subtotal - $cart->discount + $cart->tax + $cart->platform_fee + $deliveryFee, 2);
             $order->delivery_lat = $request->delivery_lat;
             $order->delivery_lang = $request->delivery_lang;
             $order->rider_note = $request->rider_note;
@@ -730,7 +774,11 @@ class CustomerController extends Controller
             $voucher = $cart->voucher_code_id ? VoucherCode::find($cart->voucher_code_id) : null;
             $order->discount_funded_by = $voucher->funded_by ?? 'platform';
 
-            $distanceActualKm = $request->distance_km !== null ? (float) $request->distance_km : null;
+            // Review follow-up -- use the server-computed distance from
+            // above (same one the delivery fee and limit check used),
+            // never the client-sent distance_km, so the snapshot's
+            // recorded distance always matches what was actually charged.
+            $distanceActualKm = $distanceToDelivery ?? null;
             $distanceChargedKm = $distanceActualKm !== null ? FareBreakdownService::roundUpToKm($distanceActualKm) : null;
 
             $order->fare_breakdown = FareBreakdownService::buildOrderSnapshot([

@@ -33,6 +33,19 @@ class FareBreakdownService
         return (float) (SystemSetting::first()?->sst_ride_fare_percent ?? 5.00);
     }
 
+    /**
+     * Review follow-up -- 'inclusive' (default, current behaviour) treats
+     * the driver/rider's remaining share as tax-inclusive and backs the
+     * SST out of it (divide by 1+rate). 'exclusive' adds the SST on top
+     * of the share instead, as its own straight percentage deduction.
+     * Not yet confirmed with the client which one is correct -- kept
+     * switchable here rather than hardcoded.
+     */
+    public static function sstRideFareMethod(): string
+    {
+        return (string) (SystemSetting::first()?->sst_ride_fare_method ?? 'inclusive');
+    }
+
     public static function restaurantCommissionPercent(): float
     {
         return (float) (SystemSetting::first()?->restaurant_commission_percent ?? 15.00);
@@ -87,8 +100,18 @@ class FareBreakdownService
         $commission = round($grossFare * $commissionRate, 2);
         $sstOnCommission = round($commission * $sstCommissionRate, 2);
         $remaining = round($grossFare - $commission - $sstOnCommission, 2);
-        $driverIncome = round($remaining / (1 + $sstRideFareRate), 2);
-        $sstOnRideFare = round($remaining - $driverIncome, 2);
+
+        $sstMethod = self::sstRideFareMethod();
+        if ($sstMethod === 'exclusive') {
+            // SST added on top of the share, as its own deduction.
+            $sstOnRideFare = round($remaining * $sstRideFareRate, 2);
+            $driverIncome = round($remaining - $sstOnRideFare, 2);
+        } else {
+            // 'inclusive' (default) -- remaining is treated as
+            // tax-inclusive, so SST is backed out of it.
+            $driverIncome = round($remaining / (1 + $sstRideFareRate), 2);
+            $sstOnRideFare = round($remaining - $driverIncome, 2);
+        }
 
         return [
             'gross_fare' => $grossFare,
@@ -97,6 +120,7 @@ class FareBreakdownService
             'remaining' => $remaining,
             'driver_income' => $driverIncome,
             'sst_on_ride_fare' => $sstOnRideFare,
+            'sst_method' => $sstMethod,
             'income_percent' => $grossFare > 0 ? round($driverIncome / $grossFare * 100, 2) : 0,
         ];
     }
@@ -148,6 +172,7 @@ class FareBreakdownService
             'platform_share_amount' => $riderBreakdown['commission'],
             'rider_gross' => $deliveryFee,
             'sst_rate' => self::sstRideFarePercent(),
+            'sst_method' => $riderBreakdown['sst_method'],
             'sst_amount' => round($riderBreakdown['sst_on_commission'] + $riderBreakdown['sst_on_ride_fare'], 2),
             'rider_net' => $riderBreakdown['driver_income'],
             'calculated_at' => now()->toDateTimeString(),
@@ -177,6 +202,7 @@ class FareBreakdownService
             'commission_amount' => $breakdown['commission'],
             'rider_gross' => $subtotal,
             'sst_rate' => self::sstRideFarePercent(),
+            'sst_method' => $breakdown['sst_method'],
             'sst_amount' => round($breakdown['sst_on_commission'] + $breakdown['sst_on_ride_fare'], 2),
             'rider_net' => $breakdown['driver_income'],
             'calculated_at' => now()->toDateTimeString(),

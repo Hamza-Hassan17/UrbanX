@@ -4,11 +4,14 @@ Every payload below is copied from the actual `Validator::make` rules and `respo
 controllers, not inferred. All routes are under `/api`; auth is the existing bearer token per route group
 (customer / driver / restaurant-staff).
 
-**Revised after security/logic review (2026-10-12)** — see the end of each affected section for what
-changed and why. Three real issues were fixed in the code (not just documented): client-trusted distance
-on parcel booking, a cash-collection loophole at delivery/completion, and a parcel left permanently stuck
-with its rider when the receiver was unreachable. Two new endpoints were added (parcel fare quote,
-earnings).
+**Revised after security/logic review (2026-10-12)**, **revised again after a second review the same
+day** — see the end of each affected section for what changed and why. Across both passes: client-trusted
+distance on parcel booking and on the food checkout fee quote, a cash-collection loophole at
+delivery/completion, a cash-amount integrity gap (rider's entered amount was trusted outright), a parcel
+left permanently stuck with its rider when the receiver was unreachable, a missing rider notification on
+an admin/restaurant-initiated cancellation, and a restaurant cancellation window that didn't close at
+pickup — all fixed in code, not just documented. New endpoints: parcel fare quote, food delivery fee
+quote (fixed an existing one, see Customer App #4), earnings.
 
 ---
 
@@ -135,24 +138,69 @@ hasn't accepted it yet).
 { "message": "This order can no longer be cancelled -- the restaurant has already accepted it." }
 ```
 
-### 4. Food order placement — distance limit (changed behaviour)
+### 4. Food delivery fee quote at checkout (fixed — was using the wrong pricing entirely)
 
-Existing place-order endpoint already computed the delivery distance server-side (haversine from the
-restaurant's stored coordinates to the delivery address) before this review, and continues to — it was not
-affected by the client-trusted-distance issue fixed in parcel booking above. It rejects orders whose
+`GET /api/restaurant/calculate-delivery-fare`
+
+This is the endpoint the checkout screen calls to show the delivery fee before placing a food order. It
+existed before Batch 1, but was never updated to use the Pricing & Fees settings added in Part 1 — it was
+still pricing off `VehicleType::first_km_price`/`other_km_price` (a leftover from an older system) and
+trusted a client-sent `distance_km` outright. Both are fixed now:
+
+**Request**
+```
+GET /api/restaurant/calculate-delivery-fare?restaurant_id=7&delivery_lat=24.8921&delivery_lang=67.0345
+```
+`restaurant_id`, `delivery_lat`, `delivery_lang` are now **required**. `distance_km` is still accepted (so
+older app builds don't 400) but is ignored — the server computes the real distance itself via haversine
+from the restaurant's stored coordinates to `delivery_lat`/`delivery_lang`, exactly like `placeOrder`'s own
+distance-limit check, and prices it using `food_first_km_fee`/`food_per_km_fee` from Pricing & Fees. The
+number this endpoint quotes now always matches what `placeOrder` will actually charge.
+
+**Success (200)**
+```json
+{
+  "distance_actual_km": 1.46,
+  "distance_charged_km": 2,
+  "total_fare": 195.00,
+  "is_boost": false,
+  "boost_multiplier": 1,
+  "boosted_fare": 195.00
+}
+```
+`is_boost`/`boost_multiplier`/`boosted_fare` are an older, unrelated busy-hour surcharge feature, kept
+as-is — `boosted_fare` is informational only and was never actually charged into an order either before or
+after this fix.
+
+**Error (400)** — beyond the limit, same shape as the other distance-limit errors:
+```json
+{ "message": "This restaurant doesn't deliver to your address -- it's 5.2 km away, beyond the 4 km delivery limit." }
+```
+
+**Also fixed in `placeOrder` itself**: the actual order's `delivery_fee` was previously always `0`
+regardless of distance (it read from a cart field that nothing ever set), so `total_price` was silently
+short by the delivery charge. `placeOrder` now computes the fee the same way this quote endpoint does and
+folds it into `total_price` correctly — existing already-placed orders are unaffected (their stored
+`total_price` doesn't change), only orders placed after this fix are priced correctly.
+
+### 5. Food order placement — distance limit (unchanged, confirmed correct)
+
+`placeOrder` already computed the delivery distance server-side (haversine from the restaurant's stored
+coordinates to the delivery address) before this review, and continues to — it was not affected by the
+client-trusted-distance issue fixed in parcel booking and the checkout quote above. It rejects orders whose
 delivery distance exceeds the admin-configured limit (default 4 km):
 ```json
 { "message": "This address is beyond the 4 km food delivery limit." }
 ```
 Surface this at checkout, not as a generic error.
 
-### 5. Delivery code shown at checkout (changed)
+### 6. Delivery code shown at checkout (changed)
 
 Every placed food order now returns/includes a `delivery_code` (4-digit) on the order object — display it
 on the order tracking screen, same as the parcel flow above. The customer reads it out to the rider at the
 door.
 
-### 6. What you receive when an assigned order is cancelled
+### 7. What you receive when an assigned order is cancelled
 
 A customer's own cancellation (#3 above) is a direct response to *their* request, so no separate push is
 needed for it. But an order can also be cancelled by the **restaurant** or an **admin** after the customer
@@ -181,6 +229,12 @@ A push notification (title "Order Cancelled", body includes the reason) also arr
 notification channel, addressed to the customer (when the restaurant or admin cancelled) or to the
 restaurant (when the customer or admin cancelled) — not to both when the canceller is one of those two
 parties.
+
+**If a rider was already assigned when the cancellation happened** — see "Delivery Rider App" section 5
+below (`AssignedOrderCancelled`, a dedicated channel the rider app should subscribe to). That's new as of
+the second review pass; before it, a rider whose order got cancelled out from under them by the restaurant
+or an admin kept no formal signal that their job was gone (they'd eventually notice the order detail screen
+had changed, but nothing told them to stop and move on).
 
 ---
 
@@ -212,6 +266,20 @@ If you omit it on a COD order that hasn't been confirmed yet:
 ```
 (HTTP 422). For a non-COD order, or a COD order already confirmed via the separate endpoint, omit the field
 entirely — it's simply ignored.
+
+**Cash amount integrity (new)** — `cash_collected_amount` is compared against the amount actually due
+(`order.total_price`, computed server-side), not trusted outright. If the rider enters a different number
+than what's due:
+- The delivery **still completes normally** — this never blocks the rider.
+- The rider cash ledger always records the **amount due**, never the amount the rider entered — so the
+  ledger can't be under-reported by typing a smaller number.
+- The order is flagged (`cash_discrepancy_flagged: true`, with `cash_entered_amount` and `cash_due_amount`
+  both stored) for admin review in the dashboard.
+
+There's no error response for a mismatch and nothing in the success response tells you a mismatch
+happened — the app doesn't need to react to this at all, it's purely a backend/admin-side flag. Just make
+sure the rider is entering the real cash amount in good faith; the field exists to catch honest counting
+mistakes and theft alike, not to be worked around.
 
 **The separate `confirm-cash-collected` endpoint (below) still works**, for backward compatibility with
 already-shipped app builds that call it as its own step before marking delivered. **New app builds should
@@ -266,6 +334,29 @@ delivery riders and taxi drivers.
 
 Food-delivery earnings are included in the same `/api/driver/earnings` endpoint documented below.
 
+### 5. Assigned order cancelled — notification + channel (new)
+
+If a food order the rider is actively delivering gets cancelled by the **customer**, the **restaurant**, or
+an **admin**, the rider is released from it immediately and told via two channels:
+
+**Push notification** — title "Order Cancelled", body "Order #{order_number} was cancelled. You've been
+released from this delivery."
+
+**Broadcast channel**: `private-driver.{driver_id}` (your own id — subscribe to this once at login/online,
+not per-order), event `order.cancelled`:
+```json
+{
+  "order_id": 1234,
+  "status": "cancelled",
+  "cancelled_by": "admin",
+  "reason": "Customer requested a refund"
+}
+```
+`cancelled_by`: `customer` \| `restaurant` \| `admin`. **What the rider app should do**: clear whatever
+"current job" state it's showing for this order immediately — treat it the same as finishing a delivery,
+not as an error. The rider is already released server-side (no need to call any release/unassign
+endpoint) and can accept new offers right away.
+
 ---
 
 ## Driver / Rider App (parcels + taxi rides — shared endpoints)
@@ -297,8 +388,25 @@ parcel, or an already-confirmed one.
 (HTTP 422). Same error shapes otherwise as the food-order version (`422` wrong code with
 remaining-attempts message, `403` once locked).
 
-**The separate `confirm-parcel-cash-collected` endpoint (below) still works** for backward compatibility;
-new builds should send `cash_collected_amount` here instead.
+**Cash amount integrity (new)** — same behaviour as the food-order version: `cash_collected_amount` is
+compared against the amount actually due (`ride.total_fare`, computed server-side). A mismatch never
+blocks completion; the ledger always records the amount due (not what the rider entered), and the ride is
+flagged (`cash_discrepancy_flagged`, `cash_entered_amount`, `cash_due_amount`) for admin review.
+
+**When to collect the cash — pickup or drop-off?** This depends on `delivery_fee_paid_by` from the booking:
+- **`delivery_fee_paid_by: "receiver"`** (the common case) — collect at drop-off, same moment you mark the
+  parcel `completed`. Send `cash_collected_amount` in that same request, as documented above.
+- **`delivery_fee_paid_by: "sender"`** — the rider should collect from the **sender at pickup**, not wait
+  until drop-off. Call the standalone `confirm-parcel-cash-collected` endpoint (below) right after pickup
+  (e.g. when you'd otherwise send `status: "started"` or `"en_route"`). Once that call succeeds,
+  `payment_status` is already `collected`, so the later `completed` request doesn't need
+  `cash_collected_amount` at all — it's simply skipped since the cash was already confirmed. Build the
+  rider app to check `delivery_fee_paid_by` right after accepting the job and prompt for cash at the
+  correct end accordingly.
+
+**The separate `confirm-parcel-cash-collected` endpoint (below) still works** for backward compatibility
+*and* is the mechanism for the sender-funded, pickup-time case above; new builds for the receiver-funded
+case should send `cash_collected_amount` inline at completion instead.
 
 ### 2. Parcel receiver unreachable (changed — now actually resolves the job)
 
@@ -387,6 +495,7 @@ a rate change never alters a past job's numbers). `start_date`/`end_date`/`type`
       "commission_rate": 20,
       "commission_amount": 60.00,
       "sst_rate": 5,
+      "sst_method": "inclusive",
       "sst_amount": 14.29,
       "net": 225.71
     },
@@ -399,6 +508,7 @@ a rate change never alters a past job's numbers). `start_date`/`end_date`/`type`
       "commission_rate": 20,
       "commission_amount": 48.00,
       "sst_rate": 5,
+      "sst_method": "inclusive",
       "sst_amount": 11.43,
       "net": 180.57
     }
@@ -421,14 +531,25 @@ setting, same shape). `payout_status.paid_amount` sums any `driver_payouts` rows
 for the queried period (via the dashboard "Mark as Paid" action) — use it to show the rider what's already
 been paid out vs. what they've earned but not yet been paid for the period.
 
+**`sst_method` (new)** — either `inclusive` (default, current behaviour: SST is backed out of the rider's
+share as if it were already included in it) or `exclusive` (SST added on top of the share as its own
+deduction instead). This is now an admin-configurable setting (Pricing & Fees page), not confirmed with the
+client yet as to which is correct — it's per-job, frozen at the time that job completed, so changing the
+setting later never alters past jobs' numbers. No app change needed unless you want to show which method
+produced a given `sst_amount` (e.g. in a tooltip) — just display the field if present, ignore it otherwise.
+
 ---
 
 ## Partner App (restaurant staff)
 
-### 1. Order cancellation (new)
+### 1. Order cancellation — window now closes at pickup (changed)
 
-`POST /api/restaurant/order/{order_id}/cancel` — works any time before the order reaches `delivered`,
-`completed`, `cancelled` or `rejected`.
+`POST /api/restaurant/order/{order_id}/cancel`
+
+**The restaurant can only cancel before the order is picked up** (`status` not yet `picked_up` or
+`on_the_way`). Once a rider has physically picked up the food, only an admin can cancel it from the
+dashboard — a restaurant can no longer unwind an order that's already out the door. Build the cancel
+button to hide or disable itself once the order status reaches `picked_up`.
 
 **Request**
 ```json
@@ -441,6 +562,10 @@ been paid out vs. what they've earned but not yet been paid for the period.
 **Error (422)** — already finalized:
 ```json
 { "message": "This order is already finalized and cannot be cancelled." }
+```
+**Error (422)** — already picked up (new):
+```json
+{ "message": "This order has already been picked up -- only an admin can cancel it now." }
 ```
 
 ### 2. Voucher creation — `funded_by` (changed, dashboard-only so far)
@@ -463,3 +588,5 @@ payable report (Finance) keys off to know whose margin absorbed the discount.
 | `delivery_code` | order/ride object | 4-digit string, set at creation |
 | `delivery_code_locked` | order/ride object | `true` after 5 wrong code attempts — stop prompting, show support message |
 | `receiver_unreachable_photo` / `flagged_for_review` | ride object (parcel) | set after the receiver-unreachable flow; ride's `driver_id` is cleared at the same time |
+| `cash_discrepancy_flagged` / `cash_entered_amount` / `cash_due_amount` | order/ride object | set when a rider's entered cash amount didn't match the amount due; admin-review-only, no app behaviour needed |
+| `sst_method` | `fare_breakdown` snapshot (earnings rows) | `inclusive` \| `exclusive` — which SST calculation method applied to that job; display-only |

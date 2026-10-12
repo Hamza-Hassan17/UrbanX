@@ -210,6 +210,28 @@
                 </div>
                 @endif
 
+                {{-- Review follow-up -- cash-discrepancy flag: the rider's
+                     entered amount didn't match the amount actually due.
+                     The delivery still completed; this is just for admin
+                     awareness/investigation. Lives on the ride row for a
+                     parcel, or on the related restaurant_orders row for a
+                     food delivery. --}}
+                @if($ride->cash_discrepancy_flagged || ($relatedOrder && $relatedOrder->cash_discrepancy_flagged))
+                <div class="alert alert-warning d-flex align-items-center" role="alert">
+                    <i class="ti ti-alert-triangle me-2"></i>
+                    <div>
+                        <strong>Cash amount discrepancy flagged.</strong>
+                        @if($ride->cash_discrepancy_flagged)
+                            Rider entered <strong>{{ \App\Helpers\Helper::formatCurrency($ride->cash_entered_amount) }}</strong>,
+                            amount due was <strong>{{ \App\Helpers\Helper::formatCurrency($ride->cash_due_amount) }}</strong>.
+                        @else
+                            Rider entered <strong>{{ \App\Helpers\Helper::formatCurrency($relatedOrder->cash_entered_amount) }}</strong>,
+                            amount due was <strong>{{ \App\Helpers\Helper::formatCurrency($relatedOrder->cash_due_amount) }}</strong>.
+                        @endif
+                    </div>
+                </div>
+                @endif
+
                 <!-- Ride Offers -->
                 @if($rideOffers->count() > 0)
                 <div class="card mb-4">

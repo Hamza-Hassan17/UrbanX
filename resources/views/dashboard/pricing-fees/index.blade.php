@@ -98,6 +98,20 @@
                         @error('rider_cash_limit')<span class="invalid-feedback">{{ $message }}</span>@enderror
                     </div>
 
+                    <div class="col-md-4">
+                        <label for="sst_ride_fare_method" class="form-label">{{ __('SST on Ride Fare -- Calculation Method') }}</label><span class="text-danger">*</span>
+                        <small class="fw-medium text-primary d-block">({{ __('Not yet confirmed with the client -- default keeps current behaviour') }})</small>
+                        <select class="form-select @error('sst_ride_fare_method') is-invalid @enderror" id="sst_ride_fare_method" name="sst_ride_fare_method" required>
+                            <option value="inclusive" {{ old('sst_ride_fare_method', $settings->sst_ride_fare_method ?? 'inclusive') == 'inclusive' ? 'selected' : '' }}>
+                                {{ __('On gross fare (tax-inclusive) -- current default') }}
+                            </option>
+                            <option value="exclusive" {{ old('sst_ride_fare_method', $settings->sst_ride_fare_method ?? 'inclusive') == 'exclusive' ? 'selected' : '' }}>
+                                {{ __('On driver/rider share after commission') }}
+                            </option>
+                        </select>
+                        @error('sst_ride_fare_method')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+
                     <div class="col-12">
                         <small class="text-muted d-block mb-2">{{ __('SST on driver/rider income is shared with the Tax & Commission page\'s "SST on Ride Fare" setting -- applies to both taxi drivers and delivery riders.') }}</small>
                         <button type="submit" class="btn btn-primary">{{ __('Save') }}</button>
