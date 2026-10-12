@@ -69,11 +69,13 @@
                                         <td>
                                             @if ($entry->entry_type === 'collected')
                                                 <span class="badge bg-label-success">{{ __('Collected') }}</span>
+                                            @elseif ($entry->entry_type === 'owed')
+                                                <span class="badge bg-label-danger">{{ __('Owed') }}</span>
                                             @else
                                                 <span class="badge bg-label-warning">{{ __('Settled') }}</span>
                                             @endif
                                         </td>
-                                        <td>{{ $entry->entry_type === 'collected' ? '+' : '-' }}{{ \App\Helpers\Helper::formatCurrency($entry->amount) }}</td>
+                                        <td>{{ $entry->entry_type === 'settled' ? '-' : '+' }}{{ \App\Helpers\Helper::formatCurrency($entry->amount) }}</td>
                                         <td>{{ \App\Helpers\Helper::formatCurrency($entry->balance_after) }}</td>
                                         <td>{{ $entry->method ?? ($entry->reference_type ? class_basename($entry->reference_type) . ' #' . $entry->reference_id : '--') }}</td>
                                         <td>{{ $entry->recordedBy->name ?? '--' }}</td>

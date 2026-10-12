@@ -59,6 +59,7 @@ return [
         'dashboard.delivery.' => 'delivery',
         'dashboard.delivery-riders.' => 'delivery',
         'dashboard.rider-cash.' => 'delivery',
+        'dashboard.driver-balances.' => 'rides',
 
         // Platform
         'dashboard.user.' => 'platform',

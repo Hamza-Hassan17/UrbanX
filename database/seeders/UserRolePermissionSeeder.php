@@ -159,6 +159,11 @@ class UserRolePermissionSeeder extends Seeder
         Permission::firstOrCreate(['name' => 'view stale alerts']);
         Permission::firstOrCreate(['name' => 'resolve stale alerts']);
 
+        // Batch 2 Part 5 -- Driver Balances page (taxi outstanding
+        // balance). Granted to Admin/Finance below, same as
+        // 'manage rider cash'.
+        Permission::firstOrCreate(['name' => 'manage driver balances']);
+
         // Create Roles
         $superAdminRole = Role::firstOrCreate(['name' => 'super-admin']); //as super-admin
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
@@ -230,6 +235,7 @@ class UserRolePermissionSeeder extends Seeder
         $adminRole->givePermissionTo(['view support requests', 'manage support requests']);
         // Rider Cash (Batch 1 Part 8) = Full for Admin.
         $adminRole->givePermissionTo(['manage rider cash']);
+        $adminRole->givePermissionTo(['manage driver balances']);
         // Stale Job Alerts (Batch 2 Part 3) = Full for Admin.
         $adminRole->givePermissionTo(['view stale alerts', 'resolve stale alerts']);
 
@@ -278,6 +284,7 @@ class UserRolePermissionSeeder extends Seeder
         // Rider Cash (Batch 1 Part 8) = Full, per the brief's explicit
         // "Finance role gets access".
         $financeRole->givePermissionTo(['manage rider cash']);
+        $financeRole->givePermissionTo(['manage driver balances']);
 
 
         // Create User and assign Role to it.

@@ -108,15 +108,6 @@ class RideController extends Controller
             //     return response()->json(['rides' => []], 200);
             // }
 
-            // Batch 1 Part 8 -- riders at or above their cash-in-hand limit
-            // get no new offers until they settle with Admin/Finance.
-            if (\App\Services\RiderCashService::isOverLimit($driver->id)) {
-                return response()->json([
-                    'rides' => [],
-                    'message' => 'Your cash-in-hand balance is over the limit. Please settle with the office before accepting new deliveries.',
-                ], 200);
-            }
-
             // -------------------------
             // Time windows
             // -------------------------
@@ -130,6 +121,28 @@ class RideController extends Controller
 
             if (!$driverVehicleType) {
                 return response()->json(['rides' => []], 200);
+            }
+
+            $isDeliveryVehicle = VehicleType::where('id', $driverVehicleType)->where('is_delivery', '1')->exists();
+
+            // Batch 1 Part 8 -- riders at or above their cash-in-hand limit
+            // get no new offers until they settle with Admin/Finance.
+            if ($isDeliveryVehicle && \App\Services\RiderCashService::isOverLimit($driver->id)) {
+                return response()->json([
+                    'rides' => [],
+                    'message' => 'Your cash-in-hand balance is over the limit. Please settle with the office before accepting new deliveries.',
+                ], 200);
+            }
+
+            // Batch 2 Part 5 -- taxi drivers at or above their outstanding
+            // balance (commission+SST owed on cash fares) get no new
+            // offers until they settle. Same pattern/wording as the
+            // rider cash limit above, worded for taxi drivers.
+            if (!$isDeliveryVehicle && \App\Services\TaxiBalanceService::isOverLimit($driver->id)) {
+                return response()->json([
+                    'rides' => [],
+                    'message' => 'Your outstanding balance is over the limit. Please settle with the office before accepting new rides.',
+                ], 200);
             }
 
             // -------------------------
@@ -532,12 +545,22 @@ class RideController extends Controller
         //     ], Response::HTTP_FORBIDDEN);
         // }
 
-        // Batch 1 Part 8 -- second line of defense against the cash-limit
-        // gate in getLatestRides(): a ride already fetched before the
-        // limit was hit shouldn't still be acceptable.
-        if (\App\Services\RiderCashService::isOverLimit(auth()->id())) {
+        // Batch 1 Part 8 / Batch 2 Part 5 -- second line of defense
+        // against the cash/outstanding-limit gates in getLatestRides():
+        // a ride already fetched before the limit was hit shouldn't
+        // still be acceptable.
+        $acceptingDriverVehicleType = DriverVehicle::where('driver_id', auth()->id())->value('vehicle_type_id');
+        $isDeliveryVehicle = $acceptingDriverVehicleType && VehicleType::where('id', $acceptingDriverVehicleType)->where('is_delivery', '1')->exists();
+
+        if ($isDeliveryVehicle && \App\Services\RiderCashService::isOverLimit(auth()->id())) {
             return response()->json([
                 'message' => 'Your cash-in-hand balance is over the limit. Please settle with the office before accepting new deliveries.'
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        if (!$isDeliveryVehicle && \App\Services\TaxiBalanceService::isOverLimit(auth()->id())) {
+            return response()->json([
+                'message' => 'Your outstanding balance is over the limit. Please settle with the office before accepting new rides.'
             ], Response::HTTP_FORBIDDEN);
         }
 
@@ -994,6 +1017,16 @@ class RideController extends Controller
             }
             $paidAmount = round((float) $paidAmountQuery->sum('amount'), 2);
 
+            // Batch 2 Part 5 -- cash-in-hand (delivery) and outstanding
+            // balance (taxi) both read from the same rider_cash_ledgers
+            // table; only one will ever be non-zero for a given driver in
+            // practice, but both are always returned so the app doesn't
+            // need to know in advance which kind of driver it's showing.
+            $cashBalance = \App\Services\RiderCashService::currentBalance($driverId);
+            $cashLimit = \App\Services\FareBreakdownService::riderCashLimit();
+            $outstandingBalance = \App\Services\TaxiBalanceService::currentBalance($driverId);
+            $outstandingLimit = \App\Services\DispatchSettingsService::taxiOutstandingLimit();
+
             return response()->json([
                 'rows' => $rows,
                 'totals' => $totals,
@@ -1001,6 +1034,12 @@ class RideController extends Controller
                     'paid_amount' => $paidAmount,
                     'is_fully_paid' => $totals['net'] > 0 && $paidAmount >= $totals['net'],
                 ],
+                'cash_balance' => $cashBalance,
+                'cash_limit' => $cashLimit,
+                'cash_over_limit' => $cashBalance >= $cashLimit,
+                'outstanding_balance' => $outstandingBalance,
+                'outstanding_limit' => $outstandingLimit,
+                'outstanding_over_limit' => $outstandingBalance >= $outstandingLimit,
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('Driver Earnings Failed', ['error' => $th->getMessage()]);
@@ -1128,6 +1167,18 @@ class RideController extends Controller
                 if ($ride->delivery_code && $ride->payment_method === 'cod' && $ride->payment_status !== 'collected') {
                     $ride->payment_status = 'collected';
                 }
+
+                // Batch 2 Part 5 -- a cash-paid taxi fare means the driver
+                // keeps the whole fare and owes the platform its
+                // commission+SST out of pocket, recorded as its own
+                // ledger entry (reusing Batch 1 Part 8's rider cash
+                // ledger -- see TaxiBalanceService). Parcels/food
+                // deliveries are excluded (ride_type === 'ride' only):
+                // their commission is already settled differently (the
+                // delivery fee itself, not kept by the driver at all).
+                $taxiCashFareOwed = $ride->ride_type === 'ride' && $ride->payment_method === 'cash'
+                    ? round($ride->fare_breakdown['commission_amount'] + $ride->fare_breakdown['sst_amount'], 2)
+                    : null;
             }
 
             $ride->status_updated_by = auth()->id();
@@ -1162,6 +1213,16 @@ class RideController extends Controller
             } else {
                 $ride->save();
             }
+
+            if (!empty($taxiCashFareOwed) && $taxiCashFareOwed > 0) {
+                \App\Services\TaxiBalanceService::recordOwed(
+                    $ride->driver_id,
+                    $taxiCashFareOwed,
+                    Ride::class,
+                    $ride->id
+                );
+            }
+
             $passenger = $ride->passenger;
             if ($request->status === 'en_route') {
                 $title = 'Driver En Route';

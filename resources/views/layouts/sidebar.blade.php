@@ -154,6 +154,13 @@
                             </a>
                         </li>
                     @endcan
+                    @can(['manage driver balances'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.driver-balances.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.driver-balances.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Driver Balances')}}</div>
+                            </a>
+                        </li>
+                    @endcan
                 </ul>
             </li>
         @endcanany

@@ -432,6 +432,15 @@ class RideController extends Controller
             'stops.*.latitude' => 'required_with:stops|string',
             'stops.*.longitude' => 'required_with:stops|string',
             'stops.*.address' => 'nullable|string',
+            // Batch 2 Part 5 -- optional (not required) so existing app
+            // builds that never sent it keep working; defaults to 'cash'
+            // below since that's the only method this app has ever
+            // actually settled a taxi fare through (no gateway wired up
+            // for taxi rides, same as parcels before Batch 1 Part 8
+            // restricted those to cod-only). Needed to know whether the
+            // driver owes commission+SST out of pocket (Part 5) when the
+            // ride completes.
+            'payment_method' => 'nullable|in:cash,card',
         ]);
 
         if ($validator->fails()) {
@@ -461,6 +470,7 @@ class RideController extends Controller
             $ride->scheduled_pickup_at = $request->filled('scheduled_pickup_at') ? \Carbon\Carbon::parse($request->scheduled_pickup_at)->utc() : null;
             $ride->status = 'requested';
             $ride->ride_type = 'ride';
+            $ride->payment_method = $request->payment_method ?? 'cash';
             $ride->save();
 
             foreach ($request->input('stops', []) as $index => $stop) {

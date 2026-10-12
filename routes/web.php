@@ -326,6 +326,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('rides/alerts', [\App\Http\Controllers\Dashboard\StaleJobAlertController::class, 'index'])->name('rides.alerts')->defaults('workspace', 'rides');
             Route::get('delivery/alerts', [\App\Http\Controllers\Dashboard\StaleJobAlertController::class, 'index'])->name('delivery.alerts')->defaults('workspace', 'delivery');
             Route::post('alerts/{alert}/resolve', [\App\Http\Controllers\Dashboard\StaleJobAlertController::class, 'resolve'])->name('alerts.resolve');
+
+            //Driver Balances (Batch 2 Part 5)
+            Route::get('driver-balances', [\App\Http\Controllers\Dashboard\DriverBalanceController::class, 'index'])->name('driver-balances.index');
+            Route::get('driver-balances/{driverId}', [\App\Http\Controllers\Dashboard\DriverBalanceController::class, 'show'])->name('driver-balances.show');
+            Route::post('driver-balances/{driverId}/settle', [\App\Http\Controllers\Dashboard\DriverBalanceController::class, 'recordSettlement'])->name('driver-balances.settle');
         });
     });
 
