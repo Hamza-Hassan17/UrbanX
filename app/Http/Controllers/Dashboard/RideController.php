@@ -8,6 +8,7 @@ use App\Models\RestaurantOrder;
 use App\Models\Ride;
 use App\Models\RideDriverLog;
 use App\Models\RideExtraCharge;
+use App\Models\RideLocationPing;
 use App\Models\RideOffer;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -75,6 +76,31 @@ class RideController extends Controller
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
             throw $th;
         }
+    }
+
+    /**
+     * GPS breadcrumbs for a ride's "Replay Route" control on the show
+     * page -- fetched on demand (not eager-loaded into show()) so rides
+     * with long ping histories don't bloat the normal page load.
+     */
+    public function routePings(string $id)
+    {
+        $this->authorize('view ride');
+
+        $ride = Ride::findOrFail($id);
+        $pings = RideLocationPing::where('ride_id', $ride->id)
+            ->orderBy('id')
+            ->get(['latitude', 'longitude', 'heading', 'speed_kmh', 'created_at']);
+
+        return response()->json([
+            'pings' => $pings->map(fn ($p) => [
+                'lat' => (float) $p->latitude,
+                'lng' => (float) $p->longitude,
+                'heading' => $p->heading,
+                'speed_kmh' => $p->speed_kmh,
+                'ts' => $p->created_at->toIso8601String(),
+            ]),
+        ]);
     }
 
     /**

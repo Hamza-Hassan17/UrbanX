@@ -82,12 +82,12 @@
                         @error('restaurant_commission_percent')<span class="invalid-feedback">{{ $message }}</span>@enderror
                     </div>
                     <div class="col-md-4">
-                        <label for="platform_share_percent" class="form-label">{{ __('Platform Share of Delivery Fee (%)') }}</label><span class="text-danger">*</span>
-                        <small class="fw-medium text-primary d-block">({{ __('Platform\'s cut of the delivery fee, for delivery riders') }})</small>
-                        <input class="form-control @error('platform_share_percent') is-invalid @enderror" type="number"
-                            step="0.01" min="0" max="100" id="platform_share_percent" name="platform_share_percent"
-                            value="{{ old('platform_share_percent', $settings->platform_share_percent) }}" required/>
-                        @error('platform_share_percent')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                        <label for="platform_share_amount" class="form-label">{{ __('Platform Share of Delivery Fee (PKR)') }}</label><span class="text-danger">*</span>
+                        <small class="fw-medium text-primary d-block">({{ __('Platform\'s flat cut of the delivery fee, for delivery riders') }})</small>
+                        <input class="form-control @error('platform_share_amount') is-invalid @enderror" type="number"
+                            step="0.01" min="0" id="platform_share_amount" name="platform_share_amount"
+                            value="{{ old('platform_share_amount', $settings->platform_share_amount) }}" required/>
+                        @error('platform_share_amount')<span class="invalid-feedback">{{ $message }}</span>@enderror
                     </div>
                     <div class="col-md-4">
                         <label for="rider_cash_limit" class="form-label">{{ __('Rider Cash-in-Hand Limit') }}</label><span class="text-danger">*</span>

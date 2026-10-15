@@ -92,8 +92,19 @@
 
                 <!-- Location & Route Info -->
                 <div class="card mb-4">
-                    <div class="card-header">
+                    <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <h5 class="mb-0">Route Information</h5>
+                        <div class="d-flex align-items-center gap-2" id="route-replay-controls">
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="replay-route-btn">
+                                <i class="bx bx-play"></i> Replay Route
+                            </button>
+                            <select class="form-select form-select-sm d-none" id="replay-speed" style="width:auto" title="Playback speed">
+                                <option value="1">1x</option>
+                                <option value="4" selected>4x</option>
+                                <option value="10">10x</option>
+                            </select>
+                            <small class="text-muted d-none" id="replay-timestamp"></small>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div class="row mb-4">
@@ -741,6 +752,118 @@
                 map.setZoom(15);
             }
         }
+
+        // Route Replay -- draws the driver's actual GPS breadcrumb path
+        // (ride_location_pings, fetched on demand) as a solid polyline,
+        // separate from the dashed pickup-to-dropoff line above, and
+        // animates a marker along it.
+        const routePingsUrl = '{{ route('dashboard.rides.route-pings', $ride->id) }}';
+        let routePings = null;
+        let routePolyline = null;
+        let replayMarker = null;
+        let replayTimer = null;
+        let replayIndex = 0;
+
+        function carIcon(heading) {
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" style="transform:rotate(${heading || 0}deg)">` +
+                `<path d="M12 2 L19 20 L12 16 L5 20 Z" fill="#198754" stroke="white" stroke-width="1"/></svg>`;
+            return {
+                url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
+                scaledSize: new google.maps.Size(28, 28),
+                anchor: new google.maps.Point(14, 14),
+            };
+        }
+
+        function stopReplay() {
+            if (replayTimer) {
+                clearInterval(replayTimer);
+                replayTimer = null;
+            }
+            $('#replay-route-btn i').removeClass('bx-pause').addClass('bx-play');
+        }
+
+        function stepReplay() {
+            if (!routePings || !routePings.length) return;
+            if (replayIndex >= routePings.length) {
+                stopReplay();
+                return;
+            }
+            const p = routePings[replayIndex];
+            const pos = { lat: p.lat, lng: p.lng };
+            replayMarker.setPosition(pos);
+            replayMarker.setIcon(carIcon(p.heading));
+            $('#replay-timestamp').text(new Date(p.ts).toLocaleTimeString());
+            replayIndex++;
+        }
+
+        function startReplay() {
+            const speed = parseInt($('#replay-speed').val(), 10) || 4;
+            if (replayIndex >= routePings.length) replayIndex = 0;
+            replayTimer = setInterval(stepReplay, 1000 / speed);
+            $('#replay-route-btn i').removeClass('bx-play').addClass('bx-pause');
+        }
+
+        function loadRoutePings() {
+            $('#replay-route-btn').prop('disabled', true);
+            fetch(routePingsUrl)
+                .then(res => res.json())
+                .then(data => {
+                    routePings = data.pings || [];
+                    $('#replay-route-btn').prop('disabled', false);
+
+                    if (!routePings.length) {
+                        $('#replay-route-btn').prop('disabled', true).text('No GPS data recorded for this ride');
+                        return;
+                    }
+
+                    const path = routePings.map(p => ({ lat: p.lat, lng: p.lng }));
+                    routePolyline = new google.maps.Polyline({
+                        path: path,
+                        strokeColor: '#198754',
+                        strokeOpacity: 0.9,
+                        strokeWeight: 4,
+                        map: map,
+                    });
+
+                    const bounds = new google.maps.LatLngBounds();
+                    path.forEach(pt => bounds.extend(pt));
+                    map.fitBounds(bounds, 50);
+
+                    replayMarker = new google.maps.Marker({
+                        position: path[0],
+                        map: map,
+                        icon: carIcon(routePings[0].heading),
+                    });
+
+                    $('#replay-speed, #replay-timestamp').removeClass('d-none');
+                    $('#replay-route-btn').html('<i class="bx bx-pause"></i> Pause Replay');
+                    startReplay();
+                })
+                .catch(() => {
+                    $('#replay-route-btn').prop('disabled', true).text('Failed to load route data');
+                });
+        }
+
+        $('#replay-route-btn').on('click', function () {
+            if (routePings === null) {
+                loadRoutePings();
+                return;
+            }
+            if (replayTimer) {
+                stopReplay();
+                $(this).html('<i class="bx bx-play"></i> Resume Replay');
+            } else {
+                startReplay();
+                $(this).html('<i class="bx bx-pause"></i> Pause Replay');
+            }
+        });
+
+        $('#replay-speed').on('change', function () {
+            if (replayTimer) {
+                stopReplay();
+                startReplay();
+            }
+        });
 
         // Function to reverse geocode coordinates
         async function reverseGeocode(lat, lng) {

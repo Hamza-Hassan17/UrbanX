@@ -241,9 +241,11 @@ class PayrollController extends Controller
                     $sstOnRideFare += (float) $snapshot['sst_amount'];
                     $totalEarnings += (float) $snapshot['rider_net'];
                 } else {
+                    $isDelivery = $ride->ride_type === 'delivery';
                     $breakdown = FareBreakdownService::calculate(
                         $fare,
-                        $ride->ride_type === 'delivery' ? FareBreakdownService::platformSharePercent() : null
+                        null,
+                        $isDelivery ? FareBreakdownService::platformShareAmount() : null
                     );
                     $commission += $breakdown['commission'];
                     $sstOnCommission += $breakdown['sst_on_commission'];

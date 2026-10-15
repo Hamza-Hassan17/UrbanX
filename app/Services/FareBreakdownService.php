@@ -52,12 +52,13 @@ class FareBreakdownService
     }
 
     /**
-     * Platform's cut of a delivery fee (the delivery-rider equivalent of
-     * commissionPercent(), which is taxi-ride-fare specific).
+     * Platform's flat PKR cut of a delivery fee (the delivery-rider
+     * equivalent of commissionPercent(), which is taxi-ride-fare specific
+     * and percent-based). This one is a fixed amount, not a rate.
      */
-    public static function platformSharePercent(): float
+    public static function platformShareAmount(): float
     {
-        return (float) (SystemSetting::first()?->platform_share_percent ?? 20.00);
+        return (float) (SystemSetting::first()?->platform_share_amount ?? 50.00);
     }
 
     public static function riderCashLimit(): float
@@ -86,18 +87,25 @@ class FareBreakdownService
     }
 
     /**
-     * $commissionPercent lets callers swap in platformSharePercent() for
-     * delivery riders instead of the taxi-specific commissionPercent() --
-     * the rest of the breakdown (SST on commission, SST on remaining
-     * income) is identical math for both, per the brief's shared SST rate.
+     * $commissionPercent lets callers swap in a different percent rate for
+     * delivery riders instead of the taxi-specific commissionPercent().
+     * $commissionAmount instead takes platformShareAmount() as a flat PKR
+     * cut rather than a rate. Either way, the rest of the breakdown (SST on
+     * commission, SST on remaining income) is identical math, per the
+     * brief's shared SST rate. $commissionAmount is capped at $grossFare so
+     * a flat fee never exceeds a very small delivery fee.
      */
-    public static function calculate(float $grossFare, ?float $commissionPercent = null): array
+    public static function calculate(float $grossFare, ?float $commissionPercent = null, ?float $commissionAmount = null): array
     {
-        $commissionRate = ($commissionPercent ?? self::commissionPercent()) / 100;
         $sstCommissionRate = self::sstCommissionPercent() / 100;
         $sstRideFareRate = self::sstRideFarePercent() / 100;
 
-        $commission = round($grossFare * $commissionRate, 2);
+        if ($commissionAmount !== null) {
+            $commission = round(min($commissionAmount, $grossFare), 2);
+        } else {
+            $commissionRate = ($commissionPercent ?? self::commissionPercent()) / 100;
+            $commission = round($grossFare * $commissionRate, 2);
+        }
         $sstOnCommission = round($commission * $sstCommissionRate, 2);
         $remaining = round($grossFare - $commission - $sstOnCommission, 2);
 
@@ -155,7 +163,7 @@ class FareBreakdownService
         $restaurantFundedDiscount = $fundedBy === 'restaurant' ? $discount : 0;
         $restaurantPayable = round($subtotal - $commissionAmount - $restaurantFundedDiscount, 2);
 
-        $riderBreakdown = self::calculate($deliveryFee, self::platformSharePercent());
+        $riderBreakdown = self::calculate($deliveryFee, null, self::platformShareAmount());
 
         return [
             'subtotal' => $subtotal,
@@ -168,7 +176,7 @@ class FareBreakdownService
             'commission_rate' => $commissionRate,
             'commission_amount' => $commissionAmount,
             'restaurant_payable' => $restaurantPayable,
-            'platform_share_rate' => self::platformSharePercent(),
+            'platform_share_flat_pkr' => self::platformShareAmount(),
             'platform_share_amount' => $riderBreakdown['commission'],
             'rider_gross' => $deliveryFee,
             'sst_rate' => self::sstRideFarePercent(),
@@ -183,22 +191,24 @@ class FareBreakdownService
      * Batch 1 Part 2 snapshot for a rides row (taxi ride or parcel/food
      * delivery ride) -- called once, at the point status flips to
      * 'completed' (not at creation), since total_fare can still change
-     * before then (wait penalty). $isDelivery picks platform_share_percent
-     * over the taxi-only commission_percent.
+     * before then (wait penalty). $isDelivery picks platformShareAmount()
+     * (a flat PKR cut) over the taxi-only commission_percent (a rate).
      */
     public static function buildRideSnapshot(array $input): array
     {
         $subtotal = (float) $input['subtotal'];
         $isDelivery = (bool) ($input['is_delivery'] ?? false);
-        $commissionRate = $isDelivery ? self::platformSharePercent() : self::commissionPercent();
-        $breakdown = self::calculate($subtotal, $commissionRate);
+        $breakdown = $isDelivery
+            ? self::calculate($subtotal, null, self::platformShareAmount())
+            : self::calculate($subtotal, self::commissionPercent());
 
         return [
             'subtotal' => $subtotal,
             'distance_actual_km' => $input['distance_actual_km'] ?? null,
             'distance_charged_km' => $input['distance_charged_km'] ?? null,
             'total_payable_by_customer' => $subtotal,
-            'commission_rate' => $commissionRate,
+            'commission_rate' => $isDelivery ? null : self::commissionPercent(),
+            'commission_flat_pkr' => $isDelivery ? self::platformShareAmount() : null,
             'commission_amount' => $breakdown['commission'],
             'rider_gross' => $subtotal,
             'sst_rate' => self::sstRideFarePercent(),

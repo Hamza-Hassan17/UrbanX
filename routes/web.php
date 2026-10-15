@@ -252,6 +252,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             //Rides
             Route::resource('rides', RideController::class);
+            Route::get('rides/{id}/route-pings', [RideController::class, 'routePings'])->name('rides.route-pings');
 
             //Operator/Driver Reports
             Route::get('reports', [ReportController::class, 'index'])->name('reports.index');

@@ -44,7 +44,7 @@ class PricingFeesController extends Controller
             'parcel_per_km_fee' => 'required|numeric|min:0',
             'parcel_max_distance_km' => 'required|integer|min:1',
             'restaurant_commission_percent' => 'required|numeric|min:0|max:100',
-            'platform_share_percent' => 'required|numeric|min:0|max:100',
+            'platform_share_amount' => 'required|numeric|min:0',
             'rider_cash_limit' => 'required|numeric|min:0',
             'sst_ride_fare_method' => 'required|in:inclusive,exclusive',
             // Batch 2 Part 1 -- Dispatch settings.
