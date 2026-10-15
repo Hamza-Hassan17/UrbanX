@@ -761,12 +761,18 @@
         let routePings = null;
         let routePolyline = null;
         let replayMarker = null;
-        let replayTimer = null;
-        let replayIndex = 0;
+        let replayFrame = null;      // requestAnimationFrame handle
+        let replaySegment = 0;       // index of the ping we're travelling FROM
+        let replaySegmentStart = 0;  // performance.now() when this segment began
+        let replaySegmentElapsed = 0; // ms already played into this segment (for pause/resume)
+        const MIN_SEGMENT_MS = 150;  // floor so back-to-back pings still visibly move
+        const MAX_SEGMENT_MS = 2500; // ceiling so a long gap between pings doesn't stall playback
 
+        // Marker color is deliberately different from the route line color
+        // (route is green) so the two are never confused at a glance.
         function carIcon(heading) {
             const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" style="transform:rotate(${heading || 0}deg)">` +
-                `<path d="M12 2 L19 20 L12 16 L5 20 Z" fill="#198754" stroke="white" stroke-width="1"/></svg>`;
+                `<path d="M12 2 L19 20 L12 16 L5 20 Z" fill="#fd7e14" stroke="white" stroke-width="1"/></svg>`;
             return {
                 url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg),
                 scaledSize: new google.maps.Size(28, 28),
@@ -774,33 +780,72 @@
             };
         }
 
+        function lerp(a, b, t) {
+            return a + (b - a) * t;
+        }
+
+        function segmentDurationMs(fromPing, toPing, speed) {
+            const realMs = new Date(toPing.ts) - new Date(fromPing.ts);
+            const scaled = (realMs > 0 ? realMs : 1000) / speed;
+            return Math.min(Math.max(scaled, MIN_SEGMENT_MS), MAX_SEGMENT_MS);
+        }
+
         function stopReplay() {
-            if (replayTimer) {
-                clearInterval(replayTimer);
-                replayTimer = null;
+            if (replayFrame) {
+                cancelAnimationFrame(replayFrame);
+                replayFrame = null;
             }
             $('#replay-route-btn i').removeClass('bx-pause').addClass('bx-play');
         }
 
-        function stepReplay() {
-            if (!routePings || !routePings.length) return;
-            if (replayIndex >= routePings.length) {
+        function animateSegment(now) {
+            if (!routePings || replaySegment >= routePings.length - 1) {
                 stopReplay();
                 return;
             }
-            const p = routePings[replayIndex];
-            const pos = { lat: p.lat, lng: p.lng };
+
+            const speed = parseInt($('#replay-speed').val(), 10) || 4;
+            const from = routePings[replaySegment];
+            const to = routePings[replaySegment + 1];
+            const duration = segmentDurationMs(from, to, speed);
+            const elapsed = replaySegmentElapsed + (now - replaySegmentStart);
+            const t = Math.min(elapsed / duration, 1);
+
+            const pos = {
+                lat: lerp(from.lat, to.lat, t),
+                lng: lerp(from.lng, to.lng, t),
+            };
             replayMarker.setPosition(pos);
-            replayMarker.setIcon(carIcon(p.heading));
-            $('#replay-timestamp').text(new Date(p.ts).toLocaleTimeString());
-            replayIndex++;
+            replayMarker.setIcon(carIcon(to.heading ?? from.heading));
+            $('#replay-timestamp').text(new Date(lerp(new Date(from.ts).getTime(), new Date(to.ts).getTime(), t)).toLocaleTimeString());
+
+            if (t >= 1) {
+                replaySegment++;
+                replaySegmentStart = now;
+                replaySegmentElapsed = 0;
+            }
+
+            replayFrame = requestAnimationFrame(animateSegment);
         }
 
         function startReplay() {
-            const speed = parseInt($('#replay-speed').val(), 10) || 4;
-            if (replayIndex >= routePings.length) replayIndex = 0;
-            replayTimer = setInterval(stepReplay, 1000 / speed);
+            if (!routePings || routePings.length < 2) return;
+            if (replaySegment >= routePings.length - 1) {
+                replaySegment = 0;
+                replaySegmentElapsed = 0;
+            }
+            replaySegmentStart = performance.now();
+            replayFrame = requestAnimationFrame(animateSegment);
             $('#replay-route-btn i').removeClass('bx-play').addClass('bx-pause');
+        }
+
+        // Pausing mid-segment needs to remember how far into it we were,
+        // since resuming just restarts requestAnimationFrame from "now".
+        function pauseReplay() {
+            if (replayFrame) {
+                replaySegmentElapsed += performance.now() - replaySegmentStart;
+            }
+            stopReplay();
         }
 
         function loadRoutePings() {
@@ -849,8 +894,8 @@
                 loadRoutePings();
                 return;
             }
-            if (replayTimer) {
-                stopReplay();
+            if (replayFrame) {
+                pauseReplay();
                 $(this).html('<i class="bx bx-play"></i> Resume Replay');
             } else {
                 startReplay();
@@ -859,8 +904,8 @@
         });
 
         $('#replay-speed').on('change', function () {
-            if (replayTimer) {
-                stopReplay();
+            if (replayFrame) {
+                pauseReplay();
                 startReplay();
             }
         });
