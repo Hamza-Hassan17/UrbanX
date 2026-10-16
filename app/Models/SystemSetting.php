@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class SystemSetting extends Model
 {
+    protected $guarded = ['id'];
+
     public function language()
     {
         return $this->belongsTo(Language::class);
