@@ -118,14 +118,18 @@
                     <div class="form-check form-switch ms-2">
                         <input class="form-check-input" type="checkbox" id="activeOnlyToggle">
                         <label class="form-check-label" for="activeOnlyToggle" style="font-size: 13px;">
-                            Active rides/deliveries only
+                            @if(($scope ?? null) === 'delivery') Active deliveries only @elseif(($scope ?? null) === 'ride') Active rides only @else Active rides/deliveries only @endif
                         </label>
                     </div>
                     <small class="text-muted ms-auto" style="font-size: 12px;">
                         <i class="fas fa-circle" style="color:#10b981; font-size:8px;"></i> Available
                         <i class="fas fa-circle ms-2" style="color:#f59e0b; font-size:8px;"></i> Busy
+                        @if(($scope ?? null) !== 'delivery')
                         <i class="fas fa-circle ms-2" style="color:#2563eb; font-size:8px;"></i> Active taxi ride (last known position)
+                        @endif
+                        @if(($scope ?? null) !== 'ride')
                         <i class="fas fa-circle ms-2" style="color:#db2777; font-size:8px;"></i> Active delivery (live)
+                        @endif
                         <i class="fas fa-circle ms-2" style="color:#dc2626; font-size:8px;"></i> Anomaly detected
                     </small>
                 </div>
