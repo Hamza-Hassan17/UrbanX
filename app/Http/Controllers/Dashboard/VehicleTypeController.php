@@ -16,11 +16,15 @@ class VehicleTypeController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
         $this->authorize('view vehicle type');
         try {
-            $vehicleTypes = VehicleType::get();
+            // ?scope=delivery|ride -- each workspace's sidebar link opens its own subset.
+            $vehicleTypes = VehicleType::query()
+                ->when($request->scope === 'delivery', fn ($q) => $q->where('is_delivery', '1'))
+                ->when($request->scope === 'ride', fn ($q) => $q->where('is_delivery', '0'))
+                ->get();
             return view('dashboard.vehicle-types.index',compact('vehicleTypes'));
         } catch (\Throwable $th) {
             Log::error('Vehicle Type Index Failed', ['error' => $th->getMessage()]);

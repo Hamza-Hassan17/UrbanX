@@ -315,6 +315,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('delivery', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'index'])->name('delivery.index');
             Route::get('delivery/queue', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'queue'])->name('delivery.queue');
             Route::post('delivery/queue/presets', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'savePreset'])->name('delivery.queue.presets');
+            Route::get('delivery-assignment', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'assignment'])->name('delivery-assignment.index');
             Route::post('delivery/order/{order_id}/cancel', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'cancelOrder'])->name('delivery.order.cancel');
             Route::post('delivery/order/{order_id}/override-delivery', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'overrideFoodDelivery'])->name('delivery.order.override-delivery');
             Route::post('delivery/ride/{ride_id}/override-delivery', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'overrideParcelDelivery'])->name('delivery.ride.override-delivery');

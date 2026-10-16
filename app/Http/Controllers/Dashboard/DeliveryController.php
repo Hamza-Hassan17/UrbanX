@@ -89,6 +89,68 @@ class DeliveryController extends Controller
     }
 
     /**
+     * Manual Delivery Assignment -- unclaimed food/parcel jobs plus the
+     * delivery riders who can take them. Assigning posts to the shared
+     * dashboard.rides.update action, which already carries the full
+     * delivery side-effect set (offer, order status, broadcasts, pushes).
+     */
+    public function assignment()
+    {
+        $this->authorize('view delivery');
+        $this->authorize('assign ride');
+
+        try {
+            $rides = Ride::where('ride_type', 'delivery')
+                ->where('status', 'requested')
+                ->whereNull('driver_id')
+                ->with('passenger:id,name,phone')
+                ->latest('requested_at')
+                ->get();
+
+            // Food jobs are only claimable once the restaurant has accepted.
+            $orders = RestaurantOrder::whereIn('ride_id', $rides->pluck('id'))
+                ->with('restaurant:id,name')
+                ->get()
+                ->keyBy('ride_id');
+
+            $rides = $rides->filter(function ($ride) use ($orders) {
+                $order = $orders->get($ride->id);
+                return !$order || $order->status === 'accepted';
+            })->values();
+
+            $geocoder = app(GeocodingService::class);
+            $rows = $rides->map(function ($ride) use ($orders, $geocoder) {
+                $order = $orders->get($ride->id);
+                return [
+                    'id' => $ride->id,
+                    'type_label' => $order ? 'Food' : 'Parcel',
+                    'restaurant' => $order->restaurant->name ?? null,
+                    'time' => optional($ride->scheduled_pickup_at ?? $ride->requested_at)->setTimezone('Asia/Karachi')->format('d M H:i'),
+                    'pickup' => $geocoder->reverseGeocode($ride->pickup_latitude, $ride->pickup_longitude)
+                        ?? $ride->pickup_latitude . ', ' . $ride->pickup_longitude,
+                    'dropoff' => $geocoder->reverseGeocode($ride->dropoff_latitude, $ride->dropoff_longitude)
+                        ?? $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude,
+                    'customer' => $ride->passenger->name ?? ($ride->sender_name ?? null),
+                    'phone' => $ride->passenger->phone ?? ($ride->sender_phone ?? null),
+                    'fare' => (float) $ride->total_fare,
+                ];
+            });
+
+            $riders = \App\Models\User::role('driver')
+                ->where('driver_status', 'available')
+                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
+                ->with('profile:id,user_id,city')
+                ->orderBy('name')
+                ->get(['id', 'name', 'phone']);
+
+            return view('dashboard.delivery.assignment', compact('rows', 'riders'));
+        } catch (\Throwable $th) {
+            Log::error('Delivery Assignment Page Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', 'Something went wrong! Please try again later');
+        }
+    }
+
+    /**
      * Batch 1 Part 6 -- admin can cancel a restaurant order at ANY status
      * (unlike the customer/restaurant paths, which are gated by status),
      * since this is the Delivery workspace's escalation path for a job

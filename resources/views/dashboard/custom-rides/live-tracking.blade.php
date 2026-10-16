@@ -200,6 +200,7 @@
         }
 
         const drivers = @json($drivers);
+        const trackingScope = @json($scope ?? null);
 
         function driverMatchesCityFilter(driver) {
             if (cityFilter === 'all') return true;
@@ -352,8 +353,8 @@
                 });
                 if (!response.ok) return;
                 const data = await response.json();
-                renderActiveRideMarkers(data.activeRides || []);
-                renderActiveDeliveryMarkers(data.activeDeliveries || []);
+                renderActiveRideMarkers(trackingScope === 'delivery' ? [] : (data.activeRides || []));
+                renderActiveDeliveryMarkers(trackingScope === 'ride' ? [] : (data.activeDeliveries || []));
             } catch (error) {
                 console.error('Live tracking refresh failed:', error);
             }

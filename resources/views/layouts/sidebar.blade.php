@@ -117,14 +117,14 @@
                     @endcan
                     @can(['view live tracking'])
                         <li class="menu-item {{ request()->routeIs('dashboard.live-tracking.*') ? 'active' : '' }}">
-                            <a href="{{route('dashboard.live-tracking.index')}}" class="menu-link" style="color: #fff !important;">
+                            <a href="{{route('dashboard.live-tracking.index', ['scope' => 'ride'])}}" class="menu-link" style="color: #fff !important;">
                                 <div>{{__('Live Tracking')}}</div>
                             </a>
                         </li>
                     @endcan
                     @can(['view vehicle type'])
                         <li class="menu-item {{ request()->routeIs('dashboard.vehicle-types.*') ? 'active' : '' }}">
-                            <a href="{{route('dashboard.vehicle-types.index')}}" class="menu-link" style="color: #fff !important;">
+                            <a href="{{route('dashboard.vehicle-types.index', ['scope' => 'ride'])}}" class="menu-link" style="color: #fff !important;">
                                 <div>{{__('Vehicle Types')}}</div>
                             </a>
                         </li>
@@ -199,58 +199,90 @@
         @endcanany
         @endif
 
-        {{-- 4b. Delivery Orders Queue -- workspace-gated alongside Restaurants
-             below (same "Delivery" workspace). Phase 2 of the admin workspace
-             split: food + parcel jobs, both `rides` rows with ride_type=delivery. --}}
+        {{-- 4b. Deliveries -- Delivery workspace's counterpart of the Rides
+             group above. Food + parcel jobs are `rides` rows with
+             ride_type=delivery; riders are driver-role users whose vehicle
+             type has is_delivery=true. Shared pages (Live Tracking, Vehicle
+             Types) take ?scope=delivery; Boost Hours is one global table. --}}
         @if($__currentWorkspace === 'delivery')
-            @can(['view delivery'])
-                <li class="menu-item {{ request()->routeIs('dashboard.delivery.*') ? 'active' : '' }}">
-                    <a href="{{ route('dashboard.delivery.index') }}" class="menu-link" style="color: #fff !important;">
-                        <i class="menu-icon tf-icons ti ti-list-check"></i>
-                        <div>{{__('Orders Queue')}}</div>
-                    </a>
-                </li>
-            @endcan
-        @endif
-
-        {{-- 4c. Riders / Rider Verifications -- same driver-role users as
-             Rides' Drivers/Pending Verifications, filtered to
-             vehicle_type.is_delivery=true. See DriverController::deliveryIndex(). --}}
-        @if($__currentWorkspace === 'delivery')
-            @can(['view driver'])
-                <li class="menu-item {{ request()->routeIs('dashboard.delivery-riders.index') ? 'active' : '' }}">
-                    <a href="{{ route('dashboard.delivery-riders.index') }}" class="menu-link" style="color: #fff !important;">
-                        <i class="menu-icon tf-icons ti ti-motorbike"></i>
-                        <div>{{__('Riders')}}</div>
-                    </a>
-                </li>
-                <li class="menu-item {{ request()->routeIs('dashboard.delivery-riders.pending-verifications') ? 'active' : '' }}">
-                    <a href="{{ route('dashboard.delivery-riders.pending-verifications') }}" class="menu-link" style="color: #fff !important;">
-                        <i class="menu-icon tf-icons ti ti-shield-check"></i>
-                        <div>{{__('Rider Verifications')}}</div>
-                    </a>
-                </li>
-            @endcan
-            @can(['manage rider cash'])
-                <li class="menu-item {{ request()->routeIs('dashboard.rider-cash.*') ? 'active' : '' }}">
-                    <a href="{{ route('dashboard.rider-cash.index') }}" class="menu-link" style="color: #fff !important;">
-                        <i class="menu-icon tf-icons ti ti-cash"></i>
-                        <div>{{__('Rider Cash')}}</div>
-                    </a>
-                </li>
-            @endcan
-            @can(['view stale alerts'])
-                <li class="menu-item {{ request()->routeIs('dashboard.delivery.alerts') ? 'active' : '' }}">
-                    <a href="{{ route('dashboard.delivery.alerts') }}" class="menu-link d-flex justify-content-between align-items-center" style="color: #fff !important;">
-                        <i class="menu-icon tf-icons ti ti-bell-exclamation"></i>
-                        <div>{{__('Alerts')}}</div>
-                        @php $deliveryAlertCount = \App\Models\StaleJobAlert::where('workspace', 'delivery')->where('status', 'open')->count(); @endphp
-                        @if ($deliveryAlertCount > 0)
-                            <span class="badge bg-danger rounded-pill">{{ $deliveryAlertCount }}</span>
-                        @endif
-                    </a>
-                </li>
-            @endcan
+        @canany(['view delivery', 'view driver', 'assign ride', 'view live tracking', 'view vehicle type', 'create boost hour', 'manage rider cash', 'view stale alerts'])
+            @php $__deliveryScope = request()->query('scope') === 'delivery'; @endphp
+            <li class="menu-item {{ request()->routeIs('dashboard.delivery.*') || request()->routeIs('dashboard.delivery-assignment.*') || request()->routeIs('dashboard.delivery-riders.*') || request()->routeIs('dashboard.rider-cash.*') || request()->routeIs('dashboard.boost-hours.*') || (($__deliveryScope) && (request()->routeIs('dashboard.live-tracking.*') || request()->routeIs('dashboard.vehicle-types.*'))) ? 'open' : '' }}">
+                <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
+                    <i class="menu-icon tf-icons ti ti-motorbike"></i>
+                    <div>{{__('Deliveries')}}</div>
+                </a>
+                <ul class="menu-sub">
+                    @can(['view delivery'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.delivery.index') || request()->routeIs('dashboard.delivery.queue') ? 'active' : '' }}">
+                            <a href="{{ route('dashboard.delivery.index') }}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('All Deliveries')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['view driver'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.delivery-riders.index') ? 'active' : '' }}">
+                            <a href="{{ route('dashboard.delivery-riders.index') }}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Delivery Riders')}}</div>
+                            </a>
+                        </li>
+                        <li class="menu-item {{ request()->routeIs('dashboard.delivery-riders.pending-verifications') ? 'active' : '' }}">
+                            <a href="{{ route('dashboard.delivery-riders.pending-verifications') }}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Pending Verifications')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can('view delivery')
+                    @can('assign ride')
+                        <li class="menu-item {{ request()->routeIs('dashboard.delivery-assignment.*') ? 'active' : '' }}">
+                            <a href="{{ route('dashboard.delivery-assignment.index') }}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Manual Delivery Assignment')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @endcan
+                    @can(['view live tracking'])
+                        <li class="menu-item {{ $__deliveryScope && request()->routeIs('dashboard.live-tracking.*') ? 'active' : '' }}">
+                            <a href="{{ route('dashboard.live-tracking.index', ['scope' => 'delivery']) }}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Live Tracking')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['view vehicle type'])
+                        <li class="menu-item {{ $__deliveryScope && request()->routeIs('dashboard.vehicle-types.*') ? 'active' : '' }}">
+                            <a href="{{ route('dashboard.vehicle-types.index', ['scope' => 'delivery']) }}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Vehicle Types')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['create boost hour'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.boost-hours.*') ? 'active' : '' }}">
+                            <a href="{{ route('dashboard.boost-hours.index') }}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Boost Hours')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['manage rider cash'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.rider-cash.*') ? 'active' : '' }}">
+                            <a href="{{ route('dashboard.rider-cash.index') }}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Delivery Rider Balances')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['view stale alerts'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.delivery.alerts') ? 'active' : '' }}">
+                            <a href="{{ route('dashboard.delivery.alerts') }}" class="menu-link d-flex justify-content-between align-items-center" style="color: #fff !important;">
+                                <div>{{__('Alerts')}}</div>
+                                @php $deliveryAlertCount = \App\Models\StaleJobAlert::where('workspace', 'delivery')->where('status', 'open')->count(); @endphp
+                                @if ($deliveryAlertCount > 0)
+                                    <span class="badge bg-danger rounded-pill">{{ $deliveryAlertCount }}</span>
+                                @endif
+                            </a>
+                        </li>
+                    @endcan
+                </ul>
+            </li>
+        @endcanany
         @endif
 
         {{-- 5. Restaurants -- workspace-gated: only visible while "Delivery"

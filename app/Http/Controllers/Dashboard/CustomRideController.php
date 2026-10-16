@@ -53,14 +53,19 @@ class CustomRideController extends Controller
      * Monitoring-only: driver/active-ride/delivery markers with anomaly
      * overlay, city filter. No booking form -- that stays on index().
      */
-    public function liveTracking()
+    public function liveTracking(Request $request)
     {
         $this->authorize('view live tracking');
         try {
-            $drivers = $this->getDriverMapData();
+            // ?scope=delivery|ride -- each workspace sees only its own drivers/jobs.
+            $scope = in_array($request->scope, ['delivery', 'ride'], true) ? $request->scope : null;
+
+            $drivers = $this->getDriverMapData()
+                ->when($scope, fn ($c) => $c->filter(fn ($d) => $d['is_delivery'] === ($scope === 'delivery')))
+                ->values();
             $cities = $drivers->pluck('city')->filter()->unique()->sort()->values();
 
-            return view('dashboard.custom-rides.live-tracking', compact('drivers', 'cities'));
+            return view('dashboard.custom-rides.live-tracking', compact('drivers', 'cities', 'scope'));
         } catch (\Throwable $th) {
             Log::error('Live Tracking Page Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");

@@ -221,9 +221,14 @@ class RideController extends Controller
                 // never touch/filter on driver_id at all for delivery. So an
                 // unclaimed delivery job must still have its linked order sitting
                 // at 'accepted'.
+                // Parcel jobs have no restaurant_orders row -- unclaimed means the
+                // ride itself is still 'requested'.
                 if ($ride->ride_type !== 'ride') {
                     $assignedRestaurantOrder = RestaurantOrder::where('ride_id', $ride->id)->first();
-                    if (!$assignedRestaurantOrder || $assignedRestaurantOrder->status !== 'accepted') {
+                    $available = $assignedRestaurantOrder
+                        ? $assignedRestaurantOrder->status === 'accepted'
+                        : $ride->getOriginal('status') === 'requested';
+                    if (!$available) {
                         DB::rollBack();
                         $message = 'This delivery job is no longer available to assign.';
                         if ($wantsJson) {
@@ -287,7 +292,7 @@ class RideController extends Controller
                     $ride->id,
                     'ride_details'
                 );
-            } elseif ($assignedDriver && $ride->ride_type !== 'ride' && $assignedRestaurantOrder) {
+            } elseif ($assignedDriver && $ride->ride_type !== 'ride') {
                 // Mirrors DeliveryController::acceptRide()'s full side-effect set as
                 // closely as possible, since that's the only proven-working path for
                 // a rider claiming a delivery job -- just triggered by admin instead
@@ -322,18 +327,20 @@ class RideController extends Controller
                     Log::error('RideOffer broadcast failed', ['offer_id' => $rideOffer->id, 'error' => $e->getMessage()]);
                 }
 
-                $assignedRestaurantOrder->status = 'rider_assigned';
-                $assignedRestaurantOrder->save();
+                if ($assignedRestaurantOrder) {
+                    $assignedRestaurantOrder->status = 'rider_assigned';
+                    $assignedRestaurantOrder->save();
 
-                try {
-                    broadcast(new \App\Events\RestaurantOrderUpdated($assignedRestaurantOrder, [
-                        'id' => $assignedDriver->id,
-                        'name' => $assignedDriver->name,
-                        'phone' => $assignedDriver->phone,
-                        'rating' => round($assignedDriver->driverReviews()->avg('rating'), 1),
-                    ]));
-                } catch (\Throwable $e) {
-                    Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $assignedRestaurantOrder->id, 'error' => $e->getMessage()]);
+                    try {
+                        broadcast(new \App\Events\RestaurantOrderUpdated($assignedRestaurantOrder, [
+                            'id' => $assignedDriver->id,
+                            'name' => $assignedDriver->name,
+                            'phone' => $assignedDriver->phone,
+                            'rating' => round($assignedDriver->driverReviews()->avg('rating'), 1),
+                        ]));
+                    } catch (\Throwable $e) {
+                        Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $assignedRestaurantOrder->id, 'error' => $e->getMessage()]);
+                    }
                 }
 
                 // acceptRide() doesn't need this -- the rider already knows they just
@@ -356,7 +363,7 @@ class RideController extends Controller
                     'ride_details'
                 );
 
-                $customer = $assignedRestaurantOrder->customer;
+                $customer = $assignedRestaurantOrder ? $assignedRestaurantOrder->customer : $ride->passenger;
                 if ($customer) {
                     app('notificationService')->notifyUsers(
                         [$customer],
