@@ -293,87 +293,12 @@ class RideController extends Controller
                     'ride_details'
                 );
             } elseif ($assignedDriver && $ride->ride_type !== 'ride') {
-                // Mirrors DeliveryController::acceptRide()'s full side-effect set as
-                // closely as possible, since that's the only proven-working path for
-                // a rider claiming a delivery job -- just triggered by admin instead
-                // of the rider self-claiming.
-                $rideOffer = new RideOffer();
-                $rideOffer->ride_id = $ride->id;
-                $rideOffer->driver_id = $assignedDriver->id;
-                $rideOffer->proposed_price = $ride->total_fare;
-                // No ETA input on the admin assignment form -- default to 15 minutes
-                // when not explicitly provided.
-                $rideOffer->eta_minutes = $request->input('eta_minutes', 15);
-                $rideOffer->note = 'Assigned by admin';
-                $rideOffer->offered_at = now();
-                $rideOffer->status = 'accepted';
-                $rideOffer->save();
-
-                RideDriverLog::updateOrCreate(
-                    ['ride_id' => $ride->id, 'driver_id' => $assignedDriver->id],
-                    ['action' => 'sent', 'note' => 'Delivery assigned by admin']
+                \App\Services\DeliveryAssignmentService::assign(
+                    $ride,
+                    $assignedDriver,
+                    $assignedRestaurantOrder,
+                    (int) $request->input('eta_minutes', 15)
                 );
-
-                try {
-                    broadcast(new \App\Events\RideStatusUpdated($ride));
-                } catch (\Throwable $e) {
-                    Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
-                }
-
-                try {
-                    broadcast(new \App\Events\RideOfferCreated($rideOffer));
-                    broadcast(new \App\Events\RideOfferStatusUpdated($rideOffer));
-                } catch (\Throwable $e) {
-                    Log::error('RideOffer broadcast failed', ['offer_id' => $rideOffer->id, 'error' => $e->getMessage()]);
-                }
-
-                if ($assignedRestaurantOrder) {
-                    $assignedRestaurantOrder->status = 'rider_assigned';
-                    $assignedRestaurantOrder->save();
-
-                    try {
-                        broadcast(new \App\Events\RestaurantOrderUpdated($assignedRestaurantOrder, [
-                            'id' => $assignedDriver->id,
-                            'name' => $assignedDriver->name,
-                            'phone' => $assignedDriver->phone,
-                            'rating' => round($assignedDriver->driverReviews()->avg('rating'), 1),
-                        ]));
-                    } catch (\Throwable $e) {
-                        Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $assignedRestaurantOrder->id, 'error' => $e->getMessage()]);
-                    }
-                }
-
-                // acceptRide() doesn't need this -- the rider already knows they just
-                // claimed it. Here, the rider has no way to find out otherwise: the
-                // proven-working discovery path (DeliveryController::getLatestRides)
-                // only surfaces still-unclaimed jobs by design, so once
-                // restaurant_orders.status flips away from 'accepted' above, this
-                // rider's own next poll would come back empty rather than showing
-                // this job as theirs. A push notification is the one channel I can
-                // confirm actually reaches their device regardless of that -- but
-                // whether their app has any *screen* that then shows this as an
-                // active/assigned delivery is unverified. Flagging this rather than
-                // assuming it's fully wired end-to-end.
-                app('notificationService')->notifyUsers(
-                    [$assignedDriver],
-                    'New Delivery Assigned',
-                    'You have been assigned a delivery by the admin.',
-                    'rides',
-                    $ride->id,
-                    'ride_details'
-                );
-
-                $customer = $assignedRestaurantOrder ? $assignedRestaurantOrder->customer : $ride->passenger;
-                if ($customer) {
-                    app('notificationService')->notifyUsers(
-                        [$customer],
-                        'New Delivery Ride Offer',
-                        'A driver has been assigned to your delivery order.',
-                        'ride_offers',
-                        $rideOffer->id,
-                        'ride_offer_details'
-                    );
-                }
             }
 
             // Plain edit of an already-active ride (status / pickup / dropoff /

@@ -32,5 +32,6 @@
         'itemPrefix' => 'ORDER-',
         'queueTitle' => 'Orders',
         'hasTypeChips' => true,
+        'queueEditable' => false,
     ])
 @endsection

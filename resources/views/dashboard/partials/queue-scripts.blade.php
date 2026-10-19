@@ -24,6 +24,7 @@
     const canViewCustomerProfile = @json(auth()->user()->can('view user'));
     const queueTitleLabel = @json($queueTitle);
     const queueHasTypeChips = @json($hasTypeChips);
+    const queueEditable = @json($queueEditable ?? true);
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
 
     const queueStatusBadge = {
@@ -46,10 +47,17 @@
         tbody.innerHTML = rides.map(ride => {
             const badgeClass = queueStatusBadge[ride.status] || 'status-active';
             const statusLabel = ride.status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-            const canEdit = ride.queue === 'dispatch' || ride.queue === 'booked';
-            const actionsCell = canEdit
-                ? `<button type="button" class="queue-edit-btn" data-id="${ride.id}" data-status="${ride.status}" data-pickup="${ride.pickup ?? ''}" data-dropoff="${ride.dropoff ?? ''}" data-type="${ride.type_key}" data-queue="${ride.queue}" data-fare="${ride.fare ?? ''}"><i class="fas fa-pen"></i> Edit</button>`
-                : '--';
+            const canEdit = queueEditable && (ride.queue === 'dispatch' || ride.queue === 'booked');
+            // A page can define window.renderQueueActions(ride) to supply its
+            // own action buttons instead of the default Edit button.
+            const actionsCell = typeof window.renderQueueActions === 'function'
+                ? window.renderQueueActions(ride)
+                : (canEdit
+                    ? `<button type="button" class="queue-edit-btn" data-id="${ride.id}" data-status="${ride.status}" data-pickup="${ride.pickup ?? ''}" data-dropoff="${ride.dropoff ?? ''}" data-type="${ride.type_key}" data-queue="${ride.queue}" data-fare="${ride.fare ?? ''}"><i class="fas fa-pen"></i> Edit</button>`
+                    : '--');
+            const staleAttrs = ride.stale
+                ? ` class="table-danger" title="${(ride.stale_reason ?? 'Needs attention').replace(/"/g, '&quot;')}"`
+                : '';
             const passengerCell = (ride.passenger_id && ride.passenger && canViewCustomerProfile)
                 ? `<a href="${customerProfileUrlTemplate.replace('__ID__', ride.passenger_id)}">${ride.passenger}</a>`
                 : (ride.passenger ?? '--');
@@ -57,7 +65,7 @@
                 ? ` title="From: ${ride.sender_name} (${ride.sender_phone ?? ''})&#10;To: ${ride.receiver_name ?? ''} (${ride.receiver_phone ?? ''})&#10;Package: ${ride.package_type ?? ''}, ${ride.package_size ?? ''}&#10;Fee paid by: ${ride.delivery_fee_paid_by ?? ''}${ride.parcel_notes ? '&#10;Notes: ' + ride.parcel_notes : ''}"`
                 : '';
             return `
-                <tr data-queue="${ride.queue}" data-type="${ride.type_key}">
+                <tr data-queue="${ride.queue}" data-type="${ride.type_key}"${staleAttrs}>
                     <td class="muted-cell">${ride.time ?? ''}</td>
                     <td>${queueItemPrefix}${ride.id}</td>
                     <td><span class="trip-type-badge trip-type-${ride.type_key}"${parcelTitle}>${ride.type_label}</span></td>

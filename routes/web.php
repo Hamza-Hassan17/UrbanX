@@ -316,6 +316,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('delivery/queue', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'queue'])->name('delivery.queue');
             Route::post('delivery/queue/presets', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'savePreset'])->name('delivery.queue.presets');
             Route::get('delivery-assignment', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'assignment'])->name('delivery-assignment.index');
+            Route::get('delivery-assignment/stats', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'assignmentStats'])->name('delivery-assignment.stats');
+            Route::post('delivery-assignment/quote', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'quoteParcel'])->name('delivery-assignment.quote');
+            Route::post('delivery-assignment/parcel', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'storeParcel'])->name('delivery-assignment.parcel');
+            Route::post('delivery-assignment/{ride_id}/reassign', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'reassign'])->name('delivery-assignment.reassign');
             Route::post('delivery/order/{order_id}/cancel', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'cancelOrder'])->name('delivery.order.cancel');
             Route::post('delivery/order/{order_id}/override-delivery', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'overrideFoodDelivery'])->name('delivery.order.override-delivery');
             Route::post('delivery/ride/{ride_id}/override-delivery', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'overrideParcelDelivery'])->name('delivery.ride.override-delivery');

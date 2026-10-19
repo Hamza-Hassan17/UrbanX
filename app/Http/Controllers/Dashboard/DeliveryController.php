@@ -89,10 +89,11 @@ class DeliveryController extends Controller
     }
 
     /**
-     * Manual Delivery Assignment -- unclaimed food/parcel jobs plus the
-     * delivery riders who can take them. Assigning posts to the shared
-     * dashboard.rides.update action, which already carries the full
-     * delivery side-effect set (offer, order status, broadcasts, pushes).
+     * Manual Delivery Assignment -- the Delivery workspace's counterpart of
+     * Manual Ride Assignment: parcel booking form, live counters, map of
+     * riders + waiting pickups, and the delivery queue with Assign /
+     * Reassign actions. Food orders are never created here (they need a
+     * real restaurant order); they are only assigned from the queue.
      */
     public function assignment()
     {
@@ -100,54 +101,440 @@ class DeliveryController extends Controller
         $this->authorize('assign ride');
 
         try {
-            $rides = Ride::where('ride_type', 'delivery')
-                ->where('status', 'requested')
-                ->whereNull('driver_id')
-                ->with('passenger:id,name,phone')
-                ->latest('requested_at')
-                ->get();
-
-            // Food jobs are only claimable once the restaurant has accepted.
-            $orders = RestaurantOrder::whereIn('ride_id', $rides->pluck('id'))
-                ->with('restaurant:id,name')
-                ->get()
-                ->keyBy('ride_id');
-
-            $rides = $rides->filter(function ($ride) use ($orders) {
-                $order = $orders->get($ride->id);
-                return !$order || $order->status === 'accepted';
-            })->values();
+            [$queuePresets, $lastQueueFilters] = $this->loadQueuePresets('delivery');
 
             $geocoder = app(GeocodingService::class);
-            $rows = $rides->map(function ($ride) use ($orders, $geocoder) {
-                $order = $orders->get($ride->id);
-                return [
-                    'id' => $ride->id,
-                    'type_label' => $order ? 'Food' : 'Parcel',
-                    'restaurant' => $order->restaurant->name ?? null,
-                    'time' => optional($ride->scheduled_pickup_at ?? $ride->requested_at)->setTimezone('Asia/Karachi')->format('d M H:i'),
-                    'pickup' => $geocoder->reverseGeocode($ride->pickup_latitude, $ride->pickup_longitude)
-                        ?? $ride->pickup_latitude . ', ' . $ride->pickup_longitude,
-                    'dropoff' => $geocoder->reverseGeocode($ride->dropoff_latitude, $ride->dropoff_longitude)
-                        ?? $ride->dropoff_latitude . ', ' . $ride->dropoff_longitude,
-                    'customer' => $ride->passenger->name ?? ($ride->sender_name ?? null),
-                    'phone' => $ride->passenger->phone ?? ($ride->sender_phone ?? null),
-                    'fare' => (float) $ride->total_fare,
-                ];
-            });
+            $rides = Ride::where('ride_type', 'delivery')
+                ->with(['driver:id,name', 'passenger:id,name,phone'])
+                ->whereIn('status', array_merge(RideQueueFilterService::ACTIVE_STATUSES, ['completed', 'cancelled']))
+                ->latest('requested_at')
+                ->take(50)
+                ->get();
+            $rides = $this->withTypeKeys($rides)->map(fn ($ride) => $this->queueRow($ride, $geocoder));
 
-            $riders = \App\Models\User::role('driver')
-                ->where('driver_status', 'available')
-                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
-                ->with('profile:id,user_id,city')
+            $restaurants = \App\Models\Restaurant::where('is_active', 'active')
+                ->whereNotNull('latitude')
+                ->whereNotNull('longitude')
                 ->orderBy('name')
-                ->get(['id', 'name', 'phone']);
+                ->get(['id', 'name', 'latitude', 'longitude']);
 
-            return view('dashboard.delivery.assignment', compact('rows', 'riders'));
+            $parcelSettings = \App\Services\FareBreakdownService::parcelDeliveryFeeSettings();
+            $cashLimit = \App\Services\FareBreakdownService::riderCashLimit();
+
+            return view('dashboard.delivery.assignment', array_merge(
+                compact('rides', 'queuePresets', 'lastQueueFilters', 'restaurants', 'parcelSettings', 'cashLimit'),
+                $this->dispatchSnapshot()
+            ));
         } catch (\Throwable $th) {
             Log::error('Delivery Assignment Page Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', 'Something went wrong! Please try again later');
         }
+    }
+
+    public function assignmentStats()
+    {
+        $this->authorize('view delivery');
+
+        try {
+            return response()->json($this->dispatchSnapshot());
+        } catch (\Throwable $th) {
+            Log::error('Delivery Dispatch Stats Failed', ['error' => $th->getMessage()]);
+            return response()->json(['message' => 'Something went wrong!'], 500);
+        }
+    }
+
+    public function quoteParcel(Request $request)
+    {
+        $this->authorize('view delivery');
+
+        $validator = Validator::make($request->all(), [
+            'pickup_latitude' => 'required|numeric',
+            'pickup_longitude' => 'required|numeric',
+            'dropoff_latitude' => 'required|numeric',
+            'dropoff_longitude' => 'required|numeric',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['message' => $validator->errors()->first()], 422);
+        }
+
+        $quote = $this->parcelQuote($request);
+        if (isset($quote['error'])) {
+            return response()->json(['message' => $quote['error']], 422);
+        }
+
+        return response()->json($quote);
+    }
+
+    /**
+     * Admin books a parcel on a customer's behalf (phone/WhatsApp booking).
+     * Same pricing and fields as the customer app's bookParcel -- fee is
+     * always computed server-side. Optionally hands it straight to a rider.
+     */
+    public function storeParcel(Request $request)
+    {
+        $this->authorize('view delivery');
+        $this->authorize('assign ride');
+
+        $validator = Validator::make($request->all(), [
+            'pickup_latitude' => 'required|numeric',
+            'pickup_longitude' => 'required|numeric',
+            'dropoff_latitude' => 'required|numeric',
+            'dropoff_longitude' => 'required|numeric',
+            'sender_name' => 'required|string|max:255',
+            'sender_phone' => 'required|string|max:30',
+            'receiver_name' => 'required|string|max:255',
+            'receiver_phone' => 'required|string|max:30',
+            'package_type' => 'required|string|max:255',
+            'package_size' => 'required|in:small,medium,large',
+            'parcel_notes' => 'nullable|string|max:500',
+            'delivery_fee_paid_by' => 'required|in:sender,receiver',
+            'rider_id' => 'nullable|exists:users,id',
+            'scheduled_pickup_at' => 'nullable|date_format:Y-m-d\TH:i',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['message' => $validator->errors()->first(), 'errors' => $validator->errors()], 422);
+        }
+
+        $quote = $this->parcelQuote($request);
+        if (isset($quote['error'])) {
+            return response()->json(['message' => $quote['error']], 422);
+        }
+
+        $vehicleType = \App\Models\VehicleType::where('is_delivery', '1')->first();
+        if (!$vehicleType) {
+            return response()->json(['message' => 'No delivery vehicle type is configured.'], 422);
+        }
+
+        $rider = null;
+        if ($request->filled('rider_id')) {
+            $rider = \App\Models\User::role('driver')
+                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
+                ->find($request->rider_id);
+            if (!$rider) {
+                return response()->json(['message' => 'Selected rider is not a delivery rider.'], 422);
+            }
+        }
+
+        try {
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            $sender = $this->findOrCreateCustomer($request->sender_name, $request->sender_phone);
+
+            $ride = new Ride();
+            $ride->passenger_id = $sender->id;
+            $ride->vehicle_type_id = $vehicleType->id;
+            $ride->pickup_latitude = $request->pickup_latitude;
+            $ride->pickup_longitude = $request->pickup_longitude;
+            $ride->dropoff_latitude = $request->dropoff_latitude;
+            $ride->dropoff_longitude = $request->dropoff_longitude;
+            $ride->distance_km = $quote['distance_actual_km'];
+            $ride->distance_charged_km = $quote['distance_charged_km'];
+            $ride->subtotal = $quote['delivery_fee'];
+            $ride->total_fare = $quote['delivery_fee'];
+            $ride->requested_at = now();
+            $ride->scheduled_pickup_at = $request->filled('scheduled_pickup_at')
+                ? \Carbon\Carbon::parse($request->scheduled_pickup_at, 'Asia/Karachi')->utc()
+                : null;
+            $ride->status = 'requested';
+            $ride->ride_type = 'delivery';
+            $ride->sender_name = $request->sender_name;
+            $ride->sender_phone = $request->sender_phone;
+            $ride->receiver_name = $request->receiver_name;
+            $ride->receiver_phone = $request->receiver_phone;
+            $ride->package_type = $request->package_type;
+            $ride->package_size = $request->package_size;
+            $ride->parcel_notes = $request->parcel_notes;
+            $ride->delivery_fee_paid_by = $request->delivery_fee_paid_by;
+            $ride->payment_method = 'cod';
+            $ride->payment_status = 'unpaid';
+            $ride->delivery_code = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            $ride->created_by = auth()->id();
+
+            if ($rider) {
+                $ride->driver_id = $rider->id;
+                $ride->status = 'accepted';
+                $ride->accepted_at = now();
+                $ride->status_updated_by = auth()->id();
+                $ride->status_updated_by_role = 'admin';
+            }
+            $ride->save();
+
+            \Illuminate\Support\Facades\DB::commit();
+        } catch (\Throwable $th) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            Log::error('Admin Parcel Booking Failed', ['error' => $th->getMessage()]);
+            return response()->json(['message' => 'Something went wrong!'], 500);
+        }
+
+        if ($rider) {
+            \App\Services\DeliveryAssignmentService::assign($ride, $rider, null);
+        } else {
+            try {
+                broadcast(new \App\Events\RideStatusUpdated($ride));
+            } catch (\Throwable $e) {
+                Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        AdminActivityLog::record(
+            'Booked parcel for customer',
+            [],
+            ['ride_id' => $ride->id, 'rider_id' => $rider?->id, 'delivery_fee' => $quote['delivery_fee']],
+            Ride::class,
+            $ride->id
+        );
+
+        return response()->json([
+            'ride_id' => $ride->id,
+            'delivery_fee' => $quote['delivery_fee'],
+            'delivery_code' => $ride->delivery_code,
+            'message' => $rider
+                ? "Parcel booked and assigned to {$rider->name}. Delivery code: {$ride->delivery_code}"
+                : "Parcel booked and sent to dispatch. Delivery code: {$ride->delivery_code}",
+        ]);
+    }
+
+    /**
+     * Swap the rider on a booked delivery that hasn't been picked up yet
+     * (rider went quiet, broke down, etc). Old rider is told it was taken
+     * back; the new one gets the same assignment side effects as Assign.
+     */
+    public function reassign(Request $request, $ride_id)
+    {
+        $this->authorize('view delivery');
+        $this->authorize('reassign ride');
+
+        $validator = Validator::make($request->all(), [
+            'driver_id' => 'required|exists:users,id',
+            'eta_minutes' => 'nullable|integer|min:0',
+            'reason' => 'nullable|string|max:500',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['message' => $validator->errors()->first()], 422);
+        }
+
+        try {
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            $ride = Ride::where('ride_type', 'delivery')->lockForUpdate()->findOrFail($ride_id);
+            $order = RestaurantOrder::where('ride_id', $ride->id)->first();
+
+            if (!$this->isReassignable($ride, $order)) {
+                \Illuminate\Support\Facades\DB::rollBack();
+                return response()->json(['message' => 'This delivery can no longer be reassigned (already picked up or finished).'], 422);
+            }
+
+            if ((int) $ride->driver_id === (int) $request->driver_id) {
+                \Illuminate\Support\Facades\DB::rollBack();
+                return response()->json(['message' => 'That rider already has this delivery.'], 422);
+            }
+
+            $newRider = \App\Models\User::role('driver')
+                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
+                ->find($request->driver_id);
+            if (!$newRider) {
+                \Illuminate\Support\Facades\DB::rollBack();
+                return response()->json(['message' => 'Selected rider is not a delivery rider.'], 422);
+            }
+
+            $oldRider = \App\Models\User::find($ride->driver_id);
+
+            \App\Models\RideOffer::where('ride_id', $ride->id)
+                ->where('driver_id', $ride->driver_id)
+                ->where('status', 'accepted')
+                ->update(['status' => 'rejected']);
+
+            \App\Models\RideDriverLog::updateOrCreate(
+                ['ride_id' => $ride->id, 'driver_id' => $ride->driver_id],
+                ['action' => 'cancelled', 'note' => 'Reassigned by admin. ' . ($request->reason ?? '')]
+            );
+
+            $ride->driver_id = $newRider->id;
+            $ride->status = 'accepted';
+            $ride->accepted_at = now();
+            $ride->status_updated_by = auth()->id();
+            $ride->status_updated_by_role = 'admin';
+            $ride->save();
+
+            \Illuminate\Support\Facades\DB::commit();
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            return response()->json(['message' => 'Delivery not found.'], 404);
+        } catch (\Throwable $th) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            Log::error('Delivery Reassign Failed', ['error' => $th->getMessage()]);
+            return response()->json(['message' => 'Something went wrong!'], 500);
+        }
+
+        if ($oldRider) {
+            app('notificationService')->notifyUsers(
+                [$oldRider],
+                'Delivery Reassigned',
+                'This delivery has been taken back by the admin and given to another rider.',
+                'rides',
+                $ride->id,
+                'ride_details'
+            );
+        }
+
+        \App\Services\DeliveryAssignmentService::assign(
+            $ride,
+            $newRider,
+            $order,
+            (int) $request->input('eta_minutes', 15),
+            'Reassigned by admin'
+        );
+
+        AdminActivityLog::record(
+            'Reassigned delivery rider',
+            ['driver_id' => $oldRider?->id],
+            ['driver_id' => $newRider->id, 'reason' => $request->reason],
+            Ride::class,
+            $ride->id
+        );
+
+        return response()->json(['message' => "Delivery reassigned to {$newRider->name}."]);
+    }
+
+    /**
+     * Counters, rider positions and waiting-pickup pins for the dispatch
+     * page -- shared by the first render and the 10s poll.
+     */
+    private function dispatchSnapshot(): array
+    {
+        $cashLimit = \App\Services\FareBreakdownService::riderCashLimit();
+
+        $riders = \App\Models\User::role('driver')
+            ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
+            ->with(['profile:id,user_id,city', 'driverVehicle:id,driver_id,vehicle_name,vehicle_make'])
+            ->get(['id', 'name', 'phone', 'lat', 'lang', 'driver_status'])
+            ->map(function ($rider) use ($cashLimit) {
+                $cash = \App\Services\RiderCashService::currentBalance($rider->id);
+                return [
+                    'id' => $rider->id,
+                    'name' => $rider->name,
+                    'phone' => $rider->phone,
+                    'lat' => $rider->lat ? (float) $rider->lat : null,
+                    'lng' => $rider->lang ? (float) $rider->lang : null,
+                    'status' => $rider->driver_status,
+                    'city' => $rider->profile->city ?? null,
+                    'vehicle' => $rider->driverVehicle
+                        ? trim($rider->driverVehicle->vehicle_name . ' ' . $rider->driverVehicle->vehicle_make)
+                        : null,
+                    'cash_balance' => round($cash, 2),
+                    'over_cash_limit' => $cash >= $cashLimit,
+                ];
+            })
+            ->values();
+
+        $activeStatuses = RideQueueFilterService::ACTIVE_STATUSES;
+
+        $unassigned = Ride::where('ride_type', 'delivery')
+            ->where('status', 'requested')
+            ->whereNull('driver_id')
+            ->get(['id', 'pickup_latitude', 'pickup_longitude', 'requested_at', 'scheduled_pickup_at']);
+        $orderStatuses = RestaurantOrder::whereIn('ride_id', $unassigned->pluck('id'))
+            ->pluck('status', 'ride_id');
+
+        $waitingRestaurant = $unassigned->filter(fn ($r) => in_array($orderStatuses->get($r->id), ['pending', 'preparing'], true));
+        $assignable = $unassigned->filter(function ($r) use ($orderStatuses) {
+            $status = $orderStatuses->get($r->id);
+            return $status === null || $status === 'accepted';
+        });
+
+        $pins = $assignable->map(fn ($r) => [
+            'ride_id' => $r->id,
+            'type' => $orderStatuses->has($r->id) ? 'food' : 'parcel',
+            'lat' => (float) $r->pickup_latitude,
+            'lng' => (float) $r->pickup_longitude,
+        ])->values();
+
+        $stats = [
+            'available' => $riders->where('status', 'available')->count(),
+            'busy' => $riders->where('status', 'busy')->count(),
+            'dispatch' => $assignable->count(),
+            'waiting_restaurant' => $waitingRestaurant->count(),
+            'booked' => Ride::where('ride_type', 'delivery')->whereIn('status', $activeStatuses)->whereNotNull('driver_id')->count(),
+            'completed' => Ride::where('ride_type', 'delivery')->where('status', 'completed')->whereDate('completed_at', today())->count(),
+            'cancelled' => Ride::where('ride_type', 'delivery')->where('status', 'cancelled')->whereDate('cancelled_at', today())->count(),
+        ];
+
+        return compact('stats', 'riders', 'pins');
+    }
+
+    private function parcelQuote(Request $request): array
+    {
+        $settings = \App\Services\FareBreakdownService::parcelDeliveryFeeSettings();
+
+        $lat1 = deg2rad((float) $request->pickup_latitude);
+        $lng1 = deg2rad((float) $request->pickup_longitude);
+        $lat2 = deg2rad((float) $request->dropoff_latitude);
+        $lng2 = deg2rad((float) $request->dropoff_longitude);
+        $actualKm = 6371 * acos(min(1, max(-1,
+            cos($lat1) * cos($lat2) * cos($lng2 - $lng1) + sin($lat1) * sin($lat2)
+        )));
+        $chargedKm = \App\Services\FareBreakdownService::roundUpToKm($actualKm);
+
+        if ($chargedKm > $settings['max_distance_km']) {
+            return ['error' => "This address is beyond the {$settings['max_distance_km']} km parcel delivery limit."];
+        }
+
+        $fee = $settings['first_km_fee'];
+        if ($chargedKm > 1) {
+            $fee += ($chargedKm - 1) * $settings['per_km_fee'];
+        }
+
+        return [
+            'distance_actual_km' => round($actualKm, 2),
+            'distance_charged_km' => max($chargedKm, 1),
+            'delivery_fee' => round($fee, 2),
+            'max_distance_km' => $settings['max_distance_km'],
+        ];
+    }
+
+    private function findOrCreateCustomer(string $name, string $phone): \App\Models\User
+    {
+        $existing = \App\Models\User::where('phone', $phone)->first();
+        if ($existing) {
+            return $existing;
+        }
+
+        $user = new \App\Models\User();
+        $user->name = $name;
+        $user->phone = $phone;
+        $base = preg_replace('/[^0-9]/', '', $phone) ?: 'guest';
+        $email = $base . '@guest.urbanx.local';
+        while (\App\Models\User::where('email', $email)->exists()) {
+            $email = $base . rand(1000, 9999) . '@guest.urbanx.local';
+        }
+        $user->email = $email;
+        $user->password = \Illuminate\Support\Facades\Hash::make($phone);
+        $username = strtolower(str_replace(' ', '', $name)) . rand(1000, 9999);
+        while (\App\Models\User::where('username', $username)->exists()) {
+            $username = strtolower(str_replace(' ', '', $name)) . rand(1000, 9999);
+        }
+        $user->username = $username;
+        $user->save();
+        $user->syncRoles('user');
+
+        return $user;
+    }
+
+    /**
+     * Before pickup only: a food order still at rider_assigned, or a parcel
+     * the rider hasn't started yet.
+     */
+    private function isReassignable(Ride $ride, ?RestaurantOrder $order): bool
+    {
+        if (!$ride->driver_id) {
+            return false;
+        }
+
+        if ($order) {
+            return $order->status === 'rider_assigned';
+        }
+
+        return in_array($ride->status, ['accepted', 'en_route', 'arrived'], true);
     }
 
     /**
@@ -330,10 +717,22 @@ class DeliveryController extends Controller
      */
     private function withTypeKeys($rides)
     {
-        $foodRideIds = $this->foodRideIds($rides->pluck('id')->all());
+        $rideIds = $rides->pluck('id')->all();
+        $orderStatuses = empty($rideIds)
+            ? collect()
+            : RestaurantOrder::whereIn('ride_id', $rideIds)->pluck('status', 'ride_id');
+        $openAlertRideIds = empty($rideIds)
+            ? []
+            : \App\Models\StaleJobAlert::where('status', 'open')
+                ->where('subject_type', Ride::class)
+                ->whereIn('subject_id', $rideIds)
+                ->pluck('subject_id')
+                ->all();
 
-        return $rides->map(function (Ride $ride) use ($foodRideIds) {
-            $ride->is_food = in_array($ride->id, $foodRideIds, true);
+        return $rides->map(function (Ride $ride) use ($orderStatuses, $openAlertRideIds) {
+            $ride->is_food = $orderStatuses->has($ride->id);
+            $ride->order_status = $orderStatuses->get($ride->id);
+            $ride->has_open_alert = in_array($ride->id, $openAlertRideIds);
             return $ride;
         });
     }
@@ -357,8 +756,33 @@ class DeliveryController extends Controller
 
         $pickupAt = $ride->scheduled_pickup_at ?? $ride->requested_at;
         $isFood = (bool) ($ride->is_food ?? false);
+        $orderStatus = $ride->order_status ?? null;
+
+        $assignable = $queue === 'dispatch' && $ride->status === 'requested'
+            && (!$isFood || $orderStatus === 'accepted');
+        $reassignable = $queue === 'booked' && ($isFood
+            ? $orderStatus === 'rider_assigned'
+            : in_array($ride->status, ['accepted', 'en_route', 'arrived'], true));
+
+        $staleReason = null;
+        if (!empty($ride->has_open_alert)) {
+            $staleReason = 'Open stale-job alert';
+        } elseif ($queue === 'dispatch' && $pickupAt
+            && $pickupAt->lte(now()->subMinutes(\App\Services\DispatchSettingsService::staleUnassignedMinutes()))) {
+            $staleReason = $isFood && $orderStatus !== 'accepted'
+                ? 'Restaurant has not accepted yet'
+                : 'Waiting for a rider too long';
+        }
 
         return [
+            'driver_id' => $ride->driver_id,
+            'pickup_lat' => (float) $ride->pickup_latitude,
+            'pickup_lng' => (float) $ride->pickup_longitude,
+            'order_status' => $orderStatus,
+            'assignable' => $assignable,
+            'reassignable' => $reassignable,
+            'stale' => $staleReason !== null,
+            'stale_reason' => $staleReason,
             'id'        => $ride->id,
             'time'      => optional($pickupAt)->setTimezone('Asia/Karachi')->format('H:i'),
             'pickup'    => $geocoder->reverseGeocode($ride->pickup_latitude, $ride->pickup_longitude)
