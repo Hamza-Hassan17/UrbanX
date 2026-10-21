@@ -54,7 +54,10 @@ class EnsureWorkspaceAccess
             }
         }
 
-        if ($requiredWorkspace && !$isSuperAdmin && !in_array($requiredWorkspace, $allowed, true)) {
+        // A route may be shared by several workspaces (array value) -- access
+        // is allowed if the user has any one of them.
+        if ($requiredWorkspace && !$isSuperAdmin
+            && empty(array_intersect((array) $requiredWorkspace, $allowed))) {
             abort(403, 'You do not have access to this workspace.');
         }
 

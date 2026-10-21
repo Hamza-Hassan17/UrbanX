@@ -37,15 +37,25 @@ return [
     ],
 
     'route_prefixes' => [
+        // Shared by Rides and Delivery -- delivery jobs are rides rows, so
+        // the ride detail page and the admin assign action serve both, and
+        // these pages take ?scope=delivery|ride. First matching prefix wins,
+        // so these must stay above 'dashboard.rides.'.
+        'dashboard.rides.show' => ['rides', 'delivery'],
+        'dashboard.rides.update' => ['rides', 'delivery'],
+        'dashboard.rides.route-pings' => ['rides', 'delivery'],
+        'dashboard.live-tracking.' => ['rides', 'delivery'],
+        'dashboard.custom-rides.live-tracking' => ['rides', 'delivery'],
+        'dashboard.vehicle-types.' => ['rides', 'delivery'],
+        'dashboard.vehicle-type-icons.' => ['rides', 'delivery'],
+        'dashboard.boost-hours.' => ['rides', 'delivery'],
+        'dashboard.complains.' => ['rides', 'delivery', 'platform'],
+
         // Rides
         'dashboard.rides.' => 'rides',
         'dashboard.drivers.index' => 'rides',
         'dashboard.drivers.pending-verifications' => 'rides',
         'dashboard.custom-rides.' => 'rides',
-        'dashboard.live-tracking.' => 'rides',
-        'dashboard.vehicle-types.' => 'rides',
-        'dashboard.vehicle-type-icons.' => 'rides',
-        'dashboard.boost-hours.' => 'rides',
         'dashboard.promo-codes.' => 'rides',
         'dashboard.chauffeur-vehicles.' => 'rides',
         'dashboard.chauffeur-bookings.' => 'rides',
@@ -57,6 +67,7 @@ return [
         'dashboard.restaurant-vouchers.' => 'delivery',
         'dashboard.restaurant-owners.' => 'delivery',
         'dashboard.delivery.' => 'delivery',
+        'dashboard.delivery-assignment.' => 'delivery',
         'dashboard.delivery-riders.' => 'delivery',
         'dashboard.rider-cash.' => 'delivery',
         'dashboard.driver-balances.' => 'rides',
@@ -70,7 +81,6 @@ return [
         'dashboard.pricing-fees.' => 'platform',
         'dashboard.payroll.' => 'platform',
         'dashboard.reports.' => 'platform',
-        'dashboard.complains.' => 'platform',
         'dashboard.support-requests.' => 'platform',
         'dashboard.announcements.' => 'platform',
         'dashboard.roles.' => 'platform',
