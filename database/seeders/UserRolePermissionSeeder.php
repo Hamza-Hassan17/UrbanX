@@ -164,6 +164,10 @@ class UserRolePermissionSeeder extends Seeder
         // 'manage rider cash'.
         Permission::firstOrCreate(['name' => 'manage driver balances']);
 
+        // Batch 3 Part 5 -- Driver/Rider Performance reports (read-only
+        // pages + CSV export). Granted to admin, operator and finance below.
+        Permission::firstOrCreate(['name' => 'view performance reports']);
+
         // Create Roles
         $superAdminRole = Role::firstOrCreate(['name' => 'super-admin']); //as super-admin
         $adminRole = Role::firstOrCreate(['name' => 'admin']);
@@ -285,6 +289,12 @@ class UserRolePermissionSeeder extends Seeder
         // "Finance role gets access".
         $financeRole->givePermissionTo(['manage rider cash']);
         $financeRole->givePermissionTo(['manage driver balances']);
+
+        // Batch 3 Part 5 -- performance reports. Admin and Operator per the
+        // brief; Finance too, read-only (the pages have no write actions).
+        $adminRole->givePermissionTo(['view performance reports']);
+        $operatorRole->givePermissionTo(['view performance reports']);
+        $financeRole->givePermissionTo(['view performance reports']);
 
 
         // Create User and assign Role to it.

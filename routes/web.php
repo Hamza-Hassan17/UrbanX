@@ -250,6 +250,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::resource('announcements', AnnoucementController::class);
             Route::get('announcements/status/{id}', [AnnoucementController::class, 'updateStatus'])->name('announcements.status.update');
 
+            // Batch 3 Part 5 -- performance reports
+            Route::get('driver-performance', [\App\Http\Controllers\Dashboard\PerformanceReportController::class, 'drivers'])->name('driver-performance.index');
+            Route::get('driver-performance/export', [\App\Http\Controllers\Dashboard\PerformanceReportController::class, 'exportDrivers'])->name('driver-performance.export');
+            Route::get('rider-performance', [\App\Http\Controllers\Dashboard\PerformanceReportController::class, 'riders'])->name('rider-performance.index');
+            Route::get('rider-performance/export', [\App\Http\Controllers\Dashboard\PerformanceReportController::class, 'exportRiders'])->name('rider-performance.export');
+
             //Rides
             Route::resource('rides', RideController::class);
             Route::get('rides/{id}/route-pings', [RideController::class, 'routePings'])->name('rides.route-pings');
