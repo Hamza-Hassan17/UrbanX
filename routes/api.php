@@ -108,6 +108,11 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
         //Status Update
         Route::post('/update-status', [DriverDetailsController::class, 'updateDriverStatus']);
 
+        // Batch 3 Part 4 -- online/offline (separate from busy/available)
+        Route::post('/go-online', [DriverDetailsController::class, 'goOnline']);
+        Route::post('/go-offline', [DriverDetailsController::class, 'goOffline']);
+        Route::get('/online-status', [DriverDetailsController::class, 'getOnlineStatus']);
+
         //Ride reject
         Route::post('/reject-ride', [DriverRideController::class, 'rejectRide']);
 
@@ -221,6 +226,10 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
         Route::group(['prefix' => 'delivery'], function () {
             Route::get('/home', [DeliveryController::class, 'getHomeData']);
             Route::get('/get-rides', [DeliveryController::class, 'getLatestRides']);
+            // Batch 3 Part 4 -- same online/offline endpoints for the Delivery app
+            Route::post('/go-online', [DriverDetailsController::class, 'goOnline']);
+            Route::post('/go-offline', [DriverDetailsController::class, 'goOffline']);
+            Route::get('/online-status', [DriverDetailsController::class, 'getOnlineStatus']);
             Route::post('/accept-ride', [DeliveryController::class, 'acceptRide']);
             Route::post('/reject-ride', [DeliveryController::class, 'rejectRide']);
             Route::post('/update-order-status', [DeliveryController::class, 'updateDeliveryStatus']);

@@ -42,7 +42,10 @@ class OfferDispatchService
 
         $isDelivery = $ride->ride_type === 'delivery';
 
+        // Batch 3 Part 4 -- offline drivers get no offers (NULL = never used
+        // the toggle, treated as online like before).
         $query = User::role('driver')
+            ->acceptingJobs()
             ->whereNotNull('lat')
             ->whereNotNull('lang')
             ->whereNotIn('id', $alreadyOfferedDriverIds)

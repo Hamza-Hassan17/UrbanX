@@ -54,6 +54,7 @@ class PricingFeesController extends Controller
             'stale_restaurant_accept_minutes' => 'required|integer|min:1',
             'stale_ready_for_pickup_minutes' => 'required|integer|min:1',
             'taxi_outstanding_limit' => 'required|numeric|min:0',
+            'auto_offline_minutes' => 'required|integer|min:1|max:1440',
             'allow_legacy_direct_accept' => 'nullable|boolean',
         ]);
 

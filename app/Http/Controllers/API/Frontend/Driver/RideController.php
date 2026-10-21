@@ -108,6 +108,12 @@ class RideController extends Controller
                 return response()->json(['rides' => []], 200);
             }
 
+            // Batch 3 Part 4 -- offline drivers see no jobs. NULL (never used
+            // the toggle) still counts as online.
+            if ($driver->isOffline()) {
+                return response()->json(['rides' => [], 'online_status' => 'offline'], 200);
+            }
+
             // -------------------------
             // Time windows
             // -------------------------
@@ -542,6 +548,12 @@ class RideController extends Controller
         if (\App\Services\DispatchSettingsService::driverVerificationEnabled() && auth()->user()->driverVerification?->status !== 'approved') {
             return response()->json([
                 'message' => 'Your account is not verified yet.'
+            ], Response::HTTP_FORBIDDEN);
+        }
+
+        if (auth()->user()->isOffline()) {
+            return response()->json([
+                'message' => 'You are offline. Go online to accept jobs.'
             ], Response::HTTP_FORBIDDEN);
         }
 
@@ -1455,6 +1467,8 @@ class RideController extends Controller
             // matching, dispatch map's "last known" fallback) already reads it.
             $driver->lat = $latitude;
             $driver->lang = $longitude;
+            // Batch 3 Part 4 -- sign of life for auto-offline.
+            $driver->last_location_at = now();
             $driver->save();
 
             if ($ride) {

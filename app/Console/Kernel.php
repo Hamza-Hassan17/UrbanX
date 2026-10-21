@@ -17,6 +17,7 @@ class Kernel extends ConsoleKernel
         $schedule->command('app:ride-anomaly-scan')->everyMinute();
         $schedule->command('app:sweep-expired-offers')->everyMinute();
         $schedule->command('app:scan-stale-jobs')->everyMinute();
+        $schedule->command('app:auto-offline-drivers')->everyMinute();
     }
 
     /**

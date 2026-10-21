@@ -27,6 +27,7 @@ class NearbyDriversFinder
             ->join('users', 'users.id', '=', 'driver_vehicles.driver_id')
             ->whereNotNull('users.lat')
             ->whereNotNull('users.lang')
+            ->where(fn ($q) => $q->whereNull('users.online_status')->orWhere('users.online_status', 'online'))
             ->selectRaw("
                 users.lat, users.lang,
                 (6371 * acos(

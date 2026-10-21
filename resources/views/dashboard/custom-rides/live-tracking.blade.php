@@ -124,6 +124,7 @@
                     <small class="text-muted ms-auto" style="font-size: 12px;">
                         <i class="fas fa-circle" style="color:#10b981; font-size:8px;"></i> Available
                         <i class="fas fa-circle ms-2" style="color:#f59e0b; font-size:8px;"></i> Busy
+                        <i class="fas fa-circle ms-2" style="color:#9ca3af; font-size:8px;"></i> Offline
                         @if(($scope ?? null) !== 'delivery')
                         <i class="fas fa-circle ms-2" style="color:#2563eb; font-size:8px;"></i> Active taxi ride (last known position)
                         @endif
@@ -198,8 +199,20 @@
             stale_gps: 'GPS stalled 4+ min',
         };
 
+        // Batch 3 Part 4 -- offline (grey) / busy (amber) / online+available (green).
+        function presenceKey(driver) {
+            if (driver.presence === 'offline') return 'offline';
+            return driver.status === 'available' ? 'available' : 'busy';
+        }
+        function presenceColor(driver) {
+            return { offline: '#9ca3af', busy: '#f59e0b', available: '#10b981' }[presenceKey(driver)];
+        }
+        function presenceLabel(driver) {
+            return { offline: 'Offline', busy: 'Busy', available: 'Available' }[presenceKey(driver)];
+        }
+
         function getDriverIcon(driver) {
-            const borderColor = driver.status === 'available' ? '#10b981' : '#f59e0b';
+            const borderColor = presenceColor(driver);
             return svgCircleIcon({ color: borderColor, label: 'D-' + driver.id });
         }
 
@@ -245,8 +258,8 @@
                         <p style="margin: 5px 0; font-size: 14px;"><strong>City:</strong> ${driver.city ?? 'Unassigned'}</p>
                         <p style="margin: 5px 0; font-size: 14px;">
                             <strong>Status:</strong>
-                            <span style="color: ${driver.status === 'available' ? '#10b981' : '#f59e0b'}">
-                                ${driver.status === 'available' ? 'Available' : 'Busy'}
+                            <span style="color: ${presenceColor(driver)}">
+                                ${presenceLabel(driver)}
                             </span>
                         </p>
                         <p style="margin: 5px 0; font-size: 14px;"><strong>Vehicle:</strong> ${driver.vehicle ?? 'N/A'}</p>

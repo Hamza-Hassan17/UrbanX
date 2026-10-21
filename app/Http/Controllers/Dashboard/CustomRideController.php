@@ -26,7 +26,8 @@ class CustomRideController extends Controller
             $drivers = $this->getDriverMapData();
 
             $driver = User::role('driver')
-                ->where('driver_status', 'available') // only available drivers
+                ->acceptingJobs()
+                ->where('driver_status', 'available') // only online + available drivers
                 ->whereHas('driverVehicle')          // must have a vehicle
                 ->inRandomOrder()                    // randomize
                 ->with('driverVehicle')              // eager load vehicle info
@@ -96,6 +97,8 @@ class CustomRideController extends Controller
                     'lat'    => $driver->lat ? (float) $driver->lat : null,
                     'lng'    => $driver->lang ? (float) $driver->lang : null,
                     'status' => $driver->driver_status, // busy | available
+                    // Batch 3 Part 4 -- online | busy | offline
+                    'presence' => $driver->presenceStatus(),
                     'icon'   => $driver->driver_status === 'available'
                                     ? 'taxiIcon'
                                     : 'taxiIconBusy',
@@ -250,8 +253,8 @@ class CustomRideController extends Controller
      */
     private function getDispatchSnapshot(): array
     {
-        $driverAvailableCount = User::role('driver')->where('driver_status', 'available')->count();
-        $driverBusyCount = User::role('driver')->where('driver_status', 'busy')->count();
+        $driverAvailableCount = User::role('driver')->acceptingJobs()->where('driver_status', 'available')->count();
+        $driverBusyCount = User::role('driver')->acceptingJobs()->where('driver_status', 'busy')->count();
 
         $activeStatuses = ['requested', 'accepted', 'en_route', 'arrived', 'started'];
 

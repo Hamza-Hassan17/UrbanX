@@ -33,7 +33,7 @@
     <div class="col-sm-4">
         <div class="card stats-card border-0 bg-light">
             <div class="card-body">
-                <h6>{{ __('Drivers Available') }}</h6>
+                <h6>{{ __('Drivers Online & Available') }}</h6>
                 <h3 class="fw-bold text-success">{{ $ridesKpis['drivers_available'] }}</h3>
             </div>
         </div>
@@ -43,6 +43,14 @@
             <div class="card-body">
                 <h6>{{ __('Drivers Busy') }}</h6>
                 <h3 class="fw-bold">{{ $ridesKpis['drivers_busy'] }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stats-card border-0 bg-light">
+            <div class="card-body">
+                <h6>{{ __('Drivers Offline') }}</h6>
+                <h3 class="fw-bold text-secondary">{{ $ridesKpis['drivers_offline'] ?? 0 }}</h3>
             </div>
         </div>
     </div>

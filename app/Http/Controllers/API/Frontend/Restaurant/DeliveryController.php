@@ -87,6 +87,12 @@ class DeliveryController extends Controller
         try {
             $driver = $request->user();
 
+            // Batch 3 Part 4 -- offline riders see no jobs. NULL (never used
+            // the toggle) still counts as online.
+            if ($driver->isOffline()) {
+                return response()->json(['rides' => [], 'online_status' => 'offline'], 200);
+            }
+
             // -------------------------
             // Time windows
             // -------------------------
@@ -224,6 +230,12 @@ class DeliveryController extends Controller
                 'message' => 'Validation failed',
                 'errors' => $validator->errors()
             ], Response::HTTP_BAD_REQUEST);
+        }
+
+        if ($request->user()->isOffline()) {
+            return response()->json([
+                'message' => 'You are offline. Go online to accept jobs.'
+            ], Response::HTTP_FORBIDDEN);
         }
 
         try {
@@ -630,6 +642,14 @@ class DeliveryController extends Controller
             $order->rider_longitude = $request->longitude;
             $order->rider_location_updated_at = now();
             $order->save();
+
+            // Batch 3 Part 4 -- keep the rider's own position and sign of
+            // life current too (dispatch distance + auto-offline).
+            \App\Models\User::whereKey(auth()->id())->update([
+                'lat' => $request->latitude,
+                'lang' => $request->longitude,
+                'last_location_at' => now(),
+            ]);
 
             try {
                 broadcast(new \App\Events\RiderLocationUpdated($order));

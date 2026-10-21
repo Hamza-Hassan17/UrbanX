@@ -325,12 +325,17 @@
             return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         }
 
+        // Batch 3 Part 4 -- online and available (offline riders get no offers).
+        function isReady(r) {
+            return r.presence !== 'offline' && r.status === 'available';
+        }
+
         function ridersByDistance(lat, lng) {
             return riders.map(r => ({
                 ...r,
                 distance: (r.lat !== null && r.lng !== null && lat !== null) ? distanceKm(lat, lng, r.lat, r.lng) : null,
             })).sort((a, b) => {
-                const rank = r => (r.status === 'available' && !r.over_cash_limit ? 0 : (r.status === 'available' ? 1 : 2));
+                const rank = r => (isReady(r) && !r.over_cash_limit ? 0 : (isReady(r) ? 1 : (r.presence === 'offline' ? 3 : 2)));
                 if (rank(a) !== rank(b)) return rank(a) - rank(b);
                 if (a.distance === null) return 1;
                 if (b.distance === null) return -1;
@@ -372,7 +377,7 @@
 
             riders.forEach(r => {
                 if (r.lat === null || r.lng === null) return;
-                const color = r.status === 'available' ? '#10b981' : '#f59e0b';
+                const color = r.presence === 'offline' ? '#9ca3af' : (r.status === 'available' ? '#10b981' : '#f59e0b');
                 const marker = new google.maps.Marker({
                     position: { lat: r.lat, lng: r.lng },
                     map,
@@ -380,7 +385,7 @@
                     title: `${r.name} (#${r.id})`,
                 });
                 const info = new google.maps.InfoWindow({
-                    content: `<strong>${esc(r.name)}</strong> #${r.id}<br>${esc(r.status)}${r.city ? ' -- ' + esc(r.city) : ''}<br>` +
+                    content: `<strong>${esc(r.name)}</strong> #${r.id}<br>${esc(r.presence === 'offline' ? 'offline' : r.status)}${r.city ? ' -- ' + esc(r.city) : ''}<br>` +
                         `Cash: Rs ${Math.round(r.cash_balance)}${r.over_cash_limit ? ' <b style="color:#dc2626">(over limit)</b>' : ''}<br>` +
                         `<a href="#" data-pick-rider="${r.id}">Use for new parcel</a>`,
                 });
@@ -457,7 +462,7 @@
             avatar.classList.remove('none');
             avatar.textContent = rider.name.substring(0, 2).toUpperCase();
             document.getElementById('rider-name').textContent = rider.name;
-            let meta = `ID: ${rider.id}${rider.vehicle ? ' · ' + rider.vehicle : ''} · ${rider.status}`;
+            let meta = `ID: ${rider.id}${rider.vehicle ? ' · ' + rider.vehicle : ''} · ${rider.presence === 'offline' ? 'offline' : rider.status}`;
             if (rider.over_cash_limit) meta += ` · over cash limit (Rs ${Math.round(rider.cash_balance)})`;
             document.getElementById('rider-meta').textContent = meta;
             document.getElementById('rider-meta').style.color = rider.over_cash_limit ? '#dc2626' : '';
@@ -487,7 +492,7 @@
         document.getElementById('nearestRiderBtn').addEventListener('click', function () {
             if (!pickupCoords) { toast('Set the pickup first', 'error'); return; }
             const best = ridersByDistance(pickupCoords.lat, pickupCoords.lng)
-                .find(r => r.status === 'available' && !r.over_cash_limit && r.distance !== null);
+                .find(r => isReady(r) && !r.over_cash_limit && r.distance !== null);
             if (!best) { toast('No available rider with a known location', 'error'); return; }
             selectFormRider(best.id);
             toast(`${best.name} is ${best.distance.toFixed(1)} km from pickup`);
@@ -703,10 +708,10 @@
                 .filter(r => !q || r.name.toLowerCase().includes(q) || String(r.id) === q || (r.city ?? '').toLowerCase().includes(q));
 
             document.getElementById('assign-rider-list').innerHTML = list.length ? list.map(r => `
-                <div class="rider-option ${r.id === riderId ? 'selected' : ''} ${r.status !== 'available' ? 'disabled' : ''}" data-rider="${r.id}">
+                <div class="rider-option ${r.id === riderId ? 'selected' : ''} ${!isReady(r) ? 'disabled' : ''}" data-rider="${r.id}">
                     <div>
                         <div><strong>${esc(r.name)}</strong> <span class="meta">#${r.id}</span>
-                            ${r.status !== 'available' ? '<span class="badge-busy">BUSY</span>' : ''}
+                            ${r.presence === 'offline' ? '<span class="badge-busy" style="background:#e5e7eb;color:#4b5563">OFFLINE</span>' : (r.status !== 'available' ? '<span class="badge-busy">BUSY</span>' : '')}
                             ${r.over_cash_limit ? `<span class="badge-cash">CASH Rs ${Math.round(r.cash_balance)}</span>` : ''}
                         </div>
                         <div class="meta">${esc(r.city ?? 'No city')}${r.vehicle ? ' · ' + esc(r.vehicle) : ''}</div>
@@ -741,8 +746,8 @@
                 !confirm(`${rider.name} is over the cash-in-hand limit (Rs ${Math.round(rider.cash_balance)}). Assign anyway?`)) {
                 return;
             }
-            if (rider && rider.status !== 'available' &&
-                !confirm(`${rider.name} is currently busy. Assign anyway?`)) {
+            if (rider && !isReady(rider) &&
+                !confirm(`${rider.name} is currently ${rider.presence === 'offline' ? 'offline' : 'busy'}. Assign anyway?`)) {
                 return;
             }
 

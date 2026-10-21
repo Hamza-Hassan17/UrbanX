@@ -24,6 +24,7 @@
                             <th>{{ __('City') }}</th>
                             <th>{{ __('Created Date') }}</th>
                             <th>{{ __('Status') }}</th>
+                            <th>{{ __('Presence') }}</th>
                             <th>{{ __('Verification') }}</th>
                             <th>{{ __('Terms Accepted') }}</th>
                             @canany(['delete driver', 'view driver', 'update driver'])<th>{{ __('Action') }}</th>@endcan
@@ -46,6 +47,7 @@
                                     <span
                                         class="badge me-4 bg-label-{{ $driver->is_active == 'active' ? 'success' : 'danger' }}">{{ ucfirst($driver->is_active) }}</span>
                                 </td>
+                                <td>@include('dashboard.drivers.partials.presence-badge', ['driver' => $driver])</td>
                                 <td>
                                     @php $verificationStatus = $driver->driverVerification->status ?? 'not_submitted'; @endphp
                                     @if ($verificationStatus === 'not_submitted')

@@ -407,7 +407,7 @@ class DeliveryController extends Controller
         $riders = \App\Models\User::role('driver')
             ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
             ->with(['profile:id,user_id,city', 'driverVehicle:id,driver_id,vehicle_name,vehicle_make'])
-            ->get(['id', 'name', 'phone', 'lat', 'lang', 'driver_status'])
+            ->get(['id', 'name', 'phone', 'lat', 'lang', 'driver_status', 'online_status', 'last_location_at'])
             ->map(function ($rider) use ($cashLimit) {
                 $cash = \App\Services\RiderCashService::currentBalance($rider->id);
                 return [
@@ -417,6 +417,8 @@ class DeliveryController extends Controller
                     'lat' => $rider->lat ? (float) $rider->lat : null,
                     'lng' => $rider->lang ? (float) $rider->lang : null,
                     'status' => $rider->driver_status,
+                    // Batch 3 Part 4 -- online | busy | offline
+                    'presence' => $rider->presenceStatus(),
                     'city' => $rider->profile->city ?? null,
                     'vehicle' => $rider->driverVehicle
                         ? trim($rider->driverVehicle->vehicle_name . ' ' . $rider->driverVehicle->vehicle_make)
@@ -450,8 +452,9 @@ class DeliveryController extends Controller
         ])->values();
 
         $stats = [
-            'available' => $riders->where('status', 'available')->count(),
-            'busy' => $riders->where('status', 'busy')->count(),
+            'available' => $riders->where('presence', 'online')->where('status', 'available')->count(),
+            'busy' => $riders->where('presence', 'busy')->count(),
+            'offline' => $riders->where('presence', 'offline')->count(),
             'dispatch' => $assignable->count(),
             'waiting_restaurant' => $waitingRestaurant->count(),
             'booked' => Ride::where('ride_type', 'delivery')->whereIn('status', $activeStatuses)->whereNotNull('driver_id')->count(),

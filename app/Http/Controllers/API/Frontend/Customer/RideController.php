@@ -758,6 +758,8 @@ class RideController extends Controller
                 })
                 ->whereNotNull('users.lat')
                 ->whereNotNull('users.lang')
+                // Batch 3 Part 4 -- no new-job push to offline drivers.
+                ->where(fn ($q) => $q->whereNull('users.online_status')->orWhere('users.online_status', 'online'))
                 ->selectRaw("
                     driver_vehicles.driver_id,
                     (6371 * acos(

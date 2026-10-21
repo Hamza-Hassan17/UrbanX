@@ -160,6 +160,14 @@
                             value="{{ old('stale_ready_for_pickup_minutes', $settings->stale_ready_for_pickup_minutes ?? 10) }}" required/>
                         @error('stale_ready_for_pickup_minutes')<span class="invalid-feedback">{{ $message }}</span>@enderror
                     </div>
+                    <div class="col-md-4">
+                        <label for="auto_offline_minutes" class="form-label">{{ __('Auto-offline after (minutes without location update)') }}</label><span class="text-danger">*</span>
+                        <small class="fw-medium text-primary d-block">({{ __('Only drivers/riders using the new online toggle; older app builds are not affected') }})</small>
+                        <input class="form-control @error('auto_offline_minutes') is-invalid @enderror" type="number"
+                            min="1" id="auto_offline_minutes" name="auto_offline_minutes"
+                            value="{{ old('auto_offline_minutes', $settings->auto_offline_minutes ?? 10) }}" required/>
+                        @error('auto_offline_minutes')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
 
                     <div class="col-12">
                         <div class="form-check form-switch">

@@ -488,6 +488,78 @@ class DriverDetailsController extends Controller
         }
     }
 
+    /**
+     * Batch 3 Part 4 -- go online (start receiving offers). Optional
+     * latitude/longitude so the first offer can be matched by distance
+     * immediately.
+     */
+    public function goOnline(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $user = $request->user();
+
+            if (\App\Services\DispatchSettingsService::driverVerificationEnabled() && $user->driverVerification?->status !== 'approved') {
+                return response()->json([
+                    'message' => 'You cannot go online until your verification is approved.',
+                ], Response::HTTP_FORBIDDEN);
+            }
+
+            \App\Services\DriverPresenceService::goOnline(
+                $user,
+                $request->filled('latitude') ? (float) $request->latitude : null,
+                $request->filled('longitude') ? (float) $request->longitude : null
+            );
+
+            return response()->json(array_merge(
+                ['message' => 'You are online and will receive new jobs.'],
+                \App\Services\DriverPresenceService::payload($user->fresh())
+            ), Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Go Online failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function goOffline(Request $request)
+    {
+        try {
+            $user = $request->user();
+            \App\Services\DriverPresenceService::goOffline($user, 'manual');
+
+            return response()->json(array_merge(
+                ['message' => 'You are offline and will not receive new jobs.'],
+                \App\Services\DriverPresenceService::payload($user->fresh())
+            ), Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Go Offline failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    public function getOnlineStatus(Request $request)
+    {
+        return response()->json(
+            \App\Services\DriverPresenceService::payload($request->user()),
+            Response::HTTP_OK
+        );
+    }
+
     public function updateSelfie(Request $request)
     {
         $validator = Validator::make($request->all(), [

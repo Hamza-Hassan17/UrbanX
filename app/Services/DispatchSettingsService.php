@@ -36,6 +36,15 @@ class DispatchSettingsService
         return (int) (SystemSetting::first()?->stale_ready_for_pickup_minutes ?? 10);
     }
 
+    /**
+     * Batch 3 Part 4 -- drivers using the online toggle are switched
+     * offline after this many minutes without a location update.
+     */
+    public static function autoOfflineMinutes(): int
+    {
+        return (int) (SystemSetting::first()?->auto_offline_minutes ?? 10);
+    }
+
     public static function taxiOutstandingLimit(): float
     {
         return (float) (SystemSetting::first()?->taxi_outstanding_limit ?? 5000.00);

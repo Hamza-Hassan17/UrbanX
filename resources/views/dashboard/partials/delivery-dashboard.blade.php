@@ -40,8 +40,16 @@
     <div class="col-sm-4">
         <div class="card stats-card border-0 bg-light">
             <div class="card-body">
-                <h6>{{ __('Riders Available') }}</h6>
+                <h6>{{ __('Riders Online & Available') }}</h6>
                 <h3 class="fw-bold text-success">{{ $deliveryKpis['riders_available'] }}</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stats-card border-0 bg-light">
+            <div class="card-body">
+                <h6>{{ __('Riders Offline') }}</h6>
+                <h3 class="fw-bold text-secondary">{{ $deliveryKpis['riders_offline'] ?? 0 }}</h3>
             </div>
         </div>
     </div>

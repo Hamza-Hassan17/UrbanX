@@ -61,6 +61,50 @@ class User  extends Authenticatable implements MustVerifyEmail
         ];
     }
 
+    /**
+     * Laravel 10 reads $casts, not the casts() method above, so these two
+     * Batch 3 timestamps are declared here (the method's existing entries
+     * are deliberately left as they were).
+     */
+    protected $casts = [
+        'online_status_changed_at' => 'datetime',
+        'last_location_at' => 'datetime',
+    ];
+
+    /**
+     * Batch 3 Part 4 -- drivers/riders who can receive offers. NULL
+     * online_status = never used the toggle (older app build) and is
+     * treated as online, exactly as before the toggle existed.
+     */
+    public function scopeAcceptingJobs($query)
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('users.online_status')->orWhere('users.online_status', 'online');
+        });
+    }
+
+    public function isOffline(): bool
+    {
+        return $this->online_status === 'offline';
+    }
+
+    /**
+     * offline / busy / online -- what admin lists and maps show.
+     */
+    public function presenceStatus(): string
+    {
+        if ($this->online_status === 'offline') {
+            return 'offline';
+        }
+
+        return $this->driver_status === 'busy' ? 'busy' : 'online';
+    }
+
+    public function onlineSessions()
+    {
+        return $this->hasMany(DriverOnlineSession::class, 'driver_id');
+    }
+
     public function profile()
     {
         return $this->hasOne(Profile::class);
