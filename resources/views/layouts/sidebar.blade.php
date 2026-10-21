@@ -68,8 +68,8 @@
         {{-- 3. Rides -- workspace-gated: only visible while "Rides" is the
              selected service workspace. See config/workspaces.php. --}}
         @if($__currentWorkspace === 'rides')
-        @canany(['view ride', 'view custom rides', 'view live tracking', 'view vehicle type', 'create boost hour', 'view promo code', 'view driver'])
-            <li class="menu-item {{ request()->routeIs('dashboard.rides.*') || request()->routeIs('dashboard.custom-rides.*') || request()->routeIs('dashboard.live-tracking.*') || request()->routeIs('dashboard.vehicle-types.*') || request()->routeIs('dashboard.boost-hours.*') || request()->routeIs('dashboard.promo-codes.*') || request()->routeIs('dashboard.drivers.*') ? 'open' : '' }}">
+        @canany(['view ride', 'view custom rides', 'view live tracking', 'view vehicle type', 'create boost hour', 'view promo code', 'view driver', 'view complain'])
+            <li class="menu-item {{ request()->routeIs('dashboard.rides.*') || request()->routeIs('dashboard.custom-rides.*') || request()->routeIs('dashboard.live-tracking.*') || request()->routeIs('dashboard.vehicle-types.*') || request()->routeIs('dashboard.boost-hours.*') || request()->routeIs('dashboard.promo-codes.*') || request()->routeIs('dashboard.drivers.*') || request()->routeIs('dashboard.complains.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-steering-wheel"></i>
                     <div>{{__('Rides')}}</div>
@@ -154,6 +154,13 @@
                             </a>
                         </li>
                     @endcan
+                    @can(['view complain'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.complains.*') ? 'active' : '' }}">
+                            <a href="{{ route('dashboard.complains.index') }}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Complaints')}}</div>
+                            </a>
+                        </li>
+                    @endcan
                     @can(['manage driver balances'])
                         <li class="menu-item {{ request()->routeIs('dashboard.driver-balances.*') ? 'active' : '' }}">
                             <a href="{{route('dashboard.driver-balances.index')}}" class="menu-link" style="color: #fff !important;">
@@ -205,9 +212,9 @@
              type has is_delivery=true. Shared pages (Live Tracking, Vehicle
              Types) take ?scope=delivery; Boost Hours is one global table. --}}
         @if($__currentWorkspace === 'delivery')
-        @canany(['view delivery', 'view driver', 'assign ride', 'view live tracking', 'view vehicle type', 'create boost hour', 'manage rider cash', 'view stale alerts'])
+        @canany(['view delivery', 'view driver', 'assign ride', 'view live tracking', 'view vehicle type', 'create boost hour', 'manage rider cash', 'view stale alerts', 'view complain'])
             @php $__deliveryScope = request()->query('scope') === 'delivery'; @endphp
-            <li class="menu-item {{ request()->routeIs('dashboard.delivery.*') || request()->routeIs('dashboard.delivery-assignment.*') || request()->routeIs('dashboard.delivery-riders.*') || request()->routeIs('dashboard.rider-cash.*') || request()->routeIs('dashboard.boost-hours.*') || (($__deliveryScope) && (request()->routeIs('dashboard.live-tracking.*') || request()->routeIs('dashboard.vehicle-types.*'))) ? 'open' : '' }}">
+            <li class="menu-item {{ request()->routeIs('dashboard.delivery.*') || request()->routeIs('dashboard.delivery-assignment.*') || request()->routeIs('dashboard.delivery-riders.*') || request()->routeIs('dashboard.rider-cash.*') || request()->routeIs('dashboard.boost-hours.*') || request()->routeIs('dashboard.complains.*') || (($__deliveryScope) && (request()->routeIs('dashboard.live-tracking.*') || request()->routeIs('dashboard.vehicle-types.*'))) ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-motorbike"></i>
                     <div>{{__('Deliveries')}}</div>
@@ -266,6 +273,13 @@
                         <li class="menu-item {{ request()->routeIs('dashboard.rider-cash.*') ? 'active' : '' }}">
                             <a href="{{ route('dashboard.rider-cash.index') }}" class="menu-link" style="color: #fff !important;">
                                 <div>{{__('Delivery Rider Balances')}}</div>
+                            </a>
+                        </li>
+                    @endcan
+                    @can(['view complain'])
+                        <li class="menu-item {{ request()->routeIs('dashboard.complains.*') ? 'active' : '' }}">
+                            <a href="{{ route('dashboard.complains.index') }}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Complaints')}}</div>
                             </a>
                         </li>
                     @endcan

@@ -917,8 +917,11 @@ class CustomerController extends Controller
                 ->orderByDesc('created_at')
                 ->get();
 
+            $complainedOrderIds = \App\Models\Complain::orderIdsWithComplaint($request->user()->id, $orders->pluck('id')->all());
+
             // Format item images
             foreach ($orders as $order) {
+                $order->setAttribute('has_complaint', in_array($order->id, $complainedOrderIds));
                 foreach ($order->items as $item) {
                     if ($item->restaurantItem && $item->restaurantItem->image) {
                         $item->image = url('storage/' . $item->restaurantItem->image);
@@ -951,6 +954,8 @@ class CustomerController extends Controller
                     'message' => 'Order not found'
                 ], Response::HTTP_NOT_FOUND);
             }
+
+            $order->setAttribute('has_complaint', !empty(\App\Models\Complain::orderIdsWithComplaint($request->user()->id, [$order->id])));
 
             // Format item images
             foreach ($order->items as $item) {

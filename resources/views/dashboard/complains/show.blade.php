@@ -80,6 +80,52 @@
             </div>
         </div>
 
+        @if ($complain->ride || $complain->restaurantOrder)
+            <!-- Linked ride / order (Batch 3 Part 1) -->
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h6 class="card-title text-primary mb-3">
+                            <i class="ti ti-link me-1"></i> {{ __('Linked To') }}
+                        </h6>
+                        <div class="row g-3">
+                            <div class="col-md-3">
+                                <label class="text-muted small">{{ __('Service') }}</label>
+                                <p class="fw-semibold mb-0">{{ ucfirst($complain->service ?? '—') }}</p>
+                            </div>
+                            @if ($complain->restaurantOrder)
+                                <div class="col-md-3">
+                                    <label class="text-muted small">{{ __('Order') }}</label>
+                                    <p class="fw-semibold mb-0">#{{ $complain->restaurantOrder->order_number ?? $complain->restaurantOrder->id }}
+                                        <span class="badge bg-label-secondary ms-1">{{ ucwords(str_replace('_', ' ', $complain->restaurantOrder->status)) }}</span>
+                                    </p>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="text-muted small">{{ __('Restaurant') }}</label>
+                                    <p class="fw-semibold mb-0">
+                                        <a href="{{ route('dashboard.restaurants.show', $complain->restaurantOrder->restaurant_id) }}">{{ $complain->restaurantOrder->restaurant->name ?? '—' }}</a>
+                                    </p>
+                                </div>
+                            @endif
+                            @if ($complain->ride)
+                                <div class="col-md-3">
+                                    <label class="text-muted small">{{ $complain->ride->ride_type === 'ride' ? __('Ride') : __('Delivery') }}</label>
+                                    <p class="fw-semibold mb-0">
+                                        <a href="{{ route('dashboard.rides.show', $complain->ride_id) }}">#{{ $complain->ride_id }}</a>
+                                        <span class="badge bg-label-secondary ms-1">{{ ucwords(str_replace('_', ' ', $complain->ride->status)) }}</span>
+                                    </p>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="text-muted small">{{ __('Driver / Rider') }}</label>
+                                    <p class="fw-semibold mb-0">{{ $complain->ride->driver->name ?? __('Not assigned') }}</p>
+                                </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <!-- Action -->
         <div class="col-12 text-end">
             <a href="{{ route('dashboard.complains.index') }}" class="btn btn-outline-secondary">

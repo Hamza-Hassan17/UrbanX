@@ -10,24 +10,31 @@ use Illuminate\Support\Facades\Log;
 class ComplainController extends Controller
 {
     /**
-     * Display a listing of the resource.
-     *
-     * Originally (Phase 4 of the admin workspace split) this filtered by
-     * session workspace -- Rides/Delivery only seeing their own service,
-     * Platform seeing everything with a ?service= filter. A later, explicit
-     * follow-up instruction made Platform a real, separately-enforced
-     * workspace (dashboard.complains.* is Platform-only in
-     * config/workspaces.php now), so this route is only ever reached with
-     * session('workspace') === 'platform' -- the old rides/delivery
-     * branches were unreachable dead code and have been removed. The
-     * ?service= filter stays; it's still useful for narrowing the list.
+     * Service tags each workspace sees (Batch 3 Part 1). Platform sees all.
+     */
+    private const WORKSPACE_SERVICES = [
+        'rides' => ['ride', 'rental'],
+        'delivery' => ['food', 'parcel'],
+    ];
+
+    private function workspaceServices(): ?array
+    {
+        return self::WORKSPACE_SERVICES[session('workspace')] ?? null;
+    }
+
+    /**
+     * Rides and Delivery workspaces list only their own services' complaints;
+     * Platform lists all of them with a ?service= filter.
      */
     public function index(Request $request)
     {
         $this->authorize('view complain');
         try {
-            $complains = Complain::latest()
-                ->when($request->filled('service'), fn ($q) => $q->where('service', $request->service))
+            $services = $this->workspaceServices();
+            $complains = Complain::with(['ride:id,ride_type', 'restaurantOrder:id,order_number,restaurant_id,ride_id'])
+                ->latest()
+                ->when($services, fn ($q) => $q->whereIn('service', $services))
+                ->when(!$services && $request->filled('service'), fn ($q) => $q->where('service', $request->service))
                 ->get();
 
             return view('dashboard.complains.index', ['complains' => $complains, 'workspace' => session('workspace')]);
@@ -61,7 +68,13 @@ class ComplainController extends Controller
     {
         $this->authorize('view complain');
         try {
-            $complain = Complain::with('user')->findOrFail($id);
+            $complain = Complain::with(['user', 'ride.driver:id,name', 'restaurantOrder.restaurant:id,name'])->findOrFail($id);
+
+            $services = $this->workspaceServices();
+            if ($services && !in_array($complain->service, $services, true)) {
+                abort(403, 'This complaint belongs to another workspace.');
+            }
+
             return view('dashboard.complains.show', compact('complain'));
         } catch (\Throwable $th) {
             Log::error('Complain Show Failed', ['error' => $th->getMessage()]);

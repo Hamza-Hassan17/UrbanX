@@ -39,6 +39,7 @@
                             <th>{{ __('Name') }}</th>
                             <th>{{ __('Subject') }}</th>
                             <th>{{ __('Service') }}</th>
+                            <th>{{ __('Linked To') }}</th>
                             <th>{{ __('Status') }}</th>
                             <th>{{ __('Submitted At') }}</th>
                             @canany(['delete complain', 'update complain', 'view complain'])<th>{{ __('Action') }}</th>
@@ -52,6 +53,19 @@
                                 <td>{{ $complain->name }}</td>
                                 <td>{{ $complain->subject }}</td>
                                 <td>{{ $complain->service ? ucfirst($complain->service) : '—' }}</td>
+                                <td>
+                                    @if ($complain->restaurantOrder)
+                                        @if ($complain->restaurantOrder->ride_id)
+                                            <a href="{{ route('dashboard.rides.show', $complain->restaurantOrder->ride_id) }}">{{ __('Order') }} #{{ $complain->restaurantOrder->order_number ?? $complain->restaurantOrder->id }}</a>
+                                        @else
+                                            <a href="{{ route('dashboard.restaurants.show', $complain->restaurantOrder->restaurant_id) }}">{{ __('Order') }} #{{ $complain->restaurantOrder->order_number ?? $complain->restaurantOrder->id }}</a>
+                                        @endif
+                                    @elseif ($complain->ride)
+                                        <a href="{{ route('dashboard.rides.show', $complain->ride_id) }}">{{ $complain->ride->ride_type === 'ride' ? __('Ride') : __('Parcel') }} #{{ $complain->ride_id }}</a>
+                                    @else
+                                        —
+                                    @endif
+                                </td>
                                 <td>
                                     <span class="badge bg-label-{{ $complain->status == 'resolved'
                                             ? 'success'

@@ -1254,6 +1254,11 @@ class RideController extends Controller
                 ->orderBy('requested_at', 'desc')
                 ->get();
 
+            $complainedRideIds = \App\Models\Complain::rideIdsWithComplaint($user->id, $rideHistory->pluck('id')->all());
+            $rideHistory->each(function ($ride) use ($complainedRideIds) {
+                $ride->setAttribute('has_complaint', in_array($ride->id, $complainedRideIds));
+            });
+
             return response()->json([
                 'ride_history' => $rideHistory,
             ], Response::HTTP_OK);
