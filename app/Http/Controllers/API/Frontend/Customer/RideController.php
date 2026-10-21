@@ -1133,6 +1133,54 @@ class RideController extends Controller
         }
     }
 
+    /**
+     * Batch 3 Part 6 -- customer retries a ride/parcel that ended in
+     * no_driver_found (only possible while "No-driver handling" is On).
+     */
+    public function retryDispatch(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'ride_id' => 'required|exists:rides,id',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
+        try {
+            $ride = Ride::find($request->ride_id);
+
+            if ((int) $ride->passenger_id !== (int) $request->user()->id) {
+                return response()->json([
+                    'message' => 'You are not authorized to retry this ride.'
+                ], Response::HTTP_FORBIDDEN);
+            }
+
+            if ($ride->status !== 'no_driver_found') {
+                return response()->json([
+                    'message' => 'This ride is not waiting for a retry.'
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $offered = \App\Services\NoDriverFoundService::retry($ride);
+
+            return response()->json([
+                'message' => 'Looking for a driver again.',
+                'ride_id' => $ride->id,
+                'status' => $ride->fresh()->status,
+                'offered_to_driver' => $offered,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Retry Dispatch failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     public function cancelRide(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -1152,11 +1200,14 @@ class RideController extends Controller
 
             $ride = Ride::find($request->ride_id);
 
-            // if ($ride->passenger_id !== $user->id) {
-            //     return response()->json([
-            //         'message' => 'You are not authorized to cancel this ride.'
-            //     ], Response::HTTP_FORBIDDEN);
-            // }
+            // Batch 3 -- this check was commented out, letting any user cancel
+            // any ride. Re-enabled with an int comparison (the strict !== on
+            // mixed int/string IDs is the likely reason it was disabled).
+            if ((int) $ride->passenger_id !== (int) $user->id) {
+                return response()->json([
+                    'message' => 'You are not authorized to cancel this ride.'
+                ], Response::HTTP_FORBIDDEN);
+            }
 
             if (in_array($ride->status, ['completed', 'cancelled'])) {
                 return response()->json([

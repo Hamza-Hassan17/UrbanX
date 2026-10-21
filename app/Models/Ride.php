@@ -25,6 +25,8 @@ class Ride extends Model
         'delivery_code_locked' => 'boolean',
         'delivery_override_at' => 'datetime',
         'flagged_for_review' => 'boolean',
+        'no_driver_found_at' => 'datetime',
+        'dispatch_restarted_at' => 'datetime',
     ];
 
 

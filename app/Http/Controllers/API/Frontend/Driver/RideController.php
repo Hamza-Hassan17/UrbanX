@@ -201,7 +201,7 @@ class RideController extends Controller
             if (!$myActiveOffer) {
                 // Rides this driver has already been offered before, in
                 // any status -- never re-offer the same job to them twice.
-                $offeredToMe = RideOffer::where('driver_id', $driver->id)->pluck('ride_id');
+                $offeredToMe = RideOffer::where('driver_id', $driver->id)->current()->pluck('ride_id');
 
                 // Rides currently out on an active offer to someone else.
                 $activelyOfferedToOthers = RideOffer::where('status', 'pending')

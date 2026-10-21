@@ -161,6 +161,15 @@
                         @error('stale_ready_for_pickup_minutes')<span class="invalid-feedback">{{ $message }}</span>@enderror
                     </div>
                     <div class="col-md-4">
+                        <label for="no_driver_handling" class="form-label">{{ __('No-driver handling') }}</label><span class="text-danger">*</span>
+                        <small class="fw-medium text-danger d-block">({{ __('Switched off until the client confirms. On = taxi rides and parcels with nobody left to offer them to become "No driver found" and the customer can retry or cancel. Food orders are never auto-failed.') }})</small>
+                        <select class="form-select @error('no_driver_handling') is-invalid @enderror" id="no_driver_handling" name="no_driver_handling" required>
+                            <option value="0" {{ !old('no_driver_handling', $settings->no_driver_handling ?? false) ? 'selected' : '' }}>{{ __('Off (current behaviour)') }}</option>
+                            <option value="1" {{ old('no_driver_handling', $settings->no_driver_handling ?? false) ? 'selected' : '' }}>{{ __('On') }}</option>
+                        </select>
+                        @error('no_driver_handling')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="col-md-4">
                         <label for="auto_offline_minutes" class="form-label">{{ __('Auto-offline after (minutes without location update)') }}</label><span class="text-danger">*</span>
                         <small class="fw-medium text-primary d-block">({{ __('Only drivers/riders using the new online toggle; older app builds are not affected') }})</small>
                         <input class="form-control @error('auto_offline_minutes') is-invalid @enderror" type="number"

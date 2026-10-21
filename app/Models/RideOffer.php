@@ -25,7 +25,18 @@ class RideOffer extends Model
         'offered_at' => 'datetime',
         'accepted_at' => 'datetime',
         'expires_at' => 'datetime',
+        'superseded_at' => 'datetime',
     ];
+
+    /**
+     * Offers that still count for "never offer the same job to the same
+     * driver twice" -- a customer retry (Batch 3 Part 6) supersedes the
+     * earlier ones.
+     */
+    public function scopeCurrent($query)
+    {
+        return $query->whereNull('ride_offers.superseded_at');
+    }
 
     public function ride()
     {

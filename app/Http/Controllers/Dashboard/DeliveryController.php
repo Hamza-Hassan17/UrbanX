@@ -432,7 +432,7 @@ class DeliveryController extends Controller
         $activeStatuses = RideQueueFilterService::ACTIVE_STATUSES;
 
         $unassigned = Ride::where('ride_type', 'delivery')
-            ->where('status', 'requested')
+            ->whereIn('status', ['requested', 'no_driver_found'])
             ->whereNull('driver_id')
             ->get(['id', 'pickup_latitude', 'pickup_longitude', 'requested_at', 'scheduled_pickup_at']);
         $orderStatuses = RestaurantOrder::whereIn('ride_id', $unassigned->pluck('id'))
@@ -761,7 +761,7 @@ class DeliveryController extends Controller
         $isFood = (bool) ($ride->is_food ?? false);
         $orderStatus = $ride->order_status ?? null;
 
-        $assignable = $queue === 'dispatch' && $ride->status === 'requested'
+        $assignable = $queue === 'dispatch' && in_array($ride->status, ['requested', 'no_driver_found'], true)
             && (!$isFood || $orderStatus === 'accepted');
         $reassignable = $queue === 'booked' && ($isFood
             ? $orderStatus === 'rider_assigned'

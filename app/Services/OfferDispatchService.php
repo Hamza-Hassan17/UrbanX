@@ -38,7 +38,7 @@ class OfferDispatchService
      */
     public static function findNextEligibleDriver(Ride $ride): ?User
     {
-        $alreadyOfferedDriverIds = RideOffer::where('ride_id', $ride->id)->pluck('driver_id');
+        $alreadyOfferedDriverIds = RideOffer::where('ride_id', $ride->id)->current()->pluck('driver_id');
 
         $isDelivery = $ride->ride_type === 'delivery';
 
@@ -153,10 +153,22 @@ class OfferDispatchService
             return false;
         }
 
+        // Batch 3 Part 6 -- only when "No-driver handling" is On (off by
+        // default; appliesTo() is false then, so this is skipped entirely).
+        $noDriverHandling = NoDriverFoundService::appliesTo($ride);
+
+        if ($noDriverHandling && NoDriverFoundService::attemptsExhausted($ride)) {
+            NoDriverFoundService::markNoDriverFound($ride);
+            return false;
+        }
+
         $driver = self::findNextEligibleDriver($ride);
 
         if (!$driver) {
             Log::info('No eligible driver left to offer ride to', ['ride_id' => $ride->id]);
+            if ($noDriverHandling) {
+                NoDriverFoundService::markNoDriverFound($ride);
+            }
             return false;
         }
 

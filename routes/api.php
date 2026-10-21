@@ -144,6 +144,8 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
         route::post('/reject-ride-offer', [RideController::class, 'rejectRideOffer']);
         route::post('/expire-ride-offer', [RideController::class, 'expireRideOffer']);
         route::post('/cancel-ride', [RideController::class, 'cancelRide']);
+        // Batch 3 Part 6 -- retry a no_driver_found ride/parcel (setting is Off by default)
+        route::post('/retry-dispatch', [RideController::class, 'retryDispatch']);
         route::post('/post-review', [RideController::class, 'postReview']);
         route::get('/get-ride-history', [RideController::class, 'getRideHistory']);
     });

@@ -45,6 +45,16 @@ class DispatchSettingsService
         return (int) (SystemSetting::first()?->auto_offline_minutes ?? 10);
     }
 
+    /**
+     * Batch 3 Part 6 -- "No-driver handling". SWITCHED OFF (default) until
+     * the client confirms. Off = current behaviour: a job nobody takes
+     * stays 'requested' and only raises a stale alert.
+     */
+    public static function noDriverHandlingEnabled(): bool
+    {
+        return (bool) (SystemSetting::first()?->no_driver_handling ?? false);
+    }
+
     public static function taxiOutstandingLimit(): float
     {
         return (float) (SystemSetting::first()?->taxi_outstanding_limit ?? 5000.00);

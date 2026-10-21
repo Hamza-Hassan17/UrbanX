@@ -55,6 +55,7 @@ class PricingFeesController extends Controller
             'stale_ready_for_pickup_minutes' => 'required|integer|min:1',
             'taxi_outstanding_limit' => 'required|numeric|min:0',
             'auto_offline_minutes' => 'required|integer|min:1|max:1440',
+            'no_driver_handling' => 'required|in:0,1',
             'allow_legacy_direct_accept' => 'nullable|boolean',
         ]);
 
@@ -69,6 +70,7 @@ class PricingFeesController extends Controller
             // unchecked, so validated() would never carry a "false" --
             // read it explicitly instead of relying on the field being present.
             $fields['allow_legacy_direct_accept'] = $request->boolean('allow_legacy_direct_accept');
+            $fields['no_driver_handling'] = $request->input('no_driver_handling') === '1';
 
             $old = $setting->only(array_keys($fields));
 

@@ -261,7 +261,7 @@ class CustomRideController extends Controller
         // Taxi only (ride_type='ride') -- this page is the Rides workspace's
         // queue as of Phase 2; delivery jobs moved to their own page/stats.
         $rideCounts = [
-            'dispatch'  => Ride::where('ride_type', 'ride')->where('status', 'requested')->whereNull('driver_id')->count(),
+            'dispatch'  => Ride::where('ride_type', 'ride')->whereIn('status', ['requested', 'no_driver_found'])->whereNull('driver_id')->count(),
             'booked'    => Ride::where('ride_type', 'ride')->whereIn('status', $activeStatuses)
                                 ->whereNotNull('driver_id')->count(),
             'completed' => Ride::where('ride_type', 'ride')->whereDate('completed_at', today())->where('status', 'completed')->count(),

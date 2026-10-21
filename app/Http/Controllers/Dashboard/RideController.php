@@ -227,7 +227,7 @@ class RideController extends Controller
                     $assignedRestaurantOrder = RestaurantOrder::where('ride_id', $ride->id)->first();
                     $available = $assignedRestaurantOrder
                         ? $assignedRestaurantOrder->status === 'accepted'
-                        : $ride->getOriginal('status') === 'requested';
+                        : in_array($ride->getOriginal('status'), ['requested', 'no_driver_found'], true);
                     if (!$available) {
                         DB::rollBack();
                         $message = 'This delivery job is no longer available to assign.';

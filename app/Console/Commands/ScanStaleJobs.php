@@ -49,6 +49,24 @@ class ScanStaleJobs extends Command
 
         $count = 0;
         foreach ($rides as $ride) {
+            // Batch 3 Part 6 -- with "No-driver handling" On (off by
+            // default), a taxi ride/parcel with nobody left to offer it to
+            // goes to no_driver_found instead of sitting in the queue. A job
+            // currently out on an offer is left alone. Food never fails here.
+            if (\App\Services\NoDriverFoundService::appliesTo($ride)) {
+                $hasLiveOffer = \App\Models\RideOffer::where('ride_id', $ride->id)
+                    ->where('status', 'pending')
+                    ->where('expires_at', '>', now())
+                    ->exists();
+                if (!$hasLiveOffer && (
+                    \App\Services\NoDriverFoundService::attemptsExhausted($ride)
+                    || !\App\Services\OfferDispatchService::findNextEligibleDriver($ride)
+                )) {
+                    \App\Services\NoDriverFoundService::markNoDriverFound($ride);
+                    continue;
+                }
+            }
+
             $workspace = $ride->ride_type === 'delivery' ? 'delivery' : 'rides';
             $alert = StaleJobAlertService::raise(
                 'unassigned_job',

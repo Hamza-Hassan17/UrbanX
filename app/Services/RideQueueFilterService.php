@@ -15,7 +15,9 @@ use Illuminate\Http\Request;
  */
 class RideQueueFilterService
 {
-    public const ACTIVE_STATUSES = ['requested', 'accepted', 'en_route', 'arrived', 'started'];
+    // 'no_driver_found' (Batch 3 Part 6) only ever appears while No-driver
+    // handling is On; listed so those jobs stay in the queue for manual assign.
+    public const ACTIVE_STATUSES = ['requested', 'accepted', 'en_route', 'arrived', 'started', 'no_driver_found'];
 
     public const EFFECTIVE_PICKUP_SQL = 'COALESCE(scheduled_pickup_at, requested_at)';
 
@@ -48,7 +50,7 @@ class RideQueueFilterService
         }), fn ($q) => $q->whereRaw("$effective >= ?", [$from]));
 
         match ($request->status) {
-            'dispatch' => $query->where('status', 'requested')->whereNull('driver_id'),
+            'dispatch' => $query->whereIn('status', ['requested', 'no_driver_found'])->whereNull('driver_id'),
             'booked' => $query->whereIn('status', $active)->whereNotNull('driver_id'),
             'completed' => $query->where('status', 'completed'),
             'cancelled' => $query->where('status', 'cancelled'),
