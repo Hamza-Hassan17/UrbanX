@@ -53,17 +53,28 @@ class CustomerProfilePhase4Test extends TestCase
         $response->assertSee('Complaints');
     }
 
-    public function test_complaints_route_is_platform_only_rides_workspace_gets_403(): void
+    public function test_rides_workspace_sees_only_ride_complaints(): void
     {
-        // Superseded by a follow-up instruction: Complaints is now Platform-only
-        // (dashboard.complains.* in config/workspaces.php), not reachable from
-        // the Rides workspace at all -- the old per-service filtering this test
-        // used to check is dead code now and was removed from ComplainController.
+        // Batch 3 Part 1 -- Rides and Delivery list their own services'
+        // complaints; Platform lists all.
         $user = $this->makeUser(['rides'], ['view complain']);
 
-        $response = $this->actingAs($user)->get(route('dashboard.complains.index'));
+        foreach (['ride' => 'Taxi Complaint XYZ', 'food' => 'Food Complaint XYZ'] as $service => $name) {
+            \App\Models\Complain::create([
+                'user_id' => $user->id,
+                'name' => $name,
+                'subject' => 'Scoped',
+                'complain_text' => 'test',
+                'status' => 'pending',
+                'service' => $service,
+            ]);
+        }
 
-        $response->assertForbidden();
+        $response = $this->actingAs($user)->withSession(['workspace' => 'rides'])->get(route('dashboard.complains.index'));
+
+        $response->assertStatus(200);
+        $response->assertSee('Taxi Complaint XYZ');
+        $response->assertDontSee('Food Complaint XYZ');
     }
 
     public function test_complaints_list_platform_shows_null_service_complaint(): void

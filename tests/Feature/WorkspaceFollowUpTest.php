@@ -41,9 +41,11 @@ class WorkspaceFollowUpTest extends TestCase
 
     public function test_rides_only_user_gets_403_on_platform_route(): void
     {
-        $user = $this->makeUser(['rides'], 'operator', ['view complain']);
+        // Complaints is no longer Platform-only (Batch 3 Part 1), so this uses
+        // another Platform-only page.
+        $user = $this->makeUser(['rides'], 'operator', ['view announcement']);
 
-        $response = $this->actingAs($user)->get(route('dashboard.complains.index'));
+        $response = $this->actingAs($user)->get(route('dashboard.announcements.index'));
 
         $response->assertForbidden();
     }
