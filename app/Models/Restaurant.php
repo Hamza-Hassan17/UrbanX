@@ -24,7 +24,29 @@ class Restaurant extends Model
         'is_open',
         'is_active',
         'is_approved',
+        'minimum_order_amount',
     ];
+
+    protected $casts = [
+        'minimum_order_amount' => 'decimal:2',
+    ];
+
+    /**
+     * Customer-facing shortfall message if $foodSubtotal is below this
+     * restaurant's minimum order, else null. Food subtotal only -- before
+     * delivery fee and discounts.
+     */
+    public function minimumOrderShortfallMessage(float $foodSubtotal): ?string
+    {
+        $minimum = $this->minimum_order_amount !== null ? (float) $this->minimum_order_amount : null;
+        if ($minimum === null || $minimum <= 0 || $foodSubtotal >= $minimum) {
+            return null;
+        }
+
+        $shortfall = $minimum - $foodSubtotal;
+
+        return 'Add Rs ' . number_format(ceil($shortfall)) . ' more to reach the minimum order of Rs ' . number_format($minimum) . '.';
+    }
 
     public function category()
     {

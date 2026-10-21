@@ -380,8 +380,11 @@ class CustomerController extends Controller
                 ->where('customer_id', $userId)
                 ->get();
 
+            $minimums = Restaurant::whereIn('id', $carts->pluck('restaurant_id'))->pluck('minimum_order_amount', 'id');
+
             // Format item images
-            $carts->each(function ($cart) {
+            $carts->each(function ($cart) use ($minimums) {
+                $cart->setAttribute('minimum_order_amount', $minimums->get($cart->restaurant_id));
                 $cart->cartItems->each(function ($cartItem) {
                     if ($cartItem->restaurantItem) {
                         $cartItem->restaurantItem->image = url('storage/' . $cartItem->restaurantItem->image);
@@ -476,6 +479,11 @@ class CustomerController extends Controller
                     $cartItem->restaurantItem->image = url('storage/' . $cartItem->restaurantItem->image);
                 }
             });
+
+            // Batch 3 Part 3 -- let the cart show the minimum and how far off it is.
+            $cartRestaurant = Restaurant::find($cart->restaurant_id);
+            $cart->setAttribute('minimum_order_amount', $cartRestaurant?->minimum_order_amount);
+            $cart->setAttribute('minimum_order_message', $cartRestaurant?->minimumOrderShortfallMessage((float) $cart->subtotal));
 
             return response()->json([
                 'message' => 'Cart Details',
@@ -797,6 +805,18 @@ class CustomerController extends Controller
             }
 
             $subtotal = round(array_sum(array_map(fn ($l) => $l[2]['unit_price'] * $l[0]->quantity, $pricedLines)), 2);
+
+            // Batch 3 Part 3 -- minimum order on the food subtotal (before
+            // delivery fee and discounts).
+            $minimumMessage = $restaurant->minimumOrderShortfallMessage($subtotal);
+            if ($minimumMessage) {
+                return response()->json([
+                    'message' => $minimumMessage,
+                    'minimum_order_amount' => (float) $restaurant->minimum_order_amount,
+                    'food_subtotal' => $subtotal,
+                    'shortfall' => round((float) $restaurant->minimum_order_amount - $subtotal, 2),
+                ], Response::HTTP_BAD_REQUEST);
+            }
 
             // Keep the voucher discount consistent with the re-priced
             // subtotal: percentage vouchers recompute, fixed ones never

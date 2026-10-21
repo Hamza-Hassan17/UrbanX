@@ -92,6 +92,7 @@ class RestaurantsController extends Controller
             'logo' => 'nullable|image|mimes:jpeg,png,jpg|max_size',
             'cover_image' => 'nullable|image|mimes:jpeg,png,jpg|max_size',
             'is_open' => 'required|in:open,closed',
+            'minimum_order_amount' => 'nullable|numeric|min:0|max:1000000',
         ]);
 
         if ($validator->fails()) {
@@ -106,6 +107,9 @@ class RestaurantsController extends Controller
             $restaurant->address = $request->address;
             $restaurant->description = $request->description;
             $restaurant->is_open = $request->is_open;
+            $restaurant->minimum_order_amount = (float) $request->input('minimum_order_amount') > 0
+                ? $request->input('minimum_order_amount')
+                : null;
             // Handle logo upload
             if ($request->hasFile('logo')) {
                 if ($restaurant->logo) {

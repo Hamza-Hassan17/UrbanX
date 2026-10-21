@@ -124,6 +124,8 @@ class RestaurantController extends Controller
             'special_opening_hours' => 'nullable|string',
             'logo' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max_size',
             'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg|max_size',
+            // Batch 3 Part 3 -- optional; empty/0 clears the minimum.
+            'minimum_order_amount' => 'nullable|numeric|min:0|max:1000000',
         ]);
 
         if ($validator->fails()) {
@@ -141,6 +143,13 @@ class RestaurantController extends Controller
             if (!$restaurant) {
                 $restaurant = new Restaurant();
                 $restaurant->user_id = $user->id;
+            }
+
+            // Only touched when sent, so older Partner builds that don't know
+            // the field never wipe an existing minimum.
+            if ($request->exists('minimum_order_amount')) {
+                $minimum = $request->input('minimum_order_amount');
+                $restaurant->minimum_order_amount = ($minimum === null || $minimum === '' || (float) $minimum <= 0) ? null : $minimum;
             }
 
             $restaurant->restaurant_category_id = $request->input('restaurant_category_id');
@@ -185,6 +194,7 @@ class RestaurantController extends Controller
                     'special_opening_hours' => json_decode($restaurant->special_opening_hours, true),
                     'logo' => $restaurant->logo ? url($restaurant->logo) : null,
                     'cover_image' => $restaurant->cover_image ? url($restaurant->cover_image) : null,
+                    'minimum_order_amount' => $restaurant->minimum_order_amount,
                 ]
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {

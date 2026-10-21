@@ -312,6 +312,14 @@
                             </select>
                         </div>
 
+                        <div class="mb-2">
+                            <label>Minimum Order (PKR)</label>
+                            <input type="number" step="0.01" min="0" name="minimum_order_amount" class="form-control"
+                                value="{{ old('minimum_order_amount', $restaurant->minimum_order_amount) }}"
+                                placeholder="Leave empty for no minimum">
+                            <small class="text-muted">On the food subtotal, before delivery fee and discounts.</small>
+                        </div>
+
                     </div>
 
                     <div class="modal-footer">
