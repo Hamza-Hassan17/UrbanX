@@ -243,6 +243,34 @@
                 </div>
                 @endif
 
+                {{-- Food order items with chosen add-ons (Batch 3 Part 2) --}}
+                @if($relatedOrder)
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Food Order {{ $relatedOrder->order_number }}</h5>
+                        <span class="badge bg-label-secondary">{{ ucwords(str_replace('_', ' ', $relatedOrder->status)) }}</span>
+                    </div>
+                    <div class="card-body">
+                        @include('dashboard.restaurant.restaurants.partials.order-items', ['items' => $relatedOrder->items])
+                        <hr>
+                        <div class="d-flex justify-content-between small">
+                            <span>Food subtotal</span><span>{{ \App\Helpers\Helper::formatCurrency($relatedOrder->subtotal) }}</span>
+                        </div>
+                        @if ((float) $relatedOrder->discount > 0)
+                        <div class="d-flex justify-content-between small">
+                            <span>Discount</span><span>-{{ \App\Helpers\Helper::formatCurrency($relatedOrder->discount) }}</span>
+                        </div>
+                        @endif
+                        <div class="d-flex justify-content-between small">
+                            <span>Delivery fee</span><span>{{ \App\Helpers\Helper::formatCurrency($relatedOrder->delivery_fee) }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between fw-bold">
+                            <span>Total</span><span>{{ \App\Helpers\Helper::formatCurrency($relatedOrder->total_price) }}</span>
+                        </div>
+                    </div>
+                </div>
+                @endif
+
                 <!-- Ride Offers -->
                 @if($rideOffers->count() > 0)
                 <div class="card mb-4">

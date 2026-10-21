@@ -172,6 +172,17 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
         Route::post('/menu-item/add', [RestaurantController::class, 'addMenuItem']);
         Route::post('/menu-item/update/{item_id}', [RestaurantController::class, 'updateMenuItem']);
 
+        // Batch 3 Part 2 -- add-on option groups/options and out-of-stock toggles
+        Route::get('/menu-item/{item_id}/option-groups', [\App\Http\Controllers\API\Frontend\Restaurant\MenuOptionController::class, 'index']);
+        Route::post('/menu-item/{item_id}/option-group/add', [\App\Http\Controllers\API\Frontend\Restaurant\MenuOptionController::class, 'storeGroup']);
+        Route::post('/menu-item/{item_id}/toggle-availability', [\App\Http\Controllers\API\Frontend\Restaurant\MenuOptionController::class, 'toggleItemAvailability']);
+        Route::post('/option-group/update/{group_id}', [\App\Http\Controllers\API\Frontend\Restaurant\MenuOptionController::class, 'updateGroup']);
+        Route::post('/option-group/delete/{group_id}', [\App\Http\Controllers\API\Frontend\Restaurant\MenuOptionController::class, 'destroyGroup']);
+        Route::post('/option-group/{group_id}/option/add', [\App\Http\Controllers\API\Frontend\Restaurant\MenuOptionController::class, 'storeOption']);
+        Route::post('/option/update/{option_id}', [\App\Http\Controllers\API\Frontend\Restaurant\MenuOptionController::class, 'updateOption']);
+        Route::post('/option/delete/{option_id}', [\App\Http\Controllers\API\Frontend\Restaurant\MenuOptionController::class, 'destroyOption']);
+        Route::post('/option/{option_id}/toggle-availability', [\App\Http\Controllers\API\Frontend\Restaurant\MenuOptionController::class, 'toggleOptionAvailability']);
+
         Route::get('/orders', [RestaurantController::class, 'getOrders']);
         Route::get('/order-details/{order_id}', [RestaurantController::class, 'getOrderDetails']);
         Route::post('/order/{order_id}/accept', [RestaurantController::class, 'acceptOrder']);

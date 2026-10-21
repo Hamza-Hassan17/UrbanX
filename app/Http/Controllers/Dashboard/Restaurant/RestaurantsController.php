@@ -57,7 +57,10 @@ class RestaurantsController extends Controller
     {
         $this->authorize('view restaurant');
         try {
-            $restaurant = Restaurant::with('category', 'user','orders','menus.items', 'reviews')->findOrFail($id);
+            $restaurant = Restaurant::with([
+                'category', 'user', 'orders.items.restaurantItem:id,name', 'reviews',
+                'menus.items' => fn ($q) => $q->withCount('optionGroups'),
+            ])->findOrFail($id);
             $categories = RestaurantCategory::where('is_active', 'active')->get();
             return view('dashboard.restaurant.restaurants.show',compact('restaurant', 'categories'));
         } catch (\Throwable $th) {

@@ -315,7 +315,7 @@ class RestaurantController extends Controller
                     'message' => 'Restaurant not found'
                 ], Response::HTTP_NOT_FOUND);
             }
-            $restaurantItems = RestaurantItem::where('restaurant_id', $restaurant->id)->get();
+            $restaurantItems = RestaurantItem::with('optionGroups.options')->where('restaurant_id', $restaurant->id)->get();
             $restaurantItems = $restaurantItems->map(function ($item) {
                 $item->image = url('storage/'.$item->image);
                 return $item;

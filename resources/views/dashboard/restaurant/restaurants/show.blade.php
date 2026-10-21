@@ -81,6 +81,7 @@
                                     <th>Discount</th>
                                     <th>Final Price</th>
                                     <th>Status</th>
+                                    <th>Add-ons</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -102,6 +103,11 @@
                                             <span class="badge bg-{{ $item->is_available ? 'success' : 'danger' }}">
                                                 {{ $item->is_available ? 'Available' : 'Not Available' }}
                                             </span>
+                                        </td>
+                                        <td>
+                                            <a href="{{ route('dashboard.restaurants.items.options', $item->id) }}" class="btn btn-sm btn-outline-primary">
+                                                <i class="ti ti-adjustments"></i> {{ $item->option_groups_count ?? $item->optionGroups()->count() }} {{ __('groups') }}
+                                            </a>
                                         </td>
                                     </tr>
                                 @endforeach
@@ -125,6 +131,7 @@
                     <thead>
                         <tr>
                             <th>Order #</th>
+                            <th>Items</th>
                             <th>Total</th>
                             <th>Status</th>
                             <th>Payment</th>
@@ -135,6 +142,7 @@
                         @foreach ($restaurant->orders as $order)
                             <tr>
                                 <td>{{ $order->order_number }}</td>
+                                <td>@include('dashboard.restaurant.restaurants.partials.order-items', ['items' => $order->items])</td>
                                 <td>{{ $order->total_price }}</td>
                                 <td>
                                     {{ $order->status }}

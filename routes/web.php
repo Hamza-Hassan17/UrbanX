@@ -295,6 +295,16 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('restaurants/status/{id}', [RestaurantsController::class, 'updateStatus'])->name('restaurants.status.update');
             Route::put('restaurants/menus/update/{id}', [RestaurantsController::class, 'updateRestaurantMenu'])->name('restaurants.menus.update');
             Route::put('restaurants/items/update/{id}', [RestaurantsController::class, 'updateRestaurantItem'])->name('restaurants.items.update');
+            // Batch 3 Part 2 -- item add-ons
+            Route::get('restaurants/items/{id}/options', [\App\Http\Controllers\Dashboard\Restaurant\ItemOptionController::class, 'index'])->name('restaurants.items.options');
+            Route::post('restaurants/items/{id}/toggle-availability', [\App\Http\Controllers\Dashboard\Restaurant\ItemOptionController::class, 'toggleItem'])->name('restaurants.items.toggle');
+            Route::post('restaurants/items/{id}/option-groups', [\App\Http\Controllers\Dashboard\Restaurant\ItemOptionController::class, 'storeGroup'])->name('restaurants.option-groups.store');
+            Route::put('restaurants/option-groups/{id}', [\App\Http\Controllers\Dashboard\Restaurant\ItemOptionController::class, 'updateGroup'])->name('restaurants.option-groups.update');
+            Route::delete('restaurants/option-groups/{id}', [\App\Http\Controllers\Dashboard\Restaurant\ItemOptionController::class, 'destroyGroup'])->name('restaurants.option-groups.destroy');
+            Route::post('restaurants/option-groups/{id}/options', [\App\Http\Controllers\Dashboard\Restaurant\ItemOptionController::class, 'storeOption'])->name('restaurants.options.store');
+            Route::put('restaurants/options/{id}', [\App\Http\Controllers\Dashboard\Restaurant\ItemOptionController::class, 'updateOption'])->name('restaurants.options.update');
+            Route::delete('restaurants/options/{id}', [\App\Http\Controllers\Dashboard\Restaurant\ItemOptionController::class, 'destroyOption'])->name('restaurants.options.destroy');
+            Route::post('restaurants/options/{id}/toggle', [\App\Http\Controllers\Dashboard\Restaurant\ItemOptionController::class, 'toggleOption'])->name('restaurants.options.toggle');
             Route::put('restaurants/orders/update/{id}', [RestaurantsController::class, 'updateRestaurantOrder'])->name('restaurants.orders.update');
             Route::put('restaurants/schedule/update/{id}', [RestaurantsController::class, 'updateRestaurantSchedule'])->name('restaurants.schedule.update');
             Route::put('restaurants/review/update/{id}', [RestaurantsController::class, 'updateRestaurantReview'])->name('restaurants.reviews.update');

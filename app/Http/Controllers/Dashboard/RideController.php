@@ -62,7 +62,7 @@ class RideController extends Controller
             $rideExtraCharges = RideExtraCharge::where('ride_id', $id)->get();
             // Review follow-up -- a food-delivery ride's cash-discrepancy
             // flag (if any) lives on its restaurant_orders row, not here.
-            $relatedOrder = RestaurantOrder::where('ride_id', $ride->id)->first();
+            $relatedOrder = RestaurantOrder::with('items.restaurantItem:id,name')->where('ride_id', $ride->id)->first();
 
             // Check for boost hour
             $requestedTime = \Carbon\Carbon::parse($ride->requested_at)->format('H:i:s');

@@ -217,7 +217,9 @@ class CustomerController extends Controller
     public function getMenuItems(Request $request, $menu_id)
     {
         try {
-            $menuItems = RestaurantItem::where('restaurant_menu_id', $menu_id)->where('is_active', 'active')->get();
+            // Batch 3 Part 2 -- option_groups (with options and availability)
+            // ride along; items without groups just get an empty list.
+            $menuItems = RestaurantItem::with('optionGroups.options')->where('restaurant_menu_id', $menu_id)->where('is_active', 'active')->get();
 
             $menuItems = $menuItems->map(function ($item) {
                 $item->image = $item->image ? url('storage/' . $item->image) : null;
@@ -239,7 +241,7 @@ class CustomerController extends Controller
     public function getMenuItemDetails(Request $request, $item_id)
     {
         try {
-            $menuItem = RestaurantItem::where('id', $item_id)->where('is_active', 'active')->first();
+            $menuItem = RestaurantItem::with('optionGroups.options')->where('id', $item_id)->where('is_active', 'active')->first();
 
             if (!$menuItem) {
                 return response()->json([
@@ -268,6 +270,10 @@ class CustomerController extends Controller
                 'restaurant_id' => 'required|exists:restaurants,id',
                 'menu_item_id'  => 'required|exists:restaurant_items,id',
                 'quantity'      => 'required|integer|min:1',
+                // Batch 3 Part 2 -- chosen add-on option IDs; omit for items
+                // without option groups (old app builds keep working).
+                'option_ids'    => 'nullable|array',
+                'option_ids.*'  => 'integer',
             ]);
 
             if ($validator->fails()) {
@@ -279,11 +285,9 @@ class CustomerController extends Controller
 
             $userId = $request->user()->id;
 
-            // Get valid item
-            $item = RestaurantItem::where('id', $request->menu_item_id)
+            $item = RestaurantItem::with('optionGroups.options')
+                ->where('id', $request->menu_item_id)
                 ->where('restaurant_id', $request->restaurant_id)
-                ->where('is_available', '1')
-                ->where('is_active', 'active')
                 ->first();
 
             if (!$item) {
@@ -292,7 +296,15 @@ class CustomerController extends Controller
                 ], Response::HTTP_BAD_REQUEST);
             }
 
-            $price = $item->discount_price ?? $item->price;
+            try {
+                $line = \App\Services\MenuOptionService::priceLine($item, $request->input('option_ids', []));
+            } catch (\InvalidArgumentException $e) {
+                return response()->json([
+                    'message' => $e->getMessage(),
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
+            $price = $line['unit_price'];
 
             $restaurantCart = RestaurantCart::firstOrCreate(
                 [
@@ -309,14 +321,19 @@ class CustomerController extends Controller
                 ]
             );
 
-            // Check existing cart item
+            // Same item with the same add-on choices merges into one line;
+            // different choices are separate lines.
             $cartItem = $restaurantCart->cartItems()
                 ->where('restaurant_item_id', $item->id)
+                ->when($line['signature'] === null,
+                    fn ($q) => $q->whereNull('options_signature'),
+                    fn ($q) => $q->where('options_signature', $line['signature']))
                 ->first();
 
             if ($cartItem) {
                 $cartItem->increment('quantity', $request->quantity);
                 $cartItem->update([
+                    'price_per_item' => $price,
                     'total_price' => $cartItem->quantity * $price,
                 ]);
             } else {
@@ -325,6 +342,8 @@ class CustomerController extends Controller
                     'quantity'           => $request->quantity,
                     'price_per_item'     => $price,
                     'total_price'        => $request->quantity * $price,
+                    'selected_options'   => $line['selected_options'] ?: null,
+                    'options_signature'  => $line['signature'],
                 ]);
             }
 
@@ -751,6 +770,44 @@ class CustomerController extends Controller
                 $deliveryFee = round($deliveryFee, 2);
             }
 
+            // Batch 3 Part 2 -- re-price every line against the live menu
+            // (an item or add-on can go out of stock, or change price, after
+            // it was carted). Never trusts stored or client-sent prices.
+            $cart->loadMissing('cartItems.restaurantItem.optionGroups.options');
+            $pricedLines = [];
+            foreach ($cart->cartItems as $cartItem) {
+                $menuItem = $cartItem->restaurantItem;
+                if (!$menuItem || (int) $menuItem->restaurant_id !== (int) $cart->restaurant_id) {
+                    return response()->json([
+                        'message' => 'An item in your cart is no longer on the menu. Please remove it and try again.'
+                    ], Response::HTTP_BAD_REQUEST);
+                }
+                try {
+                    $line = \App\Services\MenuOptionService::priceLine(
+                        $menuItem,
+                        \App\Services\MenuOptionService::optionIdsFromSnapshot($cartItem->selected_options)
+                    );
+                } catch (\InvalidArgumentException $e) {
+                    return response()->json([
+                        'message' => $e->getMessage(),
+                        'cart_item_id' => $cartItem->id,
+                    ], Response::HTTP_BAD_REQUEST);
+                }
+                $pricedLines[] = [$cartItem, $menuItem, $line];
+            }
+
+            $subtotal = round(array_sum(array_map(fn ($l) => $l[2]['unit_price'] * $l[0]->quantity, $pricedLines)), 2);
+
+            // Keep the voucher discount consistent with the re-priced
+            // subtotal: percentage vouchers recompute, fixed ones never
+            // exceed the subtotal.
+            $discount = (float) $cart->discount;
+            $cartVoucher = $cart->voucher_code_id ? VoucherCode::find($cart->voucher_code_id) : null;
+            if ($cartVoucher && $cartVoucher->discount_type === 'percentage') {
+                $discount = round(($cartVoucher->discount_amount / 100) * $subtotal, 2);
+            }
+            $discount = min($discount, $subtotal);
+
             DB::beginTransaction();
 
             $vehicleType = VehicleType::where('is_delivery', '1')->first();
@@ -760,12 +817,12 @@ class CustomerController extends Controller
             $order->customer_id = $request->user()->id;
             $order->voucher_code_id = $cart->voucher_code_id;
             $order->order_number = 'ORD-' . strtoupper(uniqid());
-            $order->subtotal = $cart->subtotal;
-            $order->discount = $cart->discount;
+            $order->subtotal = $subtotal;
+            $order->discount = $discount;
             $order->tax = $cart->tax;
             $order->platform_fee = $cart->platform_fee;
             $order->delivery_fee = $deliveryFee;
-            $order->total_price = round($cart->subtotal - $cart->discount + $cart->tax + $cart->platform_fee + $deliveryFee, 2);
+            $order->total_price = round($subtotal - $discount + $cart->tax + $cart->platform_fee + $deliveryFee, 2);
             $order->delivery_lat = $request->delivery_lat;
             $order->delivery_lang = $request->delivery_lang;
             $order->rider_note = $request->rider_note;
@@ -803,12 +860,18 @@ class CustomerController extends Controller
 
             $order->save();
 
-            foreach ($cart->cartItems as $cartItem) {
+            // Snapshot item name, base price and chosen add-ons (names and
+            // prices as they are right now) so later menu edits never change
+            // this order.
+            foreach ($pricedLines as [$cartItem, $menuItem, $line]) {
                 $order->items()->create([
                     'restaurant_item_id' => $cartItem->restaurant_item_id,
+                    'item_name' => $menuItem->name,
                     'quantity' => $cartItem->quantity,
-                    'price_per_item' => $cartItem->price_per_item,
-                    'total_price' => $cartItem->total_price,
+                    'price_per_item' => $line['unit_price'],
+                    'base_price' => $line['base_price'],
+                    'total_price' => round($line['unit_price'] * $cartItem->quantity, 2),
+                    'selected_options' => $line['selected_options'] ?: null,
                     'notes' => null,
                 ]);
             }
@@ -820,10 +883,13 @@ class CustomerController extends Controller
             $ride->pickup_longitude = $restaurant->longitude;
             $ride->dropoff_latitude = $request->delivery_lat;
             $ride->dropoff_longitude = $request->delivery_lang;
-            $ride->distance_km = $request->distance_km;
+            // Batch 3 -- the delivery ride's fare was taken from app-sent
+            // subtotal/total_fare; it's the rider's delivery fee, so use the
+            // server-computed one instead (spec: never trust app prices).
+            $ride->distance_km = $distanceToDelivery ?? $request->distance_km;
             $ride->duration_minutes = $request->duration_minutes;
-            $ride->subtotal = $request->subtotal;
-            $ride->total_fare = $request->total_fare;
+            $ride->subtotal = $deliveryFee;
+            $ride->total_fare = $deliveryFee;
             $ride->requested_at = now();
             $ride->status = 'requested';
             $ride->ride_type = 'delivery';

@@ -16,6 +16,13 @@ class RestaurantOrderItem extends Model
         'price_per_item',
         'total_price',
         'notes',
+        'item_name',
+        'base_price',
+        'selected_options',
+    ];
+
+    protected $casts = [
+        'selected_options' => 'array',
     ];
 
     public function order()

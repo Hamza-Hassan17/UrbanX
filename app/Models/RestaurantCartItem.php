@@ -15,6 +15,12 @@ class RestaurantCartItem extends Model
         'quantity',
         'price_per_item',
         'total_price',
+        'selected_options',
+        'options_signature',
+    ];
+
+    protected $casts = [
+        'selected_options' => 'array',
     ];
 
     public function restaurantItem()
