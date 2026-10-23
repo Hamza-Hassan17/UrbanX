@@ -55,6 +55,26 @@ class DispatchSettingsService
         return (bool) (SystemSetting::first()?->no_driver_handling ?? false);
     }
 
+    /**
+     * The taxi vehicle type that receives parcel jobs (Driver app). Null
+     * until an admin picks one in Pricing & Fees -- parcels then keep the
+     * old behaviour (delivery riders) so booking never breaks.
+     */
+    public static function parcelVehicleTypeId(): ?int
+    {
+        $id = SystemSetting::first()?->parcel_vehicle_type_id;
+        if (!$id) {
+            return null;
+        }
+
+        $isTaxiType = \App\Models\VehicleType::whereKey($id)
+            ->where('is_delivery', '0')
+            ->where('is_active', 'active')
+            ->exists();
+
+        return $isTaxiType ? (int) $id : null;
+    }
+
     public static function taxiOutstandingLimit(): float
     {
         return (float) (SystemSetting::first()?->taxi_outstanding_limit ?? 5000.00);

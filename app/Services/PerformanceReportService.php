@@ -48,7 +48,8 @@ class PerformanceReportService
     public static function build(string $scope, Carbon $from, Carbon $to): Collection
     {
         $isDelivery = $scope === 'delivery';
-        $rideType = $isDelivery ? 'delivery' : 'ride';
+        // Taxi drivers do rides and (since the move) parcels.
+        $rideTypes = $isDelivery ? ['delivery'] : \App\Models\Ride::TAXI_TYPES;
 
         $drivers = User::role('driver')
             ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', $isDelivery ? '1' : '0'))
@@ -63,7 +64,7 @@ class PerformanceReportService
 
         $offers = DB::table('ride_offers')
             ->join('rides', 'rides.id', '=', 'ride_offers.ride_id')
-            ->where('rides.ride_type', $rideType)
+            ->whereIn('rides.ride_type', $rideTypes)
             ->whereIn('ride_offers.driver_id', $ids)
             ->whereBetween('ride_offers.created_at', [$from, $to])
             ->groupBy('ride_offers.driver_id')
@@ -77,13 +78,13 @@ class PerformanceReportService
 
         $loggedCancels = DB::table('ride_driver_logs')
             ->join('rides', 'rides.id', '=', 'ride_driver_logs.ride_id')
-            ->where('rides.ride_type', $rideType)
+            ->whereIn('rides.ride_type', $rideTypes)
             ->where('ride_driver_logs.action', 'cancelled')
             ->whereIn('ride_driver_logs.driver_id', $ids)
             ->whereBetween('ride_driver_logs.created_at', [$from, $to])
             ->select('ride_driver_logs.driver_id', 'ride_driver_logs.ride_id');
         $cancels = DB::table('rides')
-            ->where('ride_type', $rideType)
+            ->whereIn('ride_type', $rideTypes)
             ->where('status', 'cancelled')
             ->where('status_updated_by_role', 'driver')
             ->whereIn('driver_id', $ids)
@@ -95,7 +96,7 @@ class PerformanceReportService
             ->map(fn ($rows) => $rows->pluck('ride_id')->unique()->count());
 
         $completed = DB::table('rides')
-            ->where('ride_type', $rideType)
+            ->whereIn('ride_type', $rideTypes)
             ->where('status', 'completed')
             ->whereIn('driver_id', $ids)
             ->whereBetween('completed_at', [$from, $to])

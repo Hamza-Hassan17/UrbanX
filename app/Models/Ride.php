@@ -81,6 +81,13 @@ class Ride extends Model
         'flagged_for_review',
     ];
 
+    /**
+     * Ride types handled by taxi drivers in the Driver app and managed in
+     * the Rides workspace. 'parcel' = parcels after the move from delivery
+     * riders; older parcels are 'delivery' rows without a restaurant order.
+     */
+    public const TAXI_TYPES = ['ride', 'parcel'];
+
     public function rideOffers()
     {
         return $this->hasMany(RideOffer::class, 'ride_id');

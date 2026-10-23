@@ -124,7 +124,7 @@ class OfferDispatchService
             app('notificationService')->notifyUsers(
                 [$driver],
                 'New Job Available',
-                'A new ' . ($ride->ride_type === 'delivery' ? 'delivery' : 'ride') . ' request is available.',
+                'A new ' . (in_array($ride->ride_type, ['delivery', 'parcel'], true) ? $ride->ride_type : 'ride') . ' request is available.',
                 'rides',
                 $ride->id,
                 'ride_details'

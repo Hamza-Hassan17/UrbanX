@@ -59,6 +59,23 @@ never call go-offline, stay online exactly as today. Details under Driver/Rider 
 8. Food delivery fare: the rides row of a food order now takes subtotal/total_fare from the
 server's delivery fee (same as order.delivery_fee), not from what the Customer app sent.
 
+8a. Parcels moved from the Delivery app to the Driver app (changed). Once an admin picks the
+"Parcel vehicle type" (Pricing & Fees → Dispatch, a taxi type, e.g. Bike), new parcels go only
+to taxi drivers of that type and have "ride_type": "parcel" (was "delivery"). Delivery riders no
+longer get new parcels. Until it's picked, parcels behave exactly as before.
+- Driver app: build the parcel screens using the same endpoints as before (Driver/Rider App →
+  1–3: update-ride-status with delivery_code + cash_collected_amount,
+  parcel-receiver-unreachable, confirm-parcel-cash-collected). A parcel arrives through the
+  normal GET /api/driver/get-rides poll; tell it apart by ride_type "parcel" (or
+  delivery_code present) and show sender/receiver/package fields from the ride.
+- Money: parcels now settle like taxi rides — commission % and the outstanding balance, not
+  cash-in-hand. Earnings rows for these parcels: "type": "parcel", commission_rate set,
+  commission_flat_pkr null.
+- Customer app: POST /api/customer/book-parcel response adds "ride_type". Treat both
+  "parcel" and "delivery" (older parcels) as a parcel on tracking/history screens.
+- GET /api/driver/ride-history now returns all of the driver's jobs (rides, parcels,
+  deliveries), not only taxi rides.
+
 Customer app (breaking)
 
 9. Place order can reject a cart that was fine earlier (changed). POST

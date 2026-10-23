@@ -163,7 +163,7 @@
                 </div>
 
                 {{-- Batch 1 Part 5 -- parcel-specific fields, null for taxi/food rides --}}
-                @if($ride->ride_type === 'delivery' && $ride->sender_name)
+                @if(in_array($ride->ride_type, ['delivery', 'parcel'], true) && $ride->sender_name)
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="mb-0">Parcel Details</h5>

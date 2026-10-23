@@ -170,7 +170,7 @@ class CustomRideController extends Controller
             $geocoder = app(\App\Services\GeocodingService::class);
 
             $activeRides = Ride::with(['driver:id,name,phone,lat,lang', 'passenger:id,name,phone'])
-                ->where('ride_type', 'ride')
+                ->whereIn('ride_type', Ride::TAXI_TYPES)
                 ->whereIn('status', $activeRideStatuses)
                 ->whereNotNull('driver_id')
                 ->get()
@@ -194,7 +194,7 @@ class CustomRideController extends Controller
                         'pickup' => $geocoder->reverseGeocode((float) $ride->pickup_latitude, (float) $ride->pickup_longitude) ?? $pickupCoords,
                         'dropoff' => $geocoder->reverseGeocode((float) $ride->dropoff_latitude, (float) $ride->dropoff_longitude) ?? $dropoffCoords,
                         'status' => $ride->status,
-                        'ride_type' => 'ride',
+                        'ride_type' => $ride->ride_type,
                         'anomalies' => $openAnomaliesByRide->get($ride->id, collect())->values(),
                     ];
                 })
@@ -261,14 +261,14 @@ class CustomRideController extends Controller
         // Taxi only (ride_type='ride') -- this page is the Rides workspace's
         // queue as of Phase 2; delivery jobs moved to their own page/stats.
         $rideCounts = [
-            'dispatch'  => Ride::where('ride_type', 'ride')->whereIn('status', ['requested', 'no_driver_found'])->whereNull('driver_id')->count(),
-            'booked'    => Ride::where('ride_type', 'ride')->whereIn('status', $activeStatuses)
+            'dispatch'  => Ride::whereIn('ride_type', Ride::TAXI_TYPES)->whereIn('status', ['requested', 'no_driver_found'])->whereNull('driver_id')->count(),
+            'booked'    => Ride::whereIn('ride_type', Ride::TAXI_TYPES)->whereIn('status', $activeStatuses)
                                 ->whereNotNull('driver_id')->count(),
-            'completed' => Ride::where('ride_type', 'ride')->whereDate('completed_at', today())->where('status', 'completed')->count(),
-            'cancelled' => Ride::where('ride_type', 'ride')->whereDate('cancelled_at', today())->where('status', 'cancelled')->count(),
+            'completed' => Ride::whereIn('ride_type', Ride::TAXI_TYPES)->whereDate('completed_at', today())->where('status', 'completed')->count(),
+            'cancelled' => Ride::whereIn('ride_type', Ride::TAXI_TYPES)->whereDate('cancelled_at', today())->where('status', 'cancelled')->count(),
         ];
 
-        $rides = Ride::where('ride_type', 'ride')
+        $rides = Ride::whereIn('ride_type', Ride::TAXI_TYPES)
             ->with(['driver:id,name', 'passenger:id,name,phone'])
             ->whereIn('status', array_merge($activeStatuses, ['completed', 'cancelled']))
             ->latest('requested_at')
@@ -309,8 +309,17 @@ class CustomRideController extends Controller
             'queue'     => $queue,
             'fare'      => (float) $ride->total_fare,
             'ride_type' => $ride->ride_type,
-            'type_key'  => 'ride',
-            'type_label' => 'Taxi',
+            'type_key'  => $ride->ride_type === 'parcel' ? 'parcel' : 'ride',
+            'type_label' => $ride->ride_type === 'parcel' ? 'Parcel' : 'Taxi',
+            // null for taxi rides, populated for parcels.
+            'sender_name' => $ride->sender_name,
+            'sender_phone' => $ride->sender_phone,
+            'receiver_name' => $ride->receiver_name,
+            'receiver_phone' => $ride->receiver_phone,
+            'package_type' => $ride->package_type,
+            'package_size' => $ride->package_size,
+            'parcel_notes' => $ride->parcel_notes,
+            'delivery_fee_paid_by' => $ride->delivery_fee_paid_by,
         ];
     }
 
@@ -329,8 +338,10 @@ class CustomRideController extends Controller
     {
         $this->authorize('view custom rides');
 
-        $query = Ride::where('ride_type', 'ride')
-            ->with(['driver:id,name', 'passenger:id,name,phone']);
+        // Taxi rides and parcels (parcels are handled by taxi drivers).
+        $query = Ride::whereIn('ride_type', Ride::TAXI_TYPES)
+            ->with(['driver:id,name', 'passenger:id,name,phone'])
+            ->when(in_array($request->type, Ride::TAXI_TYPES, true), fn ($q) => $q->where('ride_type', $request->type));
 
         \App\Services\RideQueueFilterService::apply($query, $request);
 

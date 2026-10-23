@@ -35,7 +35,7 @@ class CustomerProfileController extends Controller
             ->get();
 
         $deliveryRides = Ride::where('passenger_id', $id)
-            ->where('ride_type', 'delivery')
+            ->whereIn('ride_type', ['delivery', 'parcel'])
             ->latest('requested_at')
             ->get();
 

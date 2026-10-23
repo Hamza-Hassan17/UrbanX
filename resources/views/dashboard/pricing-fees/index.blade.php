@@ -161,6 +161,17 @@
                         @error('stale_ready_for_pickup_minutes')<span class="invalid-feedback">{{ $message }}</span>@enderror
                     </div>
                     <div class="col-md-4">
+                        <label for="parcel_vehicle_type_id" class="form-label">{{ __('Parcel vehicle type') }}</label>
+                        <small class="fw-medium text-primary d-block">({{ __('Parcels go to taxi drivers of this vehicle type in the Driver app. Empty = old behaviour, parcels go to delivery riders.') }})</small>
+                        <select class="form-select @error('parcel_vehicle_type_id') is-invalid @enderror" id="parcel_vehicle_type_id" name="parcel_vehicle_type_id">
+                            <option value="">{{ __('Not set (delivery riders)') }}</option>
+                            @foreach ($taxiVehicleTypes as $vt)
+                                <option value="{{ $vt->id }}" {{ (string) old('parcel_vehicle_type_id', $settings->parcel_vehicle_type_id) === (string) $vt->id ? 'selected' : '' }}>{{ $vt->name }}</option>
+                            @endforeach
+                        </select>
+                        @error('parcel_vehicle_type_id')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="col-md-4">
                         <label for="no_driver_handling" class="form-label">{{ __('No-driver handling') }}</label><span class="text-danger">*</span>
                         <small class="fw-medium text-danger d-block">({{ __('Switched off until the client confirms. On = taxi rides and parcels with nobody left to offer them to become "No driver found" and the customer can retry or cancel. Food orders are never auto-failed.') }})</small>
                         <select class="form-select @error('no_driver_handling') is-invalid @enderror" id="no_driver_handling" name="no_driver_handling" required>

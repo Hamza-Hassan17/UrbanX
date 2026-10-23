@@ -305,7 +305,7 @@ class RideController extends Controller
             // fare) -- push the new values everywhere the apps read ride data
             // from, and ping the driver. Without this the app keeps showing
             // whatever it cached when the ride was accepted.
-            if (!$assignedDriver && $ride->driver_id && $ride->ride_type === 'ride') {
+            if (!$assignedDriver && $ride->driver_id && in_array($ride->ride_type, Ride::TAXI_TYPES, true)) {
                 // Notify the passenger app + the driver's status flow watch.
                 try {
                     broadcast(new \App\Events\RideStatusUpdated($ride));

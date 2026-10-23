@@ -958,7 +958,7 @@
             'itemPrefix' => 'RIDE-',
             'rides' => $rides,
             'queuePresets' => $queuePresets,
-            'queueTypeChips' => [],
+            'queueTypeChips' => ['ride' => '🚕 Taxi', 'parcel' => '📦 Parcel'],
             'queueEditable' => true,
         ])
     </div>
@@ -1778,7 +1778,7 @@
         'lastQueueFilters' => $lastQueueFilters,
         'itemPrefix' => 'RIDE-',
         'queueTitle' => 'Rides',
-        'hasTypeChips' => false,
+        'hasTypeChips' => true,
     ])
     <script>
         // =============================================

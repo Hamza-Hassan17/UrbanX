@@ -916,7 +916,11 @@ class RideController extends Controller
             }
             $ride->save();
 
-            \App\Services\RiderCashService::recordCollected(auth()->id(), $amountDue, Ride::class, $ride->id);
+            // Taxi-driver parcels owe their commission through the
+            // outstanding balance at completion instead.
+            if ($ride->ride_type !== 'parcel') {
+                \App\Services\RiderCashService::recordCollected(auth()->id(), $amountDue, Ride::class, $ride->id);
+            }
 
             return response()->json([
                 'message' => 'Cash collection confirmed.',
@@ -979,7 +983,7 @@ class RideController extends Controller
                 if ($request->type === 'taxi_ride') {
                     $ridesQuery->where('ride_type', 'ride');
                 } elseif ($request->type === 'parcel') {
-                    $ridesQuery->where('ride_type', 'delivery');
+                    $ridesQuery->whereIn('ride_type', ['delivery', 'parcel']);
                 }
 
                 $rideRows = $ridesQuery->get()->map(function ($ride) {
@@ -1206,7 +1210,12 @@ class RideController extends Controller
                 // deliveries are excluded (ride_type === 'ride' only):
                 // their commission is already settled differently (the
                 // delivery fee itself, not kept by the driver at all).
-                $taxiCashFareOwed = $ride->ride_type === 'ride' && $ride->payment_method === 'cash'
+                // Parcels done by taxi drivers (ride_type 'parcel') work
+                // the same way: the driver keeps the COD fee and owes the
+                // commission+SST.
+                $driverKeepsCash = ($ride->ride_type === 'ride' && $ride->payment_method === 'cash')
+                    || ($ride->ride_type === 'parcel' && $ride->payment_method === 'cod');
+                $taxiCashFareOwed = $driverKeepsCash
                     ? round($ride->fare_breakdown['commission_amount'] + $ride->fare_breakdown['sst_amount'], 2)
                     : null;
             }
@@ -1233,12 +1242,16 @@ class RideController extends Controller
                 DB::transaction(function () use ($ride, $amountDue) {
                     $ride->save();
 
-                    \App\Services\RiderCashService::recordCollected(
-                        auth()->id(),
-                        $amountDue,
-                        Ride::class,
-                        $ride->id
-                    );
+                    // Taxi-driver parcels settle through the outstanding
+                    // balance (recorded below), not the rider cash-in-hand.
+                    if ($ride->ride_type !== 'parcel') {
+                        \App\Services\RiderCashService::recordCollected(
+                            auth()->id(),
+                            $amountDue,
+                            Ride::class,
+                            $ride->id
+                        );
+                    }
                 });
             } else {
                 $ride->save();
@@ -1337,11 +1350,10 @@ class RideController extends Controller
             $user = $request->user();
             $driverId = $user->id;
 
-            // 🔥 role check
-            $rideType = $user->hasRole('driver') ? 'ride' : 'delivery';
-
+            // Every job this driver did -- taxi rides, parcels and
+            // deliveries. (Riders are driver-role accounts too, so the old
+            // role-based ride_type filter only ever returned taxi rides.)
             $rides = Ride::where('driver_id', $driverId)
-                ->where('ride_type', $rideType)
                 ->whereIn('status', ['completed', 'cancelled'])
                 ->orderBy('created_at', 'desc')
                 ->get();

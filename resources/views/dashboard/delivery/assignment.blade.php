@@ -1,9 +1,9 @@
 @extends('layouts.master')
 
-@section('title', __('Manual Delivery Assignment'))
+@section('title', __(($mode ?? 'food') === 'parcel' ? 'Manual Parcel Assignment' : 'Manual Delivery Assignment'))
 
 @section('breadcrumb-items')
-    <li class="breadcrumb-item active">{{ __('Manual Delivery Assignment') }}</li>
+    <li class="breadcrumb-item active">{{ __(($mode ?? 'food') === 'parcel' ? 'Manual Parcel Assignment' : 'Manual Delivery Assignment') }}</li>
 @endsection
 
 @section('css')
@@ -28,6 +28,7 @@
         .section-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--gray); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
         .section-title i { color: var(--primary); width: 16px; }
         .dispatch-toprow { display: grid; grid-template-columns: 320px 200px 1fr; gap: 14px; align-items: stretch; min-height: 560px; }
+        .dispatch-toprow.no-form { grid-template-columns: 200px 1fr; }
         .form-panel { padding: 14px; overflow-y: auto; max-height: 760px; }
         .counts-panel { padding: 14px; }
         .map-panel { overflow: hidden; min-height: 560px; }
@@ -107,11 +108,19 @@
 @endsection
 
 @section('content')
+    @php $isParcel = ($mode ?? 'food') === 'parcel'; @endphp
+    @if ($isParcel && empty($parcelVehicleType))
+        <div class="alert alert-warning">{{ __('Choose the Parcel vehicle type in Pricing & Fees → Dispatch. Until then, customer parcels still go to delivery riders and admin parcel booking is disabled.') }}</div>
+    @elseif ($isParcel)
+        <div class="alert alert-info py-2">{{ __('Parcels go to taxi drivers of the vehicle type:') }} <strong>{{ $parcelVehicleType->name }}</strong></div>
+    @endif
     <div class="dashboard-container">
-        <div class="dispatch-toprow">
+        <div class="dispatch-toprow {{ $isParcel ? '' : 'no-form' }}">
 
             {{-- Parcel booking form --}}
-            <section class="panel form-panel">
+            {{-- Parcel booking form: Rides workspace only (parcels moved to taxi drivers).
+                 Kept in the markup but hidden in food mode so the page script binds unchanged. --}}
+            <section class="panel form-panel" @unless($isParcel) style="display:none" @endunless>
                 <div class="rider-strip" id="rider-strip">
                     <div class="rider-avatar none" id="rider-avatar"><i class="fas fa-motorcycle"></i></div>
                     <div>
@@ -227,7 +236,9 @@
                 <div class="count-row count-available"><span>{{ __('Available') }}</span><strong id="stat-available">{{ $stats['available'] }}</strong></div>
                 <div class="count-row count-busy"><span>{{ __('Busy') }}</span><strong id="stat-busy">{{ $stats['busy'] }}</strong></div>
                 <div class="count-row count-dispatch"><span>{{ __('Dispatch') }}</span><strong id="stat-dispatch">{{ $stats['dispatch'] }}</strong></div>
+                @unless($isParcel)
                 <div class="count-row count-waiting" title="{{ __('Food orders the restaurant has not accepted yet') }}"><span>{{ __('At restaurant') }}</span><strong id="stat-waiting">{{ $stats['waiting_restaurant'] }}</strong></div>
+                @endunless
                 <div class="count-row count-booked"><span>{{ __('Booked') }}</span><strong id="stat-booked">{{ $stats['booked'] }}</strong></div>
                 <div class="count-row count-completed"><span>{{ __('Completed') }}</span><strong id="stat-completed">{{ $stats['completed'] }}</strong></div>
                 <div class="count-row count-cancelled"><span>{{ __('Cancelled') }}</span><strong id="stat-cancelled">{{ $stats['cancelled'] }}</strong></div>
@@ -247,11 +258,11 @@
         </div>
 
         @include('dashboard.partials.queue-table', [
-            'queueTitle' => 'Delivery Queue',
-            'itemPrefix' => 'DEL-',
+            'queueTitle' => $isParcel ? 'Parcel Queue' : 'Delivery Queue',
+            'itemPrefix' => $isParcel ? 'PCL-' : 'DEL-',
             'rides' => $rides,
             'queuePresets' => $queuePresets,
-            'queueTypeChips' => ['food' => '🍔 Food', 'parcel' => '📦 Parcel'],
+            'queueTypeChips' => $isParcel ? [] : ['food' => '🍔 Food', 'parcel' => '📦 Parcel'],
             'queueEditable' => false,
         ])
     </div>
@@ -288,14 +299,15 @@
 @endsection
 
 @section('script')
+    @php $isParcel = ($mode ?? 'food') === 'parcel'; @endphp
     <script src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google_maps.key') }}"></script>
     <script>
         const DISPATCH = {
-            statsUrl: @json(route('dashboard.delivery-assignment.stats')),
-            quoteUrl: @json(route('dashboard.delivery-assignment.quote')),
-            parcelUrl: @json(route('dashboard.delivery-assignment.parcel')),
+            statsUrl: @json(route($isParcel ? 'dashboard.parcel-assignment.stats' : 'dashboard.delivery-assignment.stats')),
+            quoteUrl: @json(route($isParcel ? 'dashboard.parcel-assignment.quote' : 'dashboard.delivery-assignment.quote')),
+            parcelUrl: @json(route($isParcel ? 'dashboard.parcel-assignment.parcel' : 'dashboard.delivery-assignment.parcel')),
             assignUrlTemplate: @json(route('dashboard.rides.update', ['ride' => '__ID__'])),
-            reassignUrlTemplate: @json(route('dashboard.delivery-assignment.reassign', ['ride_id' => '__ID__'])),
+            reassignUrlTemplate: @json(route($isParcel ? 'dashboard.parcel-assignment.reassign' : 'dashboard.delivery-assignment.reassign', ['ride_id' => '__ID__'])),
             rideShowUrlTemplate: @json(route('dashboard.rides.show', ['ride' => '__ID__'])),
             canReassign: @json(auth()->user()->can('reassign ride')),
             csrf: document.querySelector('meta[name="csrf-token"]').content,
@@ -650,7 +662,8 @@
                 document.getElementById('stat-available').textContent = s.available;
                 document.getElementById('stat-busy').textContent = s.busy;
                 document.getElementById('stat-dispatch').textContent = s.dispatch;
-                document.getElementById('stat-waiting').textContent = s.waiting_restaurant;
+                const waitingEl = document.getElementById('stat-waiting');
+                if (waitingEl) waitingEl.textContent = s.waiting_restaurant;
                 document.getElementById('stat-booked').textContent = s.booked;
                 document.getElementById('stat-completed').textContent = s.completed;
                 document.getElementById('stat-cancelled').textContent = s.cancelled;
@@ -784,13 +797,13 @@
     </script>
 
     @include('dashboard.partials.queue-scripts', [
-        'queueUrl' => route('dashboard.delivery.queue'),
-        'queuePresetUrl' => route('dashboard.delivery.queue.presets'),
+        'queueUrl' => route($isParcel ? 'dashboard.parcel-assignment.queue' : 'dashboard.delivery.queue'),
+        'queuePresetUrl' => route($isParcel ? 'dashboard.parcel-assignment.queue.presets' : 'dashboard.delivery.queue.presets'),
         'queuePresets' => $queuePresets,
         'lastQueueFilters' => $lastQueueFilters,
-        'itemPrefix' => 'DEL-',
-        'queueTitle' => 'Deliveries',
-        'hasTypeChips' => true,
+        'itemPrefix' => $isParcel ? 'PCL-' : 'DEL-',
+        'queueTitle' => $isParcel ? 'Parcels' : 'Deliveries',
+        'hasTypeChips' => !$isParcel,
         'queueEditable' => false,
     ])
 @endsection

@@ -59,21 +59,21 @@ class HomeController extends Controller
             $date = now()->subDays($daysAgo);
             return [
                 'label' => $date->format('D'),
-                'count' => Ride::where('ride_type', 'ride')->whereDate('requested_at', $date)->count(),
+                'count' => Ride::whereIn('ride_type', Ride::TAXI_TYPES)->whereDate('requested_at', $date)->count(),
             ];
         })->values();
 
         return [
-            'rides_today' => Ride::where('ride_type', 'ride')->whereDate('requested_at', $today)->count(),
-            'completed_today' => Ride::where('ride_type', 'ride')->whereDate('completed_at', $today)->where('status', 'completed')->count(),
-            'cancelled_today' => Ride::where('ride_type', 'ride')->whereDate('cancelled_at', $today)->where('status', 'cancelled')->count(),
+            'rides_today' => Ride::whereIn('ride_type', Ride::TAXI_TYPES)->whereDate('requested_at', $today)->count(),
+            'completed_today' => Ride::whereIn('ride_type', Ride::TAXI_TYPES)->whereDate('completed_at', $today)->where('status', 'completed')->count(),
+            'cancelled_today' => Ride::whereIn('ride_type', Ride::TAXI_TYPES)->whereDate('cancelled_at', $today)->where('status', 'cancelled')->count(),
             'drivers_available' => User::role('driver')->acceptingJobs()->where('driver_status', 'available')->count(),
             'drivers_busy' => User::role('driver')->acceptingJobs()->where('driver_status', 'busy')->count(),
             // Batch 3 Part 4 -- drivers who switched themselves (or were auto-switched) offline.
             'drivers_offline' => User::role('driver')->where('online_status', 'offline')
                 ->whereDoesntHave('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))->count(),
             'revenue_today' => $canSeeRevenue
-                ? (float) Ride::where('ride_type', 'ride')->whereDate('completed_at', $today)->where('status', 'completed')->sum('total_fare')
+                ? (float) Ride::whereIn('ride_type', Ride::TAXI_TYPES)->whereDate('completed_at', $today)->where('status', 'completed')->sum('total_fare')
                 : null,
             'trend' => $trend,
         ];
@@ -137,23 +137,23 @@ class HomeController extends Controller
         $today = today();
         $canSeeRevenue = auth()->user()->can('export payroll');
 
-        $ridesTrend = collect(range(6, 0))->map(fn ($daysAgo) => Ride::where('ride_type', 'ride')->whereDate('requested_at', now()->subDays($daysAgo))->count());
+        $ridesTrend = collect(range(6, 0))->map(fn ($daysAgo) => Ride::whereIn('ride_type', Ride::TAXI_TYPES)->whereDate('requested_at', now()->subDays($daysAgo))->count());
         $ordersTrend = collect(range(6, 0))->map(fn ($daysAgo) => Ride::where('ride_type', 'delivery')->whereDate('requested_at', now()->subDays($daysAgo))->count());
         $labels = collect(range(6, 0))->map(fn ($daysAgo) => now()->subDays($daysAgo)->format('D'));
 
         $revenueToday = null;
         if ($canSeeRevenue) {
-            $revenueToday = (float) Ride::whereIn('ride_type', ['ride', 'delivery'])
+            $revenueToday = (float) Ride::whereIn('ride_type', ['ride', 'delivery', 'parcel'])
                 ->whereDate('completed_at', $today)
                 ->where('status', 'completed')
                 ->sum('total_fare');
         }
 
         return [
-            'rides_today' => Ride::where('ride_type', 'ride')->whereDate('requested_at', $today)->count(),
+            'rides_today' => Ride::whereIn('ride_type', Ride::TAXI_TYPES)->whereDate('requested_at', $today)->count(),
             'orders_today' => Ride::where('ride_type', 'delivery')->whereDate('requested_at', $today)->count(),
-            'completed_today' => Ride::whereIn('ride_type', ['ride', 'delivery'])->whereDate('completed_at', $today)->where('status', 'completed')->count(),
-            'cancelled_today' => Ride::whereIn('ride_type', ['ride', 'delivery'])->whereDate('cancelled_at', $today)->where('status', 'cancelled')->count(),
+            'completed_today' => Ride::whereIn('ride_type', ['ride', 'delivery', 'parcel'])->whereDate('completed_at', $today)->where('status', 'completed')->count(),
+            'cancelled_today' => Ride::whereIn('ride_type', ['ride', 'delivery', 'parcel'])->whereDate('cancelled_at', $today)->where('status', 'cancelled')->count(),
             'drivers_available' => User::role('driver')->acceptingJobs()->where('driver_status', 'available')
                 ->whereDoesntHave('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))->count(),
             'riders_available' => User::role('driver')->acceptingJobs()->where('driver_status', 'available')

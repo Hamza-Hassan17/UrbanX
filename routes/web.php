@@ -335,6 +335,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('delivery-assignment/stats', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'assignmentStats'])->name('delivery-assignment.stats');
             Route::post('delivery-assignment/quote', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'quoteParcel'])->name('delivery-assignment.quote');
             Route::post('delivery-assignment/parcel', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'storeParcel'])->name('delivery-assignment.parcel');
+            // Parcels moved to taxi drivers -- Manual Parcel Assignment (Rides workspace)
+            Route::get('parcel-assignment', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'parcelAssignment'])->name('parcel-assignment.index');
+            Route::get('parcel-assignment/stats', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'parcelAssignmentStats'])->name('parcel-assignment.stats');
+            Route::get('parcel-assignment/queue', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'parcelQueue'])->name('parcel-assignment.queue');
+            Route::post('parcel-assignment/queue/presets', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'saveParcelPreset'])->name('parcel-assignment.queue.presets');
+            Route::post('parcel-assignment/quote', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'quoteParcel'])->name('parcel-assignment.quote');
+            Route::post('parcel-assignment/parcel', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'storeParcel'])->name('parcel-assignment.parcel');
+            Route::post('parcel-assignment/{ride_id}/reassign', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'reassign'])->name('parcel-assignment.reassign');
             Route::post('delivery-assignment/{ride_id}/reassign', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'reassign'])->name('delivery-assignment.reassign');
             Route::post('delivery/order/{order_id}/cancel', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'cancelOrder'])->name('delivery.order.cancel');
             Route::post('delivery/order/{order_id}/override-delivery', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'overrideFoodDelivery'])->name('delivery.order.override-delivery');

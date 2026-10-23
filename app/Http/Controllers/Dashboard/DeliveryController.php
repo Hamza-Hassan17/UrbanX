@@ -89,11 +89,11 @@ class DeliveryController extends Controller
     }
 
     /**
-     * Manual Delivery Assignment -- the Delivery workspace's counterpart of
-     * Manual Ride Assignment: parcel booking form, live counters, map of
-     * riders + waiting pickups, and the delivery queue with Assign /
-     * Reassign actions. Food orders are never created here (they need a
-     * real restaurant order); they are only assigned from the queue.
+     * Manual Delivery Assignment (Delivery workspace) -- live counters, map
+     * of riders + waiting pickups, and the delivery queue with Assign /
+     * Reassign. Food orders are never created here (they need a real
+     * restaurant order); they are only assigned from the queue. Parcels
+     * moved to taxi drivers -- see parcelAssignment() (Rides workspace).
      */
     public function assignment()
     {
@@ -102,6 +102,7 @@ class DeliveryController extends Controller
 
         try {
             [$queuePresets, $lastQueueFilters] = $this->loadQueuePresets('delivery');
+            $mode = 'food';
 
             $geocoder = app(GeocodingService::class);
             $rides = Ride::where('ride_type', 'delivery')
@@ -122,8 +123,8 @@ class DeliveryController extends Controller
             $cashLimit = \App\Services\FareBreakdownService::riderCashLimit();
 
             return view('dashboard.delivery.assignment', array_merge(
-                compact('rides', 'queuePresets', 'lastQueueFilters', 'restaurants', 'parcelSettings', 'cashLimit'),
-                $this->dispatchSnapshot()
+                compact('rides', 'queuePresets', 'lastQueueFilters', 'restaurants', 'parcelSettings', 'cashLimit', 'mode'),
+                $this->dispatchSnapshot('food')
             ));
         } catch (\Throwable $th) {
             Log::error('Delivery Assignment Page Failed', ['error' => $th->getMessage()]);
@@ -136,16 +137,109 @@ class DeliveryController extends Controller
         $this->authorize('view delivery');
 
         try {
-            return response()->json($this->dispatchSnapshot());
+            return response()->json($this->dispatchSnapshot('food'));
         } catch (\Throwable $th) {
             Log::error('Delivery Dispatch Stats Failed', ['error' => $th->getMessage()]);
             return response()->json(['message' => 'Something went wrong!'], 500);
         }
     }
 
+    /**
+     * Manual Parcel Assignment (Rides workspace) -- parcels are handled by
+     * taxi drivers of the "Parcel vehicle type" (Pricing & Fees). Same page
+     * as Manual Delivery Assignment in parcel mode: booking form, counters,
+     * map of those drivers, and the parcel queue with Assign / Reassign.
+     */
+    public function parcelAssignment()
+    {
+        $this->authorize('view custom rides');
+        $this->authorize('assign ride');
+
+        try {
+            [$queuePresets, $lastQueueFilters] = $this->loadQueuePresets('parcel');
+            $mode = 'parcel';
+
+            $geocoder = app(GeocodingService::class);
+            $rides = Ride::where('ride_type', 'parcel')
+                ->with(['driver:id,name', 'passenger:id,name,phone'])
+                ->whereIn('status', array_merge(RideQueueFilterService::ACTIVE_STATUSES, ['completed', 'cancelled']))
+                ->latest('requested_at')
+                ->take(50)
+                ->get();
+            $rides = $this->withTypeKeys($rides)->map(fn ($ride) => $this->queueRow($ride, $geocoder));
+
+            $restaurants = \App\Models\Restaurant::where('is_active', 'active')
+                ->whereNotNull('latitude')
+                ->whereNotNull('longitude')
+                ->orderBy('name')
+                ->get(['id', 'name', 'latitude', 'longitude']);
+
+            $parcelSettings = \App\Services\FareBreakdownService::parcelDeliveryFeeSettings();
+            $cashLimit = \App\Services\DispatchSettingsService::taxiOutstandingLimit();
+            $parcelVehicleTypeId = \App\Services\DispatchSettingsService::parcelVehicleTypeId();
+            $parcelVehicleType = $parcelVehicleTypeId ? \App\Models\VehicleType::find($parcelVehicleTypeId) : null;
+
+            return view('dashboard.delivery.assignment', array_merge(
+                compact('rides', 'queuePresets', 'lastQueueFilters', 'restaurants', 'parcelSettings', 'cashLimit', 'mode', 'parcelVehicleType'),
+                $this->dispatchSnapshot('parcel')
+            ));
+        } catch (\Throwable $th) {
+            Log::error('Parcel Assignment Page Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', 'Something went wrong! Please try again later');
+        }
+    }
+
+    public function parcelAssignmentStats()
+    {
+        $this->authorize('view custom rides');
+
+        try {
+            return response()->json($this->dispatchSnapshot('parcel'));
+        } catch (\Throwable $th) {
+            Log::error('Parcel Dispatch Stats Failed', ['error' => $th->getMessage()]);
+            return response()->json(['message' => 'Something went wrong!'], 500);
+        }
+    }
+
+    public function parcelQueue(Request $request)
+    {
+        $this->authorize('view custom rides');
+
+        $query = Ride::where('ride_type', 'parcel')
+            ->with(['driver:id,name', 'passenger:id,name,phone']);
+
+        RideQueueFilterService::apply($query, $request);
+
+        $total = (clone $query)->count();
+        $geocoder = app(GeocodingService::class);
+        $rides = $this->withTypeKeys($query->take(200)->get())
+            ->map(fn ($ride) => $this->queueRow($ride, $geocoder))
+            ->values();
+
+        return response()->json(['count' => $total, 'rides' => $rides]);
+    }
+
+    public function saveParcelPreset(Request $request)
+    {
+        $this->authorize('view custom rides');
+
+        return $this->saveQueuePreset($request, 'parcel');
+    }
+
+    /**
+     * Parcel booking, quoting and reassigning are reachable from the Rides
+     * workspace (parcels now) and from Delivery (older parcels, food).
+     */
+    private function authorizeDispatch(): void
+    {
+        if (!auth()->user()->can('view custom rides') && !auth()->user()->can('view delivery')) {
+            abort(403);
+        }
+    }
+
     public function quoteParcel(Request $request)
     {
-        $this->authorize('view delivery');
+        $this->authorizeDispatch();
 
         $validator = Validator::make($request->all(), [
             'pickup_latitude' => 'required|numeric',
@@ -172,7 +266,7 @@ class DeliveryController extends Controller
      */
     public function storeParcel(Request $request)
     {
-        $this->authorize('view delivery');
+        $this->authorizeDispatch();
         $this->authorize('assign ride');
 
         $validator = Validator::make($request->all(), [
@@ -200,18 +294,20 @@ class DeliveryController extends Controller
             return response()->json(['message' => $quote['error']], 422);
         }
 
-        $vehicleType = \App\Models\VehicleType::where('is_delivery', '1')->first();
-        if (!$vehicleType) {
-            return response()->json(['message' => 'No delivery vehicle type is configured.'], 422);
+        // Parcels are handled by taxi drivers of the "Parcel vehicle type".
+        $parcelVehicleTypeId = \App\Services\DispatchSettingsService::parcelVehicleTypeId();
+        if (!$parcelVehicleTypeId) {
+            return response()->json(['message' => 'Choose the Parcel vehicle type in Pricing & Fees first.'], 422);
         }
+        $vehicleType = \App\Models\VehicleType::find($parcelVehicleTypeId);
 
         $rider = null;
         if ($request->filled('rider_id')) {
             $rider = \App\Models\User::role('driver')
-                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
+                ->whereHas('driverVehicle', fn ($q) => $q->where('vehicle_type_id', $parcelVehicleTypeId))
                 ->find($request->rider_id);
             if (!$rider) {
-                return response()->json(['message' => 'Selected rider is not a delivery rider.'], 422);
+                return response()->json(['message' => 'Selected driver does not drive the parcel vehicle type.'], 422);
             }
         }
 
@@ -236,7 +332,7 @@ class DeliveryController extends Controller
                 ? \Carbon\Carbon::parse($request->scheduled_pickup_at, 'Asia/Karachi')->utc()
                 : null;
             $ride->status = 'requested';
-            $ride->ride_type = 'delivery';
+            $ride->ride_type = 'parcel';
             $ride->sender_name = $request->sender_name;
             $ride->sender_phone = $request->sender_phone;
             $ride->receiver_name = $request->receiver_name;
@@ -301,7 +397,7 @@ class DeliveryController extends Controller
      */
     public function reassign(Request $request, $ride_id)
     {
-        $this->authorize('view delivery');
+        $this->authorizeDispatch();
         $this->authorize('reassign ride');
 
         $validator = Validator::make($request->all(), [
@@ -316,7 +412,7 @@ class DeliveryController extends Controller
         try {
             \Illuminate\Support\Facades\DB::beginTransaction();
 
-            $ride = Ride::where('ride_type', 'delivery')->lockForUpdate()->findOrFail($ride_id);
+            $ride = Ride::whereIn('ride_type', ['delivery', 'parcel'])->lockForUpdate()->findOrFail($ride_id);
             $order = RestaurantOrder::where('ride_id', $ride->id)->first();
 
             if (!$this->isReassignable($ride, $order)) {
@@ -329,12 +425,14 @@ class DeliveryController extends Controller
                 return response()->json(['message' => 'That rider already has this delivery.'], 422);
             }
 
+            // The new rider/driver must drive the job's vehicle type (a
+            // delivery bike for food, the parcel vehicle type for parcels).
             $newRider = \App\Models\User::role('driver')
-                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
+                ->whereHas('driverVehicle', fn ($q) => $q->where('vehicle_type_id', $ride->vehicle_type_id))
                 ->find($request->driver_id);
             if (!$newRider) {
                 \Illuminate\Support\Facades\DB::rollBack();
-                return response()->json(['message' => 'Selected rider is not a delivery rider.'], 422);
+                return response()->json(['message' => 'Selected driver does not drive the vehicle type for this job.'], 422);
             }
 
             $oldRider = \App\Models\User::find($ride->driver_id);
@@ -400,16 +498,31 @@ class DeliveryController extends Controller
      * Counters, rider positions and waiting-pickup pins for the dispatch
      * page -- shared by the first render and the 10s poll.
      */
-    private function dispatchSnapshot(): array
+    /**
+     * $mode 'food' = Delivery workspace (delivery riders, food + older
+     * parcels); 'parcel' = Rides workspace (taxi drivers of the parcel
+     * vehicle type, parcels only). Balance shown is cash-in-hand for
+     * riders, outstanding balance for taxi drivers.
+     */
+    private function dispatchSnapshot(string $mode = 'food'): array
     {
-        $cashLimit = \App\Services\FareBreakdownService::riderCashLimit();
+        $isParcel = $mode === 'parcel';
+        $parcelVehicleTypeId = \App\Services\DispatchSettingsService::parcelVehicleTypeId();
+        $cashLimit = $isParcel
+            ? \App\Services\DispatchSettingsService::taxiOutstandingLimit()
+            : \App\Services\FareBreakdownService::riderCashLimit();
+        $rideTypes = $isParcel ? ['parcel'] : ['delivery'];
 
         $riders = \App\Models\User::role('driver')
-            ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
+            ->when($isParcel,
+                fn ($q) => $q->whereHas('driverVehicle', fn ($v) => $v->where('vehicle_type_id', $parcelVehicleTypeId ?? 0)),
+                fn ($q) => $q->whereHas('driverVehicle.vehicleType', fn ($v) => $v->where('is_delivery', '1')))
             ->with(['profile:id,user_id,city', 'driverVehicle:id,driver_id,vehicle_name,vehicle_make'])
             ->get(['id', 'name', 'phone', 'lat', 'lang', 'driver_status', 'online_status', 'last_location_at'])
-            ->map(function ($rider) use ($cashLimit) {
-                $cash = \App\Services\RiderCashService::currentBalance($rider->id);
+            ->map(function ($rider) use ($cashLimit, $isParcel) {
+                $cash = $isParcel
+                    ? \App\Services\TaxiBalanceService::currentBalance($rider->id)
+                    : \App\Services\RiderCashService::currentBalance($rider->id);
                 return [
                     'id' => $rider->id,
                     'name' => $rider->name,
@@ -431,7 +544,7 @@ class DeliveryController extends Controller
 
         $activeStatuses = RideQueueFilterService::ACTIVE_STATUSES;
 
-        $unassigned = Ride::where('ride_type', 'delivery')
+        $unassigned = Ride::whereIn('ride_type', $rideTypes)
             ->whereIn('status', ['requested', 'no_driver_found'])
             ->whereNull('driver_id')
             ->get(['id', 'pickup_latitude', 'pickup_longitude', 'requested_at', 'scheduled_pickup_at']);
@@ -457,9 +570,9 @@ class DeliveryController extends Controller
             'offline' => $riders->where('presence', 'offline')->count(),
             'dispatch' => $assignable->count(),
             'waiting_restaurant' => $waitingRestaurant->count(),
-            'booked' => Ride::where('ride_type', 'delivery')->whereIn('status', $activeStatuses)->whereNotNull('driver_id')->count(),
-            'completed' => Ride::where('ride_type', 'delivery')->where('status', 'completed')->whereDate('completed_at', today())->count(),
-            'cancelled' => Ride::where('ride_type', 'delivery')->where('status', 'cancelled')->whereDate('cancelled_at', today())->count(),
+            'booked' => Ride::whereIn('ride_type', $rideTypes)->whereIn('status', $activeStatuses)->whereNotNull('driver_id')->count(),
+            'completed' => Ride::whereIn('ride_type', $rideTypes)->where('status', 'completed')->whereDate('completed_at', today())->count(),
+            'cancelled' => Ride::whereIn('ride_type', $rideTypes)->where('status', 'cancelled')->whereDate('cancelled_at', today())->count(),
         ];
 
         return compact('stats', 'riders', 'pins');

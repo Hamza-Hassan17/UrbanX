@@ -29,7 +29,10 @@ class PricingFeesController extends Controller
             ->limit(50)
             ->get();
 
-        return view('dashboard.pricing-fees.index', compact('settings', 'logs'));
+        // Taxi vehicle types that can be picked to carry parcels.
+        $taxiVehicleTypes = \App\Models\VehicleType::where('is_delivery', '0')->where('is_active', 'active')->orderBy('name')->get(['id', 'name']);
+
+        return view('dashboard.pricing-fees.index', compact('settings', 'logs', 'taxiVehicleTypes'));
     }
 
     public function update(Request $request)
@@ -56,6 +59,7 @@ class PricingFeesController extends Controller
             'taxi_outstanding_limit' => 'required|numeric|min:0',
             'auto_offline_minutes' => 'required|integer|min:1|max:1440',
             'no_driver_handling' => 'required|in:0,1',
+            'parcel_vehicle_type_id' => ['nullable', \Illuminate\Validation\Rule::exists('vehicle_types', 'id')->where('is_delivery', '0')],
             'allow_legacy_direct_accept' => 'nullable|boolean',
         ]);
 
@@ -71,6 +75,7 @@ class PricingFeesController extends Controller
             // read it explicitly instead of relying on the field being present.
             $fields['allow_legacy_direct_accept'] = $request->boolean('allow_legacy_direct_accept');
             $fields['no_driver_handling'] = $request->input('no_driver_handling') === '1';
+            $fields['parcel_vehicle_type_id'] = $request->input('parcel_vehicle_type_id') ?: null;
 
             $old = $setting->only(array_keys($fields));
 

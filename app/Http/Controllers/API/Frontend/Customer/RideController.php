@@ -644,7 +644,13 @@ class RideController extends Controller
             }
             $deliveryFee = round($deliveryFee, 2);
 
-            $vehicleType = VehicleType::where('is_delivery', '1')->first();
+            // Parcels go to taxi drivers of the admin-chosen "Parcel vehicle
+            // type" (ride_type 'parcel'). Until one is chosen, the old
+            // behaviour stays: delivery riders, ride_type 'delivery'.
+            $parcelVehicleTypeId = \App\Services\DispatchSettingsService::parcelVehicleTypeId();
+            $vehicleType = $parcelVehicleTypeId
+                ? VehicleType::find($parcelVehicleTypeId)
+                : VehicleType::where('is_delivery', '1')->first();
             if (!$vehicleType) {
                 return response()->json([
                     'message' => 'No delivery vehicle type is configured.'
@@ -667,7 +673,7 @@ class RideController extends Controller
             $ride->total_fare = $deliveryFee;
             $ride->requested_at = now();
             $ride->status = 'requested';
-            $ride->ride_type = 'delivery';
+            $ride->ride_type = $parcelVehicleTypeId ? 'parcel' : 'delivery';
             $ride->sender_name = $request->sender_name;
             $ride->sender_phone = $request->sender_phone;
             $ride->receiver_name = $request->receiver_name;
@@ -699,6 +705,7 @@ class RideController extends Controller
                 'distance_actual_km' => $distanceActualKm,
                 'distance_charged_km' => $distanceChargedKm,
                 'delivery_code' => $ride->delivery_code,
+                'ride_type' => $ride->ride_type,
                 'message' => 'Parcel booked successfully!',
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {

@@ -35,7 +35,7 @@ class NoDriverFoundService
             return false;
         }
 
-        if ($ride->ride_type === 'ride') {
+        if (in_array($ride->ride_type, \App\Models\Ride::TAXI_TYPES, true)) {
             return true;
         }
 
@@ -67,7 +67,7 @@ class NoDriverFoundService
                 app('notificationService')->notifyUsers(
                     [$ride->passenger],
                     'No drivers available right now',
-                    'We could not find a driver for your ' . ($ride->ride_type === 'delivery' ? 'parcel' : 'ride') . '. You can try again or cancel.',
+                    'We could not find a driver for your ' . ($ride->ride_type === 'ride' ? 'ride' : 'parcel') . '. You can try again or cancel.',
                     'rides',
                     $ride->id,
                     'ride_details'

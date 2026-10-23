@@ -69,7 +69,7 @@
              selected service workspace. See config/workspaces.php. --}}
         @if($__currentWorkspace === 'rides')
         @canany(['view ride', 'view custom rides', 'view live tracking', 'view vehicle type', 'create boost hour', 'view promo code', 'view driver', 'view complain', 'view performance reports'])
-            <li class="menu-item {{ request()->routeIs('dashboard.rides.*') || request()->routeIs('dashboard.custom-rides.*') || request()->routeIs('dashboard.live-tracking.*') || request()->routeIs('dashboard.vehicle-types.*') || request()->routeIs('dashboard.boost-hours.*') || request()->routeIs('dashboard.promo-codes.*') || request()->routeIs('dashboard.drivers.*') || request()->routeIs('dashboard.complains.*') || request()->routeIs('dashboard.driver-performance.*') ? 'open' : '' }}">
+            <li class="menu-item {{ request()->routeIs('dashboard.rides.*') || request()->routeIs('dashboard.custom-rides.*') || request()->routeIs('dashboard.parcel-assignment.*') || request()->routeIs('dashboard.live-tracking.*') || request()->routeIs('dashboard.vehicle-types.*') || request()->routeIs('dashboard.boost-hours.*') || request()->routeIs('dashboard.promo-codes.*') || request()->routeIs('dashboard.drivers.*') || request()->routeIs('dashboard.complains.*') || request()->routeIs('dashboard.driver-performance.*') ? 'open' : '' }}">
                 <a href="javascript:void(0);" class="menu-link menu-toggle" style="color: #fff !important;">
                     <i class="menu-icon tf-icons ti ti-steering-wheel"></i>
                     <div>{{__('Rides')}}</div>
@@ -114,6 +114,13 @@
                                 <div>{{__('Manual Ride Assignment')}}</div>
                             </a>
                         </li>
+                        @can('assign ride')
+                            <li class="menu-item {{ request()->routeIs('dashboard.parcel-assignment.*') ? 'active' : '' }}">
+                                <a href="{{ route('dashboard.parcel-assignment.index') }}" class="menu-link" style="color: #fff !important;">
+                                    <div>{{__('Manual Parcel Assignment')}}</div>
+                                </a>
+                            </li>
+                        @endcan
                     @endcan
                     @can(['view live tracking'])
                         <li class="menu-item {{ request()->routeIs('dashboard.live-tracking.*') ? 'active' : '' }}">

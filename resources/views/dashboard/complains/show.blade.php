@@ -109,7 +109,7 @@
                             @endif
                             @if ($complain->ride)
                                 <div class="col-md-3">
-                                    <label class="text-muted small">{{ $complain->ride->ride_type === 'ride' ? __('Ride') : __('Delivery') }}</label>
+                                    <label class="text-muted small">{{ $complain->ride->ride_type === 'ride' ? __('Ride') : ($complain->ride->ride_type === 'parcel' ? __('Parcel') : __('Delivery')) }}</label>
                                     <p class="fw-semibold mb-0">
                                         <a href="{{ route('dashboard.rides.show', $complain->ride_id) }}">#{{ $complain->ride_id }}</a>
                                         <span class="badge bg-label-secondary ms-1">{{ ucwords(str_replace('_', ' ', $complain->ride->status)) }}</span>

@@ -312,11 +312,17 @@ class Batch3Test extends TestCase
         $food = Complain::create(['user_id' => $passenger->id, 'name' => 'B3 Parcel Complaint', 'subject' => 's', 'complain_text' => 't', 'service' => 'parcel', 'ride_id' => $parcel->id]);
         Complain::create(['user_id' => $passenger->id, 'name' => 'B3 Taxi Complaint', 'subject' => 's', 'complain_text' => 't', 'service' => 'ride']);
 
+        // Parcels moved to taxi drivers, so parcel complaints are a Rides
+        // workspace concern; Delivery keeps food only.
         $delivery = $this->makeAdmin(['delivery'], ['view complain']);
         $this->actingAs($delivery)->withSession(['workspace' => 'delivery'])->get(route('dashboard.complains.index'))
-            ->assertOk()->assertSee('B3 Parcel Complaint')->assertDontSee('B3 Taxi Complaint')->assertSee('Parcel #' . $parcel->id);
+            ->assertOk()->assertDontSee('B3 Parcel Complaint')->assertDontSee('B3 Taxi Complaint');
 
-        $this->actingAs($delivery)->withSession(['workspace' => 'delivery'])->get(route('dashboard.complains.show', $food->id))
+        $rides = $this->makeAdmin(['rides'], ['view complain']);
+        $this->actingAs($rides)->withSession(['workspace' => 'rides'])->get(route('dashboard.complains.index'))
+            ->assertOk()->assertSee('B3 Parcel Complaint')->assertSee('B3 Taxi Complaint')->assertSee('Parcel #' . $parcel->id);
+
+        $this->actingAs($rides)->withSession(['workspace' => 'rides'])->get(route('dashboard.complains.show', $food->id))
             ->assertOk()->assertSee('Linked To')->assertSee(route('dashboard.rides.show', $parcel->id));
 
         $platform = $this->makeAdmin(['platform'], ['view complain']);
@@ -752,17 +758,20 @@ class Batch3Test extends TestCase
 
     public function test_delivery_dispatch_books_parcel_and_reassigns(): void
     {
-        $type = $this->vehicleType(true);
+        // Parcels are now booked from the Rides workspace for taxi drivers
+        // of the Parcel vehicle type (same controller, parcel mode).
+        $type = $this->vehicleType(false);
+        SystemSetting::query()->update(['parcel_vehicle_type_id' => $type->id]);
         $riderA = $this->makeDriver($type, ['lat' => '24.8600', 'lang' => '67.0000']);
         $riderB = $this->makeDriver($type, ['lat' => '24.8610', 'lang' => '67.0010']);
-        $admin = $this->makeAdmin(['delivery'], ['view delivery', 'assign ride', 'reassign ride']);
+        $admin = $this->makeAdmin(['rides'], ['view custom rides', 'assign ride', 'reassign ride']);
 
-        $quote = $this->actingAs($admin)->postJson(route('dashboard.delivery-assignment.quote'), [
+        $quote = $this->actingAs($admin)->postJson(route('dashboard.parcel-assignment.quote'), [
             'pickup_latitude' => 24.86, 'pickup_longitude' => 67.00, 'dropoff_latitude' => 24.87, 'dropoff_longitude' => 67.01,
         ])->assertOk()->json();
         $this->assertGreaterThan(0, $quote['delivery_fee']);
 
-        $booked = $this->actingAs($admin)->postJson(route('dashboard.delivery-assignment.parcel'), [
+        $booked = $this->actingAs($admin)->postJson(route('dashboard.parcel-assignment.parcel'), [
             'pickup_latitude' => 24.86, 'pickup_longitude' => 67.00, 'dropoff_latitude' => 24.87, 'dropoff_longitude' => 67.01,
             'sender_name' => 'Sana', 'sender_phone' => '0301' . random_int(1000000, 9999999),
             'receiver_name' => 'Omar', 'receiver_phone' => '03019999999',
@@ -774,13 +783,13 @@ class Batch3Test extends TestCase
         $this->assertSame($riderA->id, $parcel->driver_id);
         $this->assertEquals($quote['delivery_fee'], (float) $parcel->total_fare);
 
-        $this->actingAs($admin)->postJson(route('dashboard.delivery-assignment.reassign', $parcel->id), ['driver_id' => $riderB->id, 'reason' => 'not responding'])
+        $this->actingAs($admin)->postJson(route('dashboard.parcel-assignment.reassign', $parcel->id), ['driver_id' => $riderB->id, 'reason' => 'not responding'])
             ->assertOk();
         $this->assertSame($riderB->id, $parcel->fresh()->driver_id);
         $this->assertContains('Delivery Reassigned', array_column($this->pushes, 'title'));
 
         $parcel->forceFill(['status' => 'started'])->save();
-        $this->actingAs($admin)->postJson(route('dashboard.delivery-assignment.reassign', $parcel->id), ['driver_id' => $riderA->id])
+        $this->actingAs($admin)->postJson(route('dashboard.parcel-assignment.reassign', $parcel->id), ['driver_id' => $riderA->id])
             ->assertStatus(422);
     }
 }

@@ -13,8 +13,9 @@ class ComplainController extends Controller
      * Service tags each workspace sees (Batch 3 Part 1). Platform sees all.
      */
     private const WORKSPACE_SERVICES = [
-        'rides' => ['ride', 'rental'],
-        'delivery' => ['food', 'parcel'],
+        // Parcels are handled by taxi drivers and managed in Rides.
+        'rides' => ['ride', 'rental', 'parcel'],
+        'delivery' => ['food'],
     ];
 
     private function workspaceServices(): ?array

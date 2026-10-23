@@ -57,6 +57,7 @@ return [
         'dashboard.drivers.pending-verifications' => 'rides',
         'dashboard.custom-rides.' => 'rides',
         'dashboard.driver-performance.' => 'rides',
+        'dashboard.parcel-assignment.' => 'rides',
         'dashboard.promo-codes.' => 'rides',
         'dashboard.chauffeur-vehicles.' => 'rides',
         'dashboard.chauffeur-bookings.' => 'rides',
