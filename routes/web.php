@@ -257,7 +257,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('rider-performance/export', [\App\Http\Controllers\Dashboard\PerformanceReportController::class, 'exportRiders'])->name('rider-performance.export');
 
             //Rides
-            Route::resource('rides', RideController::class);
+            // Numeric IDs only, so /rides/alerts etc. don't get caught as a ride ID.
+            Route::resource('rides', RideController::class)->where(['ride' => '[0-9]+']);
             Route::get('rides/{id}/route-pings', [RideController::class, 'routePings'])->name('rides.route-pings');
 
             //Operator/Driver Reports
