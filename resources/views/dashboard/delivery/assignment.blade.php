@@ -145,7 +145,9 @@
 
                     <div class="field field-full">
                         <label><i class="fas fa-location-dot"></i>{{ __('Pickup') }}</label>
-                        <div class="pickup-mode">
+                        {{-- Restaurant-pickup shortcut hidden: parcels are booked in the Rides workspace now.
+                             Markup kept so the page script binds unchanged. --}}
+                        <div class="pickup-mode" style="display:none">
                             <button type="button" class="active" data-mode="address">{{ __('Address') }}</button>
                             <button type="button" data-mode="restaurant">{{ __('Restaurant') }}</button>
                         </div>
@@ -243,7 +245,7 @@
                 <div class="count-row count-completed"><span>{{ __('Completed') }}</span><strong id="stat-completed">{{ $stats['completed'] }}</strong></div>
                 <div class="count-row count-cancelled"><span>{{ __('Cancelled') }}</span><strong id="stat-cancelled">{{ $stats['cancelled'] }}</strong></div>
 
-                <div class="fare-box mt-3">
+                <div class="fare-box mt-3" @unless($isParcel) style="display:none" @endunless>
                     <div class="fare-label">{{ __('Delivery Fee') }}</div>
                     <div class="fare-value" id="fare-value">Rs 0</div>
                     <div class="fare-sub" id="fare-sub">0 km</div>
