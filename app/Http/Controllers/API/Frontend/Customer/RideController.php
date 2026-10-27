@@ -409,6 +409,65 @@ class RideController extends Controller
         }
     }
 
+    /**
+     * Taxi fare for a ride request, calculated on the server:
+     * first-km price + (km - 1) x per-km price of the vehicle type, x the
+     * boost multiplier active right now (same as get-vehicle-types), minus a
+     * valid percentage promo. Distance is the app's distance_km; if missing,
+     * the straight line between pickup and dropoff.
+     */
+    private function serverRideFare(Request $request): array
+    {
+        $vehicleType = VehicleType::find($request->vehicle_type_id);
+
+        $distance = is_numeric($request->distance_km) ? (float) $request->distance_km : null;
+        if ($distance === null && $request->filled('dropoff_latitude') && $request->filled('dropoff_longitude')) {
+            $distance = round($this->haversineDistanceKm(
+                $request->pickup_latitude, $request->pickup_longitude,
+                $request->dropoff_latitude, $request->dropoff_longitude
+            ), 2);
+        }
+        $distance = max(0, (float) ($distance ?? 0));
+
+        $fare = (float) ($vehicleType->first_km_price ?? 0);
+        if ($distance > 1) {
+            $fare += ($distance - 1) * (float) ($vehicleType->other_km_price ?? 0);
+        }
+
+        $now = now()->format('H:i');
+        $busyHour = DB::table('boost_hours')->where('start', '<=', $now)->where('end', '>=', $now)->first();
+        $multiplier = $busyHour ? (float) $busyHour->multiplier : 1.0;
+        $subtotal = round($fare * $multiplier, 2);
+
+        // Promo: only applied if still valid and within its limits, same
+        // checks as apply-promo-code; an invalid one is dropped, not an error.
+        $discount = 0.0;
+        $promoCodeId = null;
+        if ($request->filled('promo_code_id')) {
+            $promo = PromoCode::where('id', $request->promo_code_id)
+                ->where('is_active', 'active')
+                ->where('valid_from', '<=', now())
+                ->where('valid_until', '>=', now())
+                ->first();
+            if ($promo
+                && Ride::where('promo_code_id', $promo->id)->count() < $promo->usage_limit
+                && Ride::where('passenger_id', $request->user()->id)->where('promo_code_id', $promo->id)->count() < $promo->usage_limit_per_user
+            ) {
+                $promoCodeId = $promo->id;
+                $discount = $promo->discount_percentage > 0 ? round($subtotal * $promo->discount_percentage / 100, 2) : 0.0;
+            }
+        }
+
+        return [
+            'distance_km' => $distance,
+            'subtotal' => $subtotal,
+            'discount_amount' => $discount,
+            'total_fare' => round(max(0, $subtotal - $discount), 2),
+            'boost_multiplier' => $multiplier,
+            'promo_code_id' => $promoCodeId,
+        ];
+    }
+
     public function requestRide(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -453,19 +512,38 @@ class RideController extends Controller
         try {
             $user = $request->user();
 
+            // The fare is calculated here, never taken from the app: same
+            // formula and boost as get-vehicle-types / calculate-distance-fare.
+            // subtotal/discount_amount/total_fare from the app are ignored
+            // (still accepted so older builds keep working).
+            $quote = $this->serverRideFare($request);
+
+            if ($request->filled('total_fare') && abs((float) $request->total_fare - $quote['total_fare']) > 1) {
+                Log::warning('request-ride: app fare differs from server fare', [
+                    'passenger_id' => $user->id,
+                    'vehicle_type_id' => $request->vehicle_type_id,
+                    'distance_km' => $quote['distance_km'],
+                    'app_subtotal' => $request->subtotal,
+                    'app_total_fare' => $request->total_fare,
+                    'server_subtotal' => $quote['subtotal'],
+                    'server_total_fare' => $quote['total_fare'],
+                    'boost_multiplier' => $quote['boost_multiplier'],
+                ]);
+            }
+
             $ride = new Ride();
             $ride->passenger_id = $user->id;
             $ride->vehicle_type_id = $request->vehicle_type_id;
-            $ride->promo_code_id = $request->promo_code_id;
+            $ride->promo_code_id = $quote['promo_code_id'];
             $ride->pickup_latitude = $request->pickup_latitude;
             $ride->pickup_longitude = $request->pickup_longitude;
             $ride->dropoff_latitude = $request->dropoff_latitude;
             $ride->dropoff_longitude = $request->dropoff_longitude;
-            $ride->distance_km = $request->distance_km;
+            $ride->distance_km = $quote['distance_km'];
             $ride->duration_minutes = $request->duration_minutes;
-            $ride->subtotal = $request->subtotal;
-            $ride->discount_amount = $request->discount_amount;
-            $ride->total_fare = $request->total_fare;
+            $ride->subtotal = $quote['subtotal'];
+            $ride->discount_amount = $quote['discount_amount'];
+            $ride->total_fare = $quote['total_fare'];
             $ride->requested_at = now();
             $ride->scheduled_pickup_at = $request->filled('scheduled_pickup_at') ? \Carbon\Carbon::parse($request->scheduled_pickup_at)->utc() : null;
             $ride->status = 'requested';
@@ -494,6 +572,13 @@ class RideController extends Controller
             return response()->json([
                 'ride_id' => $ride->id,
                 'message' => 'Ride requested successfully!',
+                // The fare that will actually be charged -- show this.
+                'distance_km' => $quote['distance_km'],
+                'subtotal' => $quote['subtotal'],
+                'discount_amount' => $quote['discount_amount'],
+                'total_fare' => $quote['total_fare'],
+                'is_boost' => $quote['boost_multiplier'] > 1,
+                'boost_multiplier' => $quote['boost_multiplier'],
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Store Ride failed', ['error' => $th->getMessage()]);
