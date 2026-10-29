@@ -123,6 +123,17 @@
                                 </span>
                             @enderror
                         </div>
+                        <div class="col-md-6 mb-4">
+                            <label class="switch switch-square">
+                                <label for="requires_vehicle_video" class="switch-label">{{ __('Vehicle Video Required') }} <br> <small>Drivers of this type must upload a vehicle video (up to 10 min) for KYC. Turn off for bikes.</small></label>
+                                <input type="checkbox" class="switch-input" id="requires_vehicle_video"
+                                    name="requires_vehicle_video" {{ old('requires_vehicle_video', true) ? 'checked' : '' }}/>
+                                <span class="switch-toggle-slider">
+                                    <span class="switch-on"></span>
+                                    <span class="switch-off"></span>
+                                </span>
+                            </label>
+                        </div>
                     </div>
                     <div class="mt-2">
                         <button type="submit" class="btn btn-primary me-3">{{ __('Add Vehicle Type') }}</button>

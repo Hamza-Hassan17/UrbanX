@@ -20,6 +20,9 @@ use Symfony\Component\HttpFoundation\Response;
 
 class DriverDetailsController extends Controller
 {
+    /** Vehicle video upload limit (a 10-minute 720p phone video). */
+    private const MAX_VIDEO_MB = 300;
+
     /**
      * KYC documents are locked once submitted (under review) or approved.
      * They become editable again only if the admin rejects the verification.
@@ -55,7 +58,7 @@ class DriverDetailsController extends Controller
 
             // Get only id and name of active vehicle types
             $vehicleTypes = VehicleType::where('is_active', 'active')
-                ->select('id', 'name')
+                ->select('id', 'name', 'requires_vehicle_video')
                 ->get();
 
             $data = null;
@@ -78,6 +81,7 @@ class DriverDetailsController extends Controller
                 $data = [
                     'vehicle_type' => $driverVehicle->vehicleType->name,
                     'vehicle_type_id' => $driverVehicle->vehicle_type_id,
+                    'requires_vehicle_video' => (bool) $driverVehicle->vehicleType?->requires_vehicle_video,
                     'vehicle_name' => $driverVehicle->vehicle_name,
                     'vehicle_make' => $driverVehicle->vehicle_make,
                     'vehicle_model' => $driverVehicle->vehicle_model,
@@ -120,8 +124,25 @@ class DriverDetailsController extends Controller
             'vehicle_images' => 'required|array|size:4',
             'vehicle_images.*' => 'image|mimes:jpeg,png,jpg,gif,svg|max_size',
             'registration_paper' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max_size',
-            'vehicle_video' => 'nullable|mimes:mp4,mov,avi|max_size',
+            // Size checked below (videos get their own, bigger limit).
+            'vehicle_video' => 'nullable|file|mimes:mp4,mov,avi,3gp,mkv,webm',
         ]);
+
+        $validator->after(function ($v) use ($request) {
+            $type = VehicleType::find($request->vehicle_type_id);
+            if (!$type) {
+                return;
+            }
+            $existing = DriverVehicle::where('driver_id', $request->user()->id)
+                ->where('vehicle_type_id', $type->id)
+                ->value('vehicle_video');
+            if ($type->requires_vehicle_video && !$request->hasFile('vehicle_video') && !$existing) {
+                $v->errors()->add('vehicle_video', 'A vehicle video (up to 10 minutes) is required for this vehicle type.');
+            }
+            if ($request->hasFile('vehicle_video') && $request->file('vehicle_video')->getSize() > self::MAX_VIDEO_MB * 1024 * 1024) {
+                $v->errors()->add('vehicle_video', 'The vehicle video must be ' . self::MAX_VIDEO_MB . ' MB or smaller (up to 10 minutes).');
+            }
+        });
 
         if ($validator->fails()) {
             return response()->json([
@@ -148,13 +169,9 @@ class DriverDetailsController extends Controller
             $driverVehicle->vehicle_year = $request->input('vehicle_year');
             $driverVehicle->vehicle_plate_number = $request->input('vehicle_plate_number');
 
-            // Keep old images if exist
+            // The 4 new photos replace the old set (they used to pile up
+            // after every re-upload).
             $images = [];
-            if (!empty($driverVehicle->vehicle_images)) {
-                $images = json_decode($driverVehicle->vehicle_images, true);
-            }
-
-            // Upload and append new images
             if ($request->hasFile('vehicle_images')) {
                 foreach ($request->file('vehicle_images') as $image) {
                     $path = $image->store('uploads/vehicle-images', 'public');
@@ -168,7 +185,10 @@ class DriverDetailsController extends Controller
                 $driverVehicle->registration_paper = $request->file('registration_paper')->store('uploads/vehicle-registration', 'public');
             }
 
-            if ($request->hasFile('vehicle_video')) {
+            $vehicleType = VehicleType::find($request->vehicle_type_id);
+            if (!$vehicleType->requires_vehicle_video) {
+                $driverVehicle->vehicle_video = null; // bikes: no video
+            } elseif ($request->hasFile('vehicle_video')) {
                 $driverVehicle->vehicle_video = $request->file('vehicle_video')->store('uploads/vehicle-videos', 'public');
             }
 
@@ -179,6 +199,7 @@ class DriverDetailsController extends Controller
                 'vehicle' => [
                     'vehicle_type' => $driverVehicle->vehicleType->name,
                     'vehicle_type_id' => $driverVehicle->vehicle_type_id,
+                    'requires_vehicle_video' => (bool) $vehicleType->requires_vehicle_video,
                     'vehicle_name' => $driverVehicle->vehicle_name,
                     'vehicle_make' => $driverVehicle->vehicle_make,
                     'vehicle_model' => $driverVehicle->vehicle_model,
@@ -672,7 +693,8 @@ class DriverDetailsController extends Controller
             }
             $vehicle = $user->driverVehicle;
             $vehicleImageCount = $vehicle && $vehicle->vehicle_images ? count(json_decode($vehicle->vehicle_images, true) ?: []) : 0;
-            if (!$vehicle || $vehicleImageCount < 4 || !$vehicle->registration_paper) {
+            if (!$vehicle || $vehicleImageCount < 4 || !$vehicle->registration_paper
+                || ($vehicle->vehicleType?->requires_vehicle_video && !$vehicle->vehicle_video)) {
                 $missing[] = 'vehicle';
             }
 
@@ -772,6 +794,7 @@ class DriverDetailsController extends Controller
                 'vehicle' => $vehicle ? [
                     'vehicle_type_id' => $vehicle->vehicle_type_id,
                     'vehicle_type' => $vehicle->vehicleType?->name,
+                    'requires_vehicle_video' => (bool) $vehicle->vehicleType?->requires_vehicle_video,
                     'vehicle_name' => $vehicle->vehicle_name,
                     'vehicle_make' => $vehicle->vehicle_make,
                     'vehicle_model' => $vehicle->vehicle_model,
