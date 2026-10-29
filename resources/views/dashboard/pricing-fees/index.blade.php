@@ -38,7 +38,7 @@
                         @error('food_per_km_fee')<span class="invalid-feedback">{{ $message }}</span>@enderror
                     </div>
                     <div class="col-md-4">
-                        <label for="food_max_distance_km" class="form-label">{{ __('Max Delivery Distance (km)') }}</label><span class="text-danger">*</span>
+                        <label for="food_max_distance_km" class="form-label">{{ __('Rider Pickup Radius (km)') }}</label> <small class="text-muted">({{ __('riders this close to the restaurant see the order') }})</small><span class="text-danger">*</span>
                         <input class="form-control @error('food_max_distance_km') is-invalid @enderror" type="number"
                             step="1" min="1" id="food_max_distance_km" name="food_max_distance_km"
                             value="{{ old('food_max_distance_km', $settings->food_max_distance_km) }}" required/>

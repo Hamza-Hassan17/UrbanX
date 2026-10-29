@@ -164,6 +164,9 @@ class DeliveryController extends Controller
                 ->where('vehicle_type_id', $driverVehicleType)
                 ->whereNotIn('id', $busyRideIds)
                 ->whereNotIn('id', $rejectedByMe)
+                // Only riders within the pickup radius of the restaurant
+                // (Pricing & Fees -> Rider Pickup Radius, default 4 km).
+                ->having('distance', '<=', \App\Services\FareBreakdownService::foodDeliveryFeeSettings()['max_distance_km'])
                 ->orderBy('distance')
                 ->limit(1)
                 ->get();
