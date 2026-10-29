@@ -1039,6 +1039,38 @@
                 center: { lat: 30.3753, lng: 69.3451 },
                 zoom: 6,
             });
+            renderDriverMarkers(true);
+        }
+
+        // Live drivers on the map (refreshed with the stats poll).
+        let driverMarkers = [];
+        function renderDriverMarkers(fit) {
+            if (!map) return;
+            driverMarkers.forEach(m => m.setMap(null));
+            driverMarkers = [];
+            const bounds = new google.maps.LatLngBounds();
+            drivers.forEach(d => {
+                if (d.lat === null || d.lng === null || d.presence === 'offline') return;
+                const color = d.status === 'available' ? '#10b981' : '#f59e0b';
+                const marker = new google.maps.Marker({
+                    position: { lat: d.lat, lng: d.lng },
+                    map,
+                    icon: svgCircleIcon({ color, size: 32, label: 'D' }),
+                    title: `${d.name} (#${d.id}) -- ${d.status}`,
+                });
+                marker.addListener('click', () => {
+                    if (driverIdInput) {
+                        driverIdInput.value = d.id;
+                        driverIdInput.dispatchEvent(new Event('input'));
+                    }
+                });
+                driverMarkers.push(marker);
+                bounds.extend(marker.getPosition());
+            });
+            if (fit && driverMarkers.length) {
+                map.fitBounds(bounds, 60);
+                google.maps.event.addListenerOnce(map, 'idle', () => { if (map.getZoom() > 15) map.setZoom(15); });
+            }
         }
 
         // Colored-circle SVG marker icon, used for the pickup/destination
@@ -1765,6 +1797,10 @@
                 document.getElementById('stat-booked').textContent = data.rideCounts.booked;
                 document.getElementById('stat-completed').textContent = data.rideCounts.completed;
                 document.getElementById('stat-cancelled').textContent = data.rideCounts.cancelled;
+                if (Array.isArray(data.drivers)) {
+                    drivers.splice(0, drivers.length, ...data.drivers);
+                    renderDriverMarkers(false);
+                }
             } catch (error) {
                 console.error('Dispatch stats refresh failed:', error);
             }

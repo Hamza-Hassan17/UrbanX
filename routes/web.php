@@ -336,6 +336,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('delivery-assignment/stats', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'assignmentStats'])->name('delivery-assignment.stats');
             Route::post('delivery-assignment/quote', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'quoteParcel'])->name('delivery-assignment.quote');
             Route::post('delivery-assignment/parcel', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'storeParcel'])->name('delivery-assignment.parcel');
+            Route::post('delivery-assignment/food', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'storeFoodDelivery'])->name('delivery-assignment.food');
             // Parcels moved to taxi drivers -- Manual Parcel Assignment (Rides workspace)
             Route::get('parcel-assignment', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'parcelAssignment'])->name('parcel-assignment.index');
             Route::get('parcel-assignment/stats', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'parcelAssignmentStats'])->name('parcel-assignment.stats');

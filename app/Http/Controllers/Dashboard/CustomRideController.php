@@ -281,6 +281,8 @@ class CustomRideController extends Controller
             'driverBusyCount'      => $driverBusyCount,
             'rideCounts'           => $rideCounts,
             'rides'                => $rides,
+            // Live driver markers on the dispatch map.
+            'drivers'              => $this->getDriverMapData()->values(),
         ];
     }
 

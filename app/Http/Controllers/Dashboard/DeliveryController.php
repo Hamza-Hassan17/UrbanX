@@ -121,9 +121,10 @@ class DeliveryController extends Controller
 
             $parcelSettings = \App\Services\FareBreakdownService::parcelDeliveryFeeSettings();
             $cashLimit = \App\Services\FareBreakdownService::riderCashLimit();
+            $foodSettings = \App\Services\FareBreakdownService::foodDeliveryFeeSettings();
 
             return view('dashboard.delivery.assignment', array_merge(
-                compact('rides', 'queuePresets', 'lastQueueFilters', 'restaurants', 'parcelSettings', 'cashLimit', 'mode'),
+                compact('rides', 'queuePresets', 'lastQueueFilters', 'restaurants', 'parcelSettings', 'cashLimit', 'mode', 'foodSettings'),
                 $this->dispatchSnapshot('food')
             ));
         } catch (\Throwable $th) {
@@ -387,6 +388,163 @@ class DeliveryController extends Controller
             'message' => $rider
                 ? "Parcel booked and assigned to {$rider->name}. Delivery code: {$ride->delivery_code}"
                 : "Parcel booked and sent to dispatch. Delivery code: {$ride->delivery_code}",
+        ]);
+    }
+
+    /**
+     * Admin books a food delivery (phone order): pickup at a restaurant,
+     * drop-off at the customer. Creates the order (already accepted by the
+     * restaurant) + its delivery ride; optionally hands it to a rider.
+     * Delivery fee always computed server-side from Pricing & Fees.
+     */
+    public function storeFoodDelivery(Request $request)
+    {
+        $this->authorize('view delivery');
+        $this->authorize('assign ride');
+
+        $validator = Validator::make($request->all(), [
+            'restaurant_id' => 'required|exists:restaurants,id',
+            'dropoff_latitude' => 'required|numeric',
+            'dropoff_longitude' => 'required|numeric',
+            'customer_name' => 'required|string|max:255',
+            'customer_phone' => 'required|string|max:30',
+            'order_amount' => 'nullable|numeric|min:0',
+            'rider_note' => 'nullable|string|max:255',
+            'rider_id' => 'nullable|exists:users,id',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['message' => $validator->errors()->first(), 'errors' => $validator->errors()], 422);
+        }
+
+        $restaurant = \App\Models\Restaurant::find($request->restaurant_id);
+        if (!$restaurant->latitude || !$restaurant->longitude) {
+            return response()->json(['message' => 'This restaurant has no location set.'], 422);
+        }
+
+        $rider = null;
+        if ($request->filled('rider_id')) {
+            $rider = \App\Models\User::role('driver')
+                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
+                ->with('driverVehicle')
+                ->find($request->rider_id);
+            if (!$rider) {
+                return response()->json(['message' => 'Selected rider does not have a delivery vehicle.'], 422);
+            }
+        }
+
+        $feeSettings = \App\Services\FareBreakdownService::foodDeliveryFeeSettings();
+        $lat1 = deg2rad((float) $restaurant->latitude);
+        $lng1 = deg2rad((float) $restaurant->longitude);
+        $lat2 = deg2rad((float) $request->dropoff_latitude);
+        $lng2 = deg2rad((float) $request->dropoff_longitude);
+        $actualKm = 6371 * acos(min(1, max(-1,
+            cos($lat1) * cos($lat2) * cos($lng2 - $lng1) + sin($lat1) * sin($lat2)
+        )));
+        $chargedKm = max(\App\Services\FareBreakdownService::roundUpToKm($actualKm), 1);
+        $deliveryFee = $feeSettings['first_km_fee'] + max($chargedKm - 1, 0) * $feeSettings['per_km_fee'];
+        $deliveryFee = round($deliveryFee, 2);
+        $orderAmount = round((float) $request->input('order_amount', 0), 2);
+
+        $vehicleTypeId = $rider
+            ? $rider->driverVehicle->vehicle_type_id
+            : \App\Models\VehicleType::where('is_delivery', '1')->where('is_active', 'active')->value('id');
+        if (!$vehicleTypeId) {
+            return response()->json(['message' => 'No delivery vehicle type is set up.'], 422);
+        }
+
+        try {
+            \Illuminate\Support\Facades\DB::beginTransaction();
+
+            $customer = $this->findOrCreateCustomer($request->customer_name, $request->customer_phone);
+
+            $order = new RestaurantOrder();
+            $order->restaurant_id = $restaurant->id;
+            $order->customer_id = $customer->id;
+            $order->order_number = 'ORD-' . strtoupper(uniqid());
+            $order->subtotal = $orderAmount;
+            $order->discount = 0;
+            $order->tax = 0;
+            $order->platform_fee = 0;
+            $order->delivery_fee = $deliveryFee;
+            $order->total_price = round($orderAmount + $deliveryFee, 2);
+            $order->delivery_lat = $request->dropoff_latitude;
+            $order->delivery_lang = $request->dropoff_longitude;
+            $order->rider_note = $request->rider_note;
+            $order->payment_method = 'cod';
+            $order->payment_status = 'unpaid';
+            $order->status = 'accepted'; // admin confirmed it with the restaurant
+            $order->delivery_code = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
+            $order->discount_funded_by = 'platform';
+            $order->fare_breakdown = \App\Services\FareBreakdownService::buildOrderSnapshot([
+                'subtotal' => $orderAmount,
+                'discount' => 0,
+                'discount_funded_by' => 'platform',
+                'distance_actual_km' => $actualKm,
+                'distance_charged_km' => $chargedKm,
+                'delivery_fee' => $deliveryFee,
+            ]);
+            $order->save();
+
+            $ride = new Ride();
+            $ride->passenger_id = $customer->id;
+            $ride->vehicle_type_id = $vehicleTypeId;
+            $ride->pickup_latitude = $restaurant->latitude;
+            $ride->pickup_longitude = $restaurant->longitude;
+            $ride->dropoff_latitude = $request->dropoff_latitude;
+            $ride->dropoff_longitude = $request->dropoff_longitude;
+            $ride->distance_km = round($actualKm, 2);
+            $ride->subtotal = $deliveryFee;
+            $ride->total_fare = $deliveryFee;
+            $ride->requested_at = now();
+            $ride->status = 'requested';
+            $ride->ride_type = 'delivery';
+            $ride->created_by = auth()->id();
+            if ($rider) {
+                $ride->driver_id = $rider->id;
+                $ride->status = 'accepted';
+                $ride->accepted_at = now();
+                $ride->status_updated_by = auth()->id();
+                $ride->status_updated_by_role = 'admin';
+            }
+            $ride->save();
+
+            $order->ride_id = $ride->id;
+            $order->save();
+
+            \Illuminate\Support\Facades\DB::commit();
+        } catch (\Throwable $th) {
+            \Illuminate\Support\Facades\DB::rollBack();
+            Log::error('Admin Food Delivery Booking Failed', ['error' => $th->getMessage()]);
+            return response()->json(['message' => 'Something went wrong!'], 500);
+        }
+
+        if ($rider) {
+            \App\Services\DeliveryAssignmentService::assign($ride, $rider, $order);
+        } else {
+            try {
+                broadcast(new \App\Events\RideStatusUpdated($ride));
+            } catch (\Throwable $e) {
+                Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+            }
+        }
+
+        AdminActivityLog::record(
+            'Booked food delivery for customer',
+            [],
+            ['ride_id' => $ride->id, 'order_id' => $order->id, 'rider_id' => $rider?->id, 'delivery_fee' => $deliveryFee],
+            Ride::class,
+            $ride->id
+        );
+
+        return response()->json([
+            'ride_id' => $ride->id,
+            'order_id' => $order->id,
+            'delivery_fee' => $deliveryFee,
+            'delivery_code' => $order->delivery_code,
+            'message' => ($rider
+                ? "Delivery booked and assigned to {$rider->name}."
+                : 'Delivery booked and sent to riders near the restaurant.')
+                . " Collect Rs " . round($orderAmount + $deliveryFee) . ". Delivery code: {$order->delivery_code}",
         ]);
     }
 

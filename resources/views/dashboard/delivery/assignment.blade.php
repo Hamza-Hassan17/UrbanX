@@ -115,12 +115,12 @@
         <div class="alert alert-info py-2">{{ __('Parcels go to taxi drivers of the vehicle type:') }} <strong>{{ $parcelVehicleType->name }}</strong></div>
     @endif
     <div class="dashboard-container">
-        <div class="dispatch-toprow {{ $isParcel ? '' : 'no-form' }}">
+        <div class="dispatch-toprow">
 
             {{-- Parcel booking form --}}
             {{-- Parcel booking form: Rides workspace only (parcels moved to taxi drivers).
                  Kept in the markup but hidden in food mode so the page script binds unchanged. --}}
-            <section class="panel form-panel" @unless($isParcel) style="display:none" @endunless>
+            <section class="panel form-panel">
                 <div class="rider-strip" id="rider-strip">
                     <div class="rider-avatar none" id="rider-avatar"><i class="fas fa-motorcycle"></i></div>
                     <div>
@@ -130,7 +130,7 @@
                     <button type="button" class="clear-rider" id="clear-rider" title="{{ __('Send to dispatch instead') }}" style="display:none;"><i class="fas fa-xmark"></i></button>
                 </div>
 
-                <div class="section-title"><i class="fas fa-box"></i><span>{{ __('New Parcel') }}</span></div>
+                <div class="section-title"><i class="fas {{ $isParcel ? 'fa-box' : 'fa-utensils' }}"></i><span>{{ $isParcel ? __('New Parcel') : __('New Food Delivery') }}</span></div>
 
                 <div class="field-grid">
                     <div class="field field-full">
@@ -144,18 +144,18 @@
                     </div>
 
                     <div class="field field-full">
-                        <label><i class="fas fa-location-dot"></i>{{ __('Pickup') }}</label>
+                        <label><i class="fas fa-location-dot"></i>{{ $isParcel ? __('Pickup') : __('Pickup restaurant') }}</label>
                         {{-- Restaurant-pickup shortcut hidden: parcels are booked in the Rides workspace now.
                              Markup kept so the page script binds unchanged. --}}
                         <div class="pickup-mode" style="display:none">
                             <button type="button" class="active" data-mode="address">{{ __('Address') }}</button>
                             <button type="button" data-mode="restaurant">{{ __('Restaurant') }}</button>
                         </div>
-                        <div id="pickup-address-wrap" style="position:relative;">
+                        <div id="pickup-address-wrap" style="position:relative;{{ $isParcel ? '' : 'display:none;' }}">
                             <input type="text" id="pickup-input" class="form-control" placeholder="{{ __('Start typing a location...') }}" autocomplete="off">
                             <div class="autocomplete-dropdown" id="pickup-dropdown"></div>
                         </div>
-                        <select id="pickup-restaurant" class="form-select" style="display:none;">
+                        <select id="pickup-restaurant" class="form-select" style="{{ $isParcel ? 'display:none;' : '' }}">
                             <option value="">{{ __('Select restaurant') }}</option>
                             @foreach ($restaurants as $restaurant)
                                 <option value="{{ $restaurant->id }}" data-lat="{{ $restaurant->latitude }}" data-lng="{{ $restaurant->longitude }}" data-name="{{ $restaurant->name }}">{{ $restaurant->name }}</option>
@@ -164,11 +164,33 @@
                     </div>
 
                     <div class="field field-full">
-                        <label for="dropoff-input"><i class="fas fa-flag-checkered"></i>{{ __('Destination') }}</label>
+                        <label for="dropoff-input"><i class="fas fa-flag-checkered"></i>{{ $isParcel ? __('Destination') : __('Customer drop-off') }}</label>
                         <input type="text" id="dropoff-input" class="form-control" placeholder="{{ __('Start typing a destination...') }}" autocomplete="off">
                         <div class="autocomplete-dropdown" id="dropoff-dropdown"></div>
                     </div>
 
+                    @unless($isParcel)
+                    <div class="subhead">{{ __('Customer') }}</div>
+                    <div class="field">
+                        <label for="customer_name"><i class="fas fa-user"></i>{{ __('Name') }}</label>
+                        <input type="text" id="customer_name" class="form-control" placeholder="{{ __('Customer name') }}">
+                    </div>
+                    <div class="field">
+                        <label for="customer_phone"><i class="fas fa-phone"></i>{{ __('Phone') }}</label>
+                        <input type="text" id="customer_phone" class="form-control" placeholder="{{ __('Phone') }}">
+                    </div>
+                    <div class="field">
+                        <label for="order_amount"><i class="fas fa-receipt"></i>{{ __('Food bill (Rs)') }}</label>
+                        <input type="number" id="order_amount" class="form-control" min="0" step="1" placeholder="0">
+                    </div>
+                    <div class="field">
+                        <label for="rider_note"><i class="fas fa-note-sticky"></i>{{ __('Note for rider') }}</label>
+                        <input type="text" id="rider_note" class="form-control" placeholder="{{ __('Optional') }}" maxlength="255">
+                    </div>
+                    @endunless
+
+                    {{-- Parcel-only fields (kept in the DOM in food mode so the script binds unchanged). --}}
+                    <div style="display:{{ $isParcel ? 'contents' : 'none' }};">
                     <div class="subhead">{{ __('Sender') }}</div>
                     <div class="field">
                         <label for="sender_name"><i class="fas fa-user"></i>{{ __('Name') }}</label>
@@ -224,12 +246,15 @@
                         <label for="parcel_notes"><i class="fas fa-note-sticky"></i>{{ __('Notes') }}</label>
                         <input type="text" id="parcel_notes" class="form-control" placeholder="{{ __('Optional') }}" maxlength="500">
                     </div>
+                    </div>
                 </div>
 
                 <button type="button" class="btn btn-primary save-job-btn" id="save-parcel">
                     <i class="fas fa-paper-plane"></i> {{ __('Save Job') }}
                 </button>
-                <small class="text-muted d-block mt-2" style="font-size:11px;">{{ __('Cash on delivery. Fee is calculated from Pricing & Fees (max :km km).', ['km' => $parcelSettings['max_distance_km']]) }}</small>
+                <small class="text-muted d-block mt-2" style="font-size:11px;">
+                    {{ $isParcel ? __('Cash on delivery. Fee is calculated from Pricing & Fees.') : __('Cash on delivery. Riders within :km km of the restaurant are highlighted on the map.', ['km' => $foodSettings['max_distance_km'] ?? 4]) }}
+                </small>
             </section>
 
             {{-- Live counters + fare --}}
@@ -245,7 +270,7 @@
                 <div class="count-row count-completed"><span>{{ __('Completed') }}</span><strong id="stat-completed">{{ $stats['completed'] }}</strong></div>
                 <div class="count-row count-cancelled"><span>{{ __('Cancelled') }}</span><strong id="stat-cancelled">{{ $stats['cancelled'] }}</strong></div>
 
-                <div class="fare-box mt-3" @unless($isParcel) style="display:none" @endunless>
+                <div class="fare-box mt-3">
                     <div class="fare-label">{{ __('Delivery Fee') }}</div>
                     <div class="fare-value" id="fare-value">Rs 0</div>
                     <div class="fare-sub" id="fare-sub">0 km</div>
@@ -312,6 +337,9 @@
             reassignUrlTemplate: @json(route($isParcel ? 'dashboard.parcel-assignment.reassign' : 'dashboard.delivery-assignment.reassign', ['ride_id' => '__ID__'])),
             rideShowUrlTemplate: @json(route('dashboard.rides.show', ['ride' => '__ID__'])),
             canReassign: @json(auth()->user()->can('reassign ride')),
+            isParcel: @json($isParcel),
+            foodUrl: @json($isParcel ? null : route('dashboard.delivery-assignment.food')),
+            food: @json($foodSettings ?? null),
             csrf: document.querySelector('meta[name="csrf-token"]').content,
         };
 
@@ -381,6 +409,25 @@
             renderMapLayers(true);
         }
 
+        // Food mode: only riders within the radius of the restaurant are offered.
+        let radiusCircle = null;
+        function inRadius(r) {
+            if (DISPATCH.isParcel || !pickupCoords || r.lat === null || r.lng === null) return true;
+            return distanceKm(pickupCoords.lat, pickupCoords.lng, r.lat, r.lng) <= DISPATCH.food.max_distance_km;
+        }
+        function drawRadius() {
+            if (radiusCircle) { radiusCircle.setMap(null); radiusCircle = null; }
+            if (DISPATCH.isParcel || !pickupCoords) return;
+            radiusCircle = new google.maps.Circle({
+                map, center: pickupCoords, radius: DISPATCH.food.max_distance_km * 1000,
+                strokeColor: '#10b981', strokeOpacity: .8, strokeWeight: 2, fillColor: '#10b981', fillOpacity: .07, clickable: false,
+            });
+        }
+        function fitCapped(bounds, padding) {
+            map.fitBounds(bounds, padding);
+            google.maps.event.addListenerOnce(map, 'idle', () => { if (map.getZoom() > 15) map.setZoom(15); });
+        }
+
         function renderMapLayers(fit) {
             riderMarkers.forEach(m => m.setMap(null));
             pinMarkers.forEach(m => m.setMap(null));
@@ -397,11 +444,12 @@
                     map,
                     icon: circleIcon(color, 'R', r.over_cash_limit),
                     title: `${r.name} (#${r.id})`,
+                    opacity: inRadius(r) ? 1 : 0.3,
                 });
                 const info = new google.maps.InfoWindow({
                     content: `<strong>${esc(r.name)}</strong> #${r.id}<br>${esc(r.presence === 'offline' ? 'offline' : r.status)}${r.city ? ' -- ' + esc(r.city) : ''}<br>` +
                         `Cash: Rs ${Math.round(r.cash_balance)}${r.over_cash_limit ? ' <b style="color:#dc2626">(over limit)</b>' : ''}<br>` +
-                        `<a href="#" data-pick-rider="${r.id}">Use for new parcel</a>`,
+                        `<a href="#" data-pick-rider="${r.id}">${DISPATCH.isParcel ? 'Use for new parcel' : 'Use for new delivery'}</a>`,
                 });
                 marker.addListener('click', () => info.open(map, marker));
                 riderMarkers.push(marker);
@@ -422,7 +470,7 @@
                 hasPoints = true;
             });
 
-            if (fit && hasPoints) map.fitBounds(bounds, 60);
+            if (fit && hasPoints) fitCapped(bounds, 60);
         }
 
         document.addEventListener('click', function (e) {
@@ -434,6 +482,9 @@
 
         function drawRoute() {
             if (routeLine) { routeLine.setMap(null); routeLine = null; }
+            drawRadius();
+            renderMapLayers(false);
+            if (pickupCoords && !dropoffCoords && radiusCircle) { map.fitBounds(radiusCircle.getBounds(), 20); return; }
             if (!pickupCoords || !dropoffCoords) return;
             routeLine = new google.maps.Polyline({
                 path: [pickupCoords, dropoffCoords],
@@ -444,7 +495,7 @@
             const bounds = new google.maps.LatLngBounds();
             bounds.extend(pickupCoords);
             bounds.extend(dropoffCoords);
-            map.fitBounds(bounds, 80);
+            fitCapped(bounds, 80);
         }
 
         function setPoint(kind, coords) {
@@ -506,8 +557,8 @@
         document.getElementById('nearestRiderBtn').addEventListener('click', function () {
             if (!pickupCoords) { toast('Set the pickup first', 'error'); return; }
             const best = ridersByDistance(pickupCoords.lat, pickupCoords.lng)
-                .find(r => isReady(r) && !r.over_cash_limit && r.distance !== null);
-            if (!best) { toast('No available rider with a known location', 'error'); return; }
+                .find(r => isReady(r) && !r.over_cash_limit && r.distance !== null && inRadius(r));
+            if (!best) { toast(DISPATCH.isParcel ? 'No available rider with a known location' : `No available rider within ${DISPATCH.food.max_distance_km} km of the restaurant`, 'error'); return; }
             selectFormRider(best.id);
             toast(`${best.name} is ${best.distance.toFixed(1)} km from pickup`);
         });
@@ -579,6 +630,15 @@
             err.textContent = '';
             lastQuote = null;
             if (!pickupCoords || !dropoffCoords) { value.textContent = 'Rs 0'; sub.textContent = '0 km'; return; }
+            if (!DISPATCH.isParcel) {
+                // Display estimate only -- the server prices it again on save.
+                const km = distanceKm(pickupCoords.lat, pickupCoords.lng, dropoffCoords.lat, dropoffCoords.lng);
+                const charged = Math.max(Math.ceil(km), 1);
+                const fee = DISPATCH.food.first_km_fee + (charged - 1) * DISPATCH.food.per_km_fee;
+                value.textContent = `Rs ${Math.round(fee)}`;
+                sub.textContent = `${km.toFixed(2)} km (charged ${charged} km)`;
+                return;
+            }
             try {
                 const res = await fetch(DISPATCH.quoteUrl, {
                     method: 'POST',
@@ -604,8 +664,9 @@
         }
 
         document.getElementById('save-parcel').addEventListener('click', async function () {
-            if (!pickupCoords || !dropoffCoords) { toast('Set both pickup and destination', 'error'); return; }
+            if (!pickupCoords || !dropoffCoords) { toast(DISPATCH.isParcel ? 'Set both pickup and destination' : 'Pick the restaurant and the customer drop-off', 'error'); return; }
             const val = id => document.getElementById(id).value.trim();
+            if (!DISPATCH.isParcel) { saveFoodDelivery(this, val); return; }
             for (const [id, label] of [['sender_name', 'Sender name'], ['sender_phone', 'Sender phone'], ['receiver_name', 'Receiver name'], ['receiver_phone', 'Receiver phone']]) {
                 if (!val(id)) { toast(`${label} is required`, 'error'); document.getElementById(id).focus(); return; }
             }
@@ -644,6 +705,46 @@
                 btn.disabled = false;
             }
         });
+
+        async function saveFoodDelivery(btn, val) {
+            for (const [id, label] of [['customer_name', 'Customer name'], ['customer_phone', 'Customer phone']]) {
+                if (!val(id)) { toast(`${label} is required`, 'error'); document.getElementById(id).focus(); return; }
+            }
+            if (formRider && !inRadius(formRider) &&
+                !confirm(`${formRider.name} is more than ${DISPATCH.food.max_distance_km} km from the restaurant. Assign anyway?`)) {
+                return;
+            }
+            if (formRider && formRider.over_cash_limit &&
+                !confirm(`${formRider.name} is over the cash-in-hand limit (Rs ${Math.round(formRider.cash_balance)}). Assign anyway?`)) {
+                return;
+            }
+            btn.disabled = true;
+            try {
+                const res = await fetch(DISPATCH.foodUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': DISPATCH.csrf },
+                    body: JSON.stringify({
+                        restaurant_id: val('pickup-restaurant'),
+                        dropoff_latitude: dropoffCoords.lat, dropoff_longitude: dropoffCoords.lng,
+                        customer_name: val('customer_name'), customer_phone: val('customer_phone'),
+                        order_amount: val('order_amount') || 0,
+                        rider_note: val('rider_note') || null,
+                        rider_id: formRider ? formRider.id : null,
+                    }),
+                });
+                const data = await res.json();
+                if (!res.ok) { toast(data.message || 'Could not book delivery', 'error'); return; }
+                toast(data.message);
+                ['customer_name', 'customer_phone', 'order_amount', 'rider_note'].forEach(id => { document.getElementById(id).value = ''; });
+                resetForm();
+                refreshQueue();
+                refreshStats();
+            } catch (e) {
+                toast('Could not book delivery', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
 
         function resetForm() {
             ['pickup-input', 'dropoff-input', 'sender_name', 'sender_phone', 'receiver_name', 'receiver_phone', 'parcel_notes', 'scheduled_pickup_at']
