@@ -59,7 +59,7 @@ class PricingFeesController extends Controller
             'taxi_outstanding_limit' => 'required|numeric|min:0',
             'auto_offline_minutes' => 'required|integer|min:1|max:1440',
             'no_driver_handling' => 'required|in:0,1',
-            'parcel_vehicle_type_id' => ['nullable', \Illuminate\Validation\Rule::exists('vehicle_types', 'id')->where('is_delivery', '0')],
+            'parcel_vehicle_type_id' => ['nullable', \Illuminate\Validation\Rule::exists('vehicle_types', 'id')],
             'allow_legacy_direct_accept' => 'nullable|boolean',
         ]);
 
