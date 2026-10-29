@@ -30,7 +30,7 @@ class PricingFeesController extends Controller
             ->get();
 
         // Taxi vehicle types that can be picked to carry parcels.
-        $taxiVehicleTypes = \App\Models\VehicleType::where('is_delivery', '0')->where('is_active', 'active')->orderBy('name')->get(['id', 'name']);
+        $taxiVehicleTypes = \App\Models\VehicleType::where('is_active', 'active')->orderBy('name')->get(['id', 'name']);
 
         return view('dashboard.pricing-fees.index', compact('settings', 'logs', 'taxiVehicleTypes'));
     }
