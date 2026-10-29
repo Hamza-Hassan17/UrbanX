@@ -88,6 +88,7 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
         //Driver Verification (KYC)
         Route::post('/verification/submit', [DriverDetailsController::class, 'submitVerification']);
         Route::get('/verification/status', [DriverDetailsController::class, 'getVerificationStatus']);
+        Route::get('/documents', [DriverDetailsController::class, 'getDocuments']);
 
         //Ride Offers
         Route::get('/get-rides', [DriverRideController::class, 'getLatestRides']);

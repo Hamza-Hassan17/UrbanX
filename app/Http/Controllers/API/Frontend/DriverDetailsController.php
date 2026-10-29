@@ -20,6 +20,32 @@ use Symfony\Component\HttpFoundation\Response;
 
 class DriverDetailsController extends Controller
 {
+    /**
+     * KYC documents are locked once submitted (under review) or approved.
+     * They become editable again only if the admin rejects the verification.
+     */
+    private function documentsLocked(User $user): bool
+    {
+        return in_array($user->driverVerification?->status, ['submitted', 'approved'], true);
+    }
+
+    private function lockedResponse(User $user)
+    {
+        return response()->json([
+            'message' => 'Your KYC documents are ' . ($user->driverVerification->status === 'approved' ? 'approved' : 'under review') . ' and cannot be changed.',
+            'verification_status' => $user->driverVerification->status,
+            'locked' => true,
+        ], Response::HTTP_FORBIDDEN);
+    }
+
+    private function lockMeta(User $user): array
+    {
+        return [
+            'verification_status' => $user->driverVerification->status ?? 'not_submitted',
+            'locked' => $this->documentsLocked($user),
+        ];
+    }
+
     public function getVehicleDetails(Request $request)
     {
         try {
@@ -59,6 +85,8 @@ class DriverDetailsController extends Controller
                     'vehicle_year' => $driverVehicle->vehicle_year,
                     'vehicle_plate_number' => $driverVehicle->vehicle_plate_number,
                     'vehicle_images' => $images,
+                    'registration_paper' => $driverVehicle->registration_paper ? Storage::url($driverVehicle->registration_paper) : null,
+                    'vehicle_video' => $driverVehicle->vehicle_video ? Storage::url($driverVehicle->vehicle_video) : null,
                 ];
             }
 
@@ -66,7 +94,7 @@ class DriverDetailsController extends Controller
             return response()->json([
                 'vehicle' => $data,
                 'vehicle_types' => $vehicleTypes,
-            ], Response::HTTP_OK);
+            ] + $this->lockMeta($user), Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Vehicle Details failed', ['error' => $th->getMessage()]);
             return response()->json([
@@ -77,6 +105,10 @@ class DriverDetailsController extends Controller
 
     public function updateVehicleDetails(Request $request)
     {
+        if ($this->documentsLocked($request->user())) {
+            return $this->lockedResponse($request->user());
+        }
+
         $validator = Validator::make($request->all(), [
             'vehicle_type_id' => 'required|exists:vehicle_types,id',
             'vehicle_name' => 'required|string',
@@ -188,7 +220,7 @@ class DriverDetailsController extends Controller
 
             return response()->json([
                 'license' => $data,
-            ], Response::HTTP_OK);
+            ] + $this->lockMeta($user), Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API License Details failed', ['error' => $th->getMessage()]);
             return response()->json([
@@ -199,6 +231,10 @@ class DriverDetailsController extends Controller
 
     public function updateLicenseDetails(Request $request)
     {
+        if ($this->documentsLocked($request->user())) {
+            return $this->lockedResponse($request->user());
+        }
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string',
             'license_number' => 'required|string',
@@ -379,7 +415,7 @@ class DriverDetailsController extends Controller
 
             return response()->json([
                 'cnic' => $data,
-            ], Response::HTTP_OK);
+            ] + $this->lockMeta($user), Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API CNIC Details failed', ['error' => $th->getMessage()]);
             return response()->json([
@@ -390,6 +426,10 @@ class DriverDetailsController extends Controller
 
     public function updateCNICDetails(Request $request)
     {
+        if ($this->documentsLocked($request->user())) {
+            return $this->lockedResponse($request->user());
+        }
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string',
             'cnic_number' => 'required|string',
@@ -562,6 +602,10 @@ class DriverDetailsController extends Controller
 
     public function updateSelfie(Request $request)
     {
+        if ($this->documentsLocked($request->user())) {
+            return $this->lockedResponse($request->user());
+        }
+
         $validator = Validator::make($request->all(), [
             'picture' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max_size',
         ]);
@@ -612,6 +656,10 @@ class DriverDetailsController extends Controller
         try {
             $user = $request->user();
 
+            if ($this->documentsLocked($user)) {
+                return $this->lockedResponse($user);
+            }
+
             $missing = [];
             if (!$user->driverCnic || !$user->driverCnic->front_picture || !$user->driverCnic->back_picture) {
                 $missing[] = 'cnic';
@@ -644,10 +692,11 @@ class DriverDetailsController extends Controller
             $verification->reviewed_at = null;
             $verification->save();
 
+            $who = $user->hasRole('rider') ? 'Rider' : 'Driver';
             $admins = \App\Models\User::role(\App\Http\Controllers\Dashboard\User\UserController::ADMIN_PANEL_ROLES)->get();
             app('notificationService')->notifyUsers(
                 $admins,
-                'New Driver Verification Request',
+                "New {$who} Verification Request",
                 "{$user->name} submitted documents for KYC verification.",
                 'drivers',
                 $user->id,
@@ -683,6 +732,59 @@ class DriverDetailsController extends Controller
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Get Verification Status failed', ['error' => $th->getMessage()]);
+            return response()->json([
+                'message' => 'Something went wrong!'
+            ], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * Everything submitted for KYC in one call -- backs the app's Documents
+     * screen (read-only while locked).
+     */
+    public function getDocuments(Request $request)
+    {
+        try {
+            $user = $request->user();
+            $url = fn ($path) => $path ? Storage::url($path) : null;
+            $cnic = $user->driverCnic;
+            $license = $user->driverLicense;
+            $vehicle = $user->driverVehicle;
+            $images = $vehicle && $vehicle->vehicle_images ? (json_decode($vehicle->vehicle_images, true) ?: []) : [];
+
+            return response()->json($this->lockMeta($user) + [
+                'rejection_reason' => $user->driverVerification->rejection_reason ?? null,
+                'cnic' => $cnic ? [
+                    'name' => $cnic->name,
+                    'cnic_number' => $cnic->cnic_number,
+                    'issue_date' => $cnic->issue_date,
+                    'front_picture' => $url($cnic->front_picture),
+                    'back_picture' => $url($cnic->back_picture),
+                ] : null,
+                'license' => $license ? [
+                    'name' => $license->name,
+                    'license_number' => $license->license_number,
+                    'address' => $license->address,
+                    'front_picture' => $url($license->front_picture),
+                    'back_picture' => $url($license->back_picture),
+                ] : null,
+                'selfie' => $user->driverSelfie ? ['picture' => $url($user->driverSelfie->picture)] : null,
+                'vehicle' => $vehicle ? [
+                    'vehicle_type_id' => $vehicle->vehicle_type_id,
+                    'vehicle_type' => $vehicle->vehicleType?->name,
+                    'vehicle_name' => $vehicle->vehicle_name,
+                    'vehicle_make' => $vehicle->vehicle_make,
+                    'vehicle_model' => $vehicle->vehicle_model,
+                    'vehicle_color' => $vehicle->vehicle_color,
+                    'vehicle_year' => $vehicle->vehicle_year,
+                    'vehicle_plate_number' => $vehicle->vehicle_plate_number,
+                    'vehicle_images' => array_map($url, $images),
+                    'registration_paper' => $url($vehicle->registration_paper),
+                    'vehicle_video' => $url($vehicle->vehicle_video),
+                ] : null,
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API Get Documents failed', ['error' => $th->getMessage()]);
             return response()->json([
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
