@@ -623,11 +623,6 @@ class RideController extends Controller
             );
             $distanceChargedKm = FareBreakdownService::roundUpToKm($distanceActualKm);
 
-            if ($distanceChargedKm > $parcelSettings['max_distance_km']) {
-                return response()->json([
-                    'message' => "This address is beyond the {$parcelSettings['max_distance_km']} km parcel delivery limit."
-                ], Response::HTTP_BAD_REQUEST);
-            }
 
             $deliveryFee = $parcelSettings['first_km_fee'];
             if ($distanceChargedKm > 1) {
@@ -717,11 +712,6 @@ class RideController extends Controller
             );
             $distanceChargedKm = FareBreakdownService::roundUpToKm($distanceActualKm);
 
-            if ($distanceChargedKm > $parcelSettings['max_distance_km']) {
-                return response()->json([
-                    'message' => "This address is beyond the {$parcelSettings['max_distance_km']} km parcel delivery limit."
-                ], Response::HTTP_BAD_REQUEST);
-            }
 
             $deliveryFee = $parcelSettings['first_km_fee'];
             if ($distanceChargedKm > 1) {

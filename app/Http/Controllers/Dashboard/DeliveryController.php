@@ -591,9 +591,6 @@ class DeliveryController extends Controller
         )));
         $chargedKm = \App\Services\FareBreakdownService::roundUpToKm($actualKm);
 
-        if ($chargedKm > $settings['max_distance_km']) {
-            return ['error' => "This address is beyond the {$settings['max_distance_km']} km parcel delivery limit."];
-        }
 
         $fee = $settings['first_km_fee'];
         if ($chargedKm > 1) {

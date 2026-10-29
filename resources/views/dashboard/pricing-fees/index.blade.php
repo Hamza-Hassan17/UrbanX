@@ -63,7 +63,7 @@
                         @error('parcel_per_km_fee')<span class="invalid-feedback">{{ $message }}</span>@enderror
                     </div>
                     <div class="col-md-4">
-                        <label for="parcel_max_distance_km" class="form-label">{{ __('Max Delivery Distance (km)') }}</label><span class="text-danger">*</span>
+                        <label for="parcel_max_distance_km" class="form-label">{{ __('Max Delivery Distance (km)') }}</label> <small class="text-muted">({{ __('not used, parcels have no distance limit') }})</small><span class="text-danger">*</span>
                         <input class="form-control @error('parcel_max_distance_km') is-invalid @enderror" type="number"
                             step="1" min="1" id="parcel_max_distance_km" name="parcel_max_distance_km"
                             value="{{ old('parcel_max_distance_km', $settings->parcel_max_distance_km) }}" required/>
