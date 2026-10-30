@@ -407,7 +407,44 @@
                 zoom: 11,
             });
             renderMapLayers(true);
+            // Food mode picks the restaurant from the list, so only the drop-off.
+            map.addListener('click', e => openMapPick(e.latLng, DISPATCH.isParcel
+                ? [{ key: 'pickup', label: 'Pickup', cls: 'btn-primary' }, { key: 'dropoff', label: 'Destination', cls: 'btn-danger' }]
+                : [{ key: 'dropoff', label: 'Customer drop-off', cls: 'btn-danger' }]));
         }
+
+        // Pick a point straight from the map (for places the search can't find).
+        async function reverseGeocode(lat, lng) {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.display_name) return data.display_name;
+                }
+            } catch (e) {}
+            return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        }
+        let mapPickInfo = null;
+        function openMapPick(latLng, kinds) {
+            if (mapPickInfo) mapPickInfo.close();
+            const lat = latLng.lat(), lng = latLng.lng();
+            const buttons = kinds.map(k =>
+                `<button type="button" class="btn btn-sm ${k.cls}" style="margin:2px" data-map-pick="${k.key}" data-lat="${lat}" data-lng="${lng}">${k.label}</button>`).join('');
+            mapPickInfo = new google.maps.InfoWindow({ position: latLng, content: `<div style="font-size:12px;margin-bottom:4px">Use this point as:</div>${buttons}` });
+            mapPickInfo.open(map);
+        }
+
+        document.addEventListener('click', async function (e) {
+            const btn = e.target.closest('[data-map-pick]');
+            if (!btn) return;
+            const lat = parseFloat(btn.dataset.lat), lng = parseFloat(btn.dataset.lng);
+            const kind = btn.dataset.mapPick;
+            if (mapPickInfo) mapPickInfo.close();
+            const input = document.getElementById(kind === 'pickup' ? 'pickup-input' : 'dropoff-input');
+            input.value = 'Finding address...';
+            setPoint(kind, { lat, lng });
+            input.value = await reverseGeocode(lat, lng);
+        });
 
         // Food mode: only riders within the radius of the restaurant are offered.
         let radiusCircle = null;

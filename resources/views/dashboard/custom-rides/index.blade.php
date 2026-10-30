@@ -1040,7 +1040,46 @@
                 zoom: 6,
             });
             renderDriverMarkers(true);
+            map.addListener('click', e => openMapPick(e.latLng, [
+                { key: 'pickup', label: 'Pickup', cls: 'btn-primary' },
+                { key: 'dropoff', label: 'Destination', cls: 'btn-danger' },
+            ]));
         }
+
+        // Pick a point straight from the map (for places the search can't find).
+        async function reverseGeocode(lat, lng) {
+            try {
+                const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.display_name) return data.display_name;
+                }
+            } catch (e) {}
+            return `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+        }
+        let mapPickInfo = null;
+        function openMapPick(latLng, kinds) {
+            if (mapPickInfo) mapPickInfo.close();
+            const lat = latLng.lat(), lng = latLng.lng();
+            const buttons = kinds.map(k =>
+                `<button type="button" class="btn btn-sm ${k.cls}" style="margin:2px" data-map-pick="${k.key}" data-lat="${lat}" data-lng="${lng}">${k.label}</button>`).join('');
+            mapPickInfo = new google.maps.InfoWindow({ position: latLng, content: `<div style="font-size:12px;margin-bottom:4px">Use this point as:</div>${buttons}` });
+            mapPickInfo.open(map);
+        }
+
+        document.addEventListener('click', async function (e) {
+            const btn = e.target.closest('[data-map-pick]');
+            if (!btn) return;
+            const lat = parseFloat(btn.dataset.lat), lng = parseFloat(btn.dataset.lng);
+            const isPickup = btn.dataset.mapPick === 'pickup';
+            if (mapPickInfo) mapPickInfo.close();
+            const input = document.getElementById(isPickup ? 'pickup-location' : 'destination');
+            input.value = 'Finding address...';
+            const address = await reverseGeocode(lat, lng);
+            input.value = address.split(',').slice(0, 3).join(',');
+            if (isPickup) updatePickupLocation(lat, lng, address);
+            else updateDestinationLocation(lat, lng, address);
+        });
 
         // Live drivers on the map (refreshed with the stats poll).
         let driverMarkers = [];
