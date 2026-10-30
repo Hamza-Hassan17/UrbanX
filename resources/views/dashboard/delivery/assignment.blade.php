@@ -335,7 +335,7 @@
             parcelUrl: @json(route($isParcel ? 'dashboard.parcel-assignment.parcel' : 'dashboard.delivery-assignment.parcel')),
             assignUrlTemplate: @json(route('dashboard.rides.update', ['ride' => '__ID__'])),
             reassignUrlTemplate: @json(route($isParcel ? 'dashboard.parcel-assignment.reassign' : 'dashboard.delivery-assignment.reassign', ['ride_id' => '__ID__'])),
-            rideShowUrlTemplate: @json(route('dashboard.rides.show', ['ride' => '__ID__'])),
+            rideShowUrlTemplate: @json(route($isParcel ? 'dashboard.parcel-assignment.show' : 'dashboard.delivery.show', ['id' => '__ID__'])),
             canReassign: @json(auth()->user()->can('reassign ride')),
             isParcel: @json($isParcel),
             foodUrl: @json($isParcel ? null : route('dashboard.delivery-assignment.food')),

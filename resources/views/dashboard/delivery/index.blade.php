@@ -26,7 +26,7 @@
 @section('script')
     <script>
         // View button -> ride detail page (incl. Replay Route of the rider's GPS path).
-        const deliveryRideUrl = @json(route('dashboard.rides.show', ['ride' => '__ID__']));
+        const deliveryRideUrl = @json(route('dashboard.delivery.show', ['id' => '__ID__']));
         window.renderQueueActions = function (ride) {
             return `<a href="${deliveryRideUrl.replace('__ID__', ride.id)}" class="queue-edit-btn" title="View details and replay route"><i class="fas fa-eye"></i> View</a>`;
         };

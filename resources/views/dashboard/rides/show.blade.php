@@ -1,6 +1,14 @@
 @extends('layouts.master')
 
-@section('title', __('Ride Details'))
+@php
+    $context = $context ?? 'ride';
+    [$listLabel, $listRoute, $detailLabel] = match ($context) {
+        'delivery' => [__('Deliveries'), route('dashboard.delivery.index'), __('Delivery Details')],
+        'parcel' => [__('Parcels'), route('dashboard.parcel-assignment.index'), __('Parcel Details')],
+        default => [__('Rides'), route('dashboard.rides.index'), __('Ride Details')],
+    };
+@endphp
+@section('title', $detailLabel)
 
 @section('css')
 <style>
@@ -61,8 +69,8 @@
 @endsection
 
 @section('breadcrumb-items')
-    <li class="breadcrumb-item"><a href="{{ route('dashboard.rides.index') }}">{{ __('Rides') }}</a></li>
-    <li class="breadcrumb-item active">{{ __('Ride Details') }}</li>
+    <li class="breadcrumb-item"><a href="{{ $listRoute }}">{{ $listLabel }}</a></li>
+    <li class="breadcrumb-item active">{{ $detailLabel }}</li>
 @endsection
 
 @section('content')

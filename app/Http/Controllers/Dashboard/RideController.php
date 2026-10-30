@@ -55,6 +55,23 @@ class RideController extends Controller
      */
     public function show(string $id)
     {
+        return $this->renderShow($id, 'ride');
+    }
+
+    /** Same detail page (incl. Replay Route), opened from the Delivery workspace. */
+    public function showDelivery(string $id)
+    {
+        return $this->renderShow($id, 'delivery');
+    }
+
+    /** Same detail page, opened from Manual Parcel Assignment. */
+    public function showParcel(string $id)
+    {
+        return $this->renderShow($id, 'parcel');
+    }
+
+    private function renderShow(string $id, string $context)
+    {
         $this->authorize('view ride');
         try {
             $ride = Ride::with('passenger','driver','vehicleType','promoCode')->findOrFail($id);
@@ -70,7 +87,7 @@ class RideController extends Controller
                 ->where('end', '>=', $requestedTime)
                 ->first();
 
-            return view('dashboard.rides.show',compact('ride','rideOffers','rideExtraCharges','boostHour','relatedOrder'));
+            return view('dashboard.rides.show',compact('ride','rideOffers','rideExtraCharges','boostHour','relatedOrder','context'));
         } catch (\Throwable $th) {
             Log::error('Ride Show Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");

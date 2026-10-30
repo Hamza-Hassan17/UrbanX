@@ -331,6 +331,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             //Delivery workspace -- Orders Queue (Phase 2 of the admin workspace split)
             Route::get('delivery', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'index'])->name('delivery.index');
             Route::get('delivery/queue', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'queue'])->name('delivery.queue');
+            Route::get('delivery/{id}/view', [RideController::class, 'showDelivery'])->where('id', '[0-9]+')->name('delivery.show');
             Route::post('delivery/queue/presets', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'savePreset'])->name('delivery.queue.presets');
             Route::get('delivery-assignment', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'assignment'])->name('delivery-assignment.index');
             Route::get('delivery-assignment/stats', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'assignmentStats'])->name('delivery-assignment.stats');
@@ -341,6 +342,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('parcel-assignment', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'parcelAssignment'])->name('parcel-assignment.index');
             Route::get('parcel-assignment/stats', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'parcelAssignmentStats'])->name('parcel-assignment.stats');
             Route::get('parcel-assignment/queue', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'parcelQueue'])->name('parcel-assignment.queue');
+            Route::get('parcel-assignment/{id}/view', [RideController::class, 'showParcel'])->where('id', '[0-9]+')->name('parcel-assignment.show');
             Route::post('parcel-assignment/queue/presets', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'saveParcelPreset'])->name('parcel-assignment.queue.presets');
             Route::post('parcel-assignment/quote', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'quoteParcel'])->name('parcel-assignment.quote');
             Route::post('parcel-assignment/parcel', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'storeParcel'])->name('parcel-assignment.parcel');
