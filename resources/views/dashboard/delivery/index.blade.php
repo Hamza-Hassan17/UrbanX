@@ -17,7 +17,7 @@
             'itemPrefix' => 'ORDER-',
             'rides' => $rides,
             'queuePresets' => $queuePresets,
-            'queueTypeChips' => ['food' => '🍔 Food', 'parcel' => '📦 Parcel'],
+            'queueTypeChips' => [],
             'queueEditable' => false,
         ])
     </div>
@@ -38,7 +38,7 @@
         'lastQueueFilters' => $lastQueueFilters,
         'itemPrefix' => 'ORDER-',
         'queueTitle' => 'Orders',
-        'hasTypeChips' => true,
+        'hasTypeChips' => false,
         'queueEditable' => false,
     ])
 @endsection

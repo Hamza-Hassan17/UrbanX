@@ -289,7 +289,7 @@
             'itemPrefix' => $isParcel ? 'PCL-' : 'DEL-',
             'rides' => $rides,
             'queuePresets' => $queuePresets,
-            'queueTypeChips' => $isParcel ? [] : ['food' => '🍔 Food', 'parcel' => '📦 Parcel'],
+            'queueTypeChips' => [],
             'queueEditable' => false,
         ])
     </div>
@@ -943,7 +943,7 @@
         'lastQueueFilters' => $lastQueueFilters,
         'itemPrefix' => $isParcel ? 'PCL-' : 'DEL-',
         'queueTitle' => $isParcel ? 'Parcels' : 'Deliveries',
-        'hasTypeChips' => !$isParcel,
+        'hasTypeChips' => false,
         'queueEditable' => false,
     ])
 @endsection

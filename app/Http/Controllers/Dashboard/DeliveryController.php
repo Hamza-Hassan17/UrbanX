@@ -39,6 +39,7 @@ class DeliveryController extends Controller
 
         $geocoder = app(GeocodingService::class);
         $rides = Ride::where('ride_type', 'delivery')
+            ->whereIn('id', RestaurantOrder::whereNotNull('ride_id')->select('ride_id')) // food only; parcels live in the Rides workspace
             ->with(['driver:id,name', 'passenger:id,name,phone'])
             ->whereIn('status', array_merge(RideQueueFilterService::ACTIVE_STATUSES, ['completed', 'cancelled']))
             ->latest('requested_at')
@@ -55,6 +56,7 @@ class DeliveryController extends Controller
         $this->authorize('view delivery');
 
         $query = Ride::where('ride_type', 'delivery')
+            ->whereIn('id', RestaurantOrder::whereNotNull('ride_id')->select('ride_id')) // food only; parcels live in the Rides workspace
             ->with(['driver:id,name', 'passenger:id,name,phone']);
 
         RideQueueFilterService::apply($query, $request);
@@ -106,6 +108,7 @@ class DeliveryController extends Controller
 
             $geocoder = app(GeocodingService::class);
             $rides = Ride::where('ride_type', 'delivery')
+                ->whereIn('id', RestaurantOrder::whereNotNull('ride_id')->select('ride_id')) // food only; parcels live in the Rides workspace
                 ->with(['driver:id,name', 'passenger:id,name,phone'])
                 ->whereIn('status', array_merge(RideQueueFilterService::ACTIVE_STATUSES, ['completed', 'cancelled']))
                 ->latest('requested_at')
@@ -670,6 +673,8 @@ class DeliveryController extends Controller
             ? \App\Services\DispatchSettingsService::taxiOutstandingLimit()
             : \App\Services\FareBreakdownService::riderCashLimit();
         $rideTypes = $isParcel ? ['parcel'] : ['delivery'];
+        $jobs = fn () => Ride::whereIn('ride_type', $rideTypes)
+            ->when(!$isParcel, fn ($q) => $q->whereIn('id', RestaurantOrder::whereNotNull('ride_id')->select('ride_id')));
 
         $riders = \App\Models\User::role('driver')
             ->when($isParcel,
@@ -702,7 +707,7 @@ class DeliveryController extends Controller
 
         $activeStatuses = RideQueueFilterService::ACTIVE_STATUSES;
 
-        $unassigned = Ride::whereIn('ride_type', $rideTypes)
+        $unassigned = $jobs()
             ->whereIn('status', ['requested', 'no_driver_found'])
             ->whereNull('driver_id')
             ->get(['id', 'pickup_latitude', 'pickup_longitude', 'requested_at', 'scheduled_pickup_at']);
@@ -728,9 +733,9 @@ class DeliveryController extends Controller
             'offline' => $riders->where('presence', 'offline')->count(),
             'dispatch' => $assignable->count(),
             'waiting_restaurant' => $waitingRestaurant->count(),
-            'booked' => Ride::whereIn('ride_type', $rideTypes)->whereIn('status', $activeStatuses)->whereNotNull('driver_id')->count(),
-            'completed' => Ride::whereIn('ride_type', $rideTypes)->where('status', 'completed')->whereDate('completed_at', today())->count(),
-            'cancelled' => Ride::whereIn('ride_type', $rideTypes)->where('status', 'cancelled')->whereDate('cancelled_at', today())->count(),
+            'booked' => $jobs()->whereIn('status', $activeStatuses)->whereNotNull('driver_id')->count(),
+            'completed' => $jobs()->where('status', 'completed')->whereDate('completed_at', today())->count(),
+            'cancelled' => $jobs()->where('status', 'cancelled')->whereDate('cancelled_at', today())->count(),
         ];
 
         return compact('stats', 'riders', 'pins');
