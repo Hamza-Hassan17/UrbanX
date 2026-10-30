@@ -51,8 +51,7 @@ class PerformanceReportService
         // Taxi drivers do rides and (since the move) parcels.
         $rideTypes = $isDelivery ? ['delivery'] : \App\Models\Ride::TAXI_TYPES;
 
-        $drivers = User::role('driver')
-            ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', $isDelivery ? '1' : '0'))
+        $drivers = User::role($isDelivery ? 'rider' : 'driver')
             ->with('profile:id,user_id,city')
             ->get(['id', 'name', 'phone', 'online_status', 'driver_status']);
 

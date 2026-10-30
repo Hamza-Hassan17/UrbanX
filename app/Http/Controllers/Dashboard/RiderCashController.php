@@ -27,8 +27,7 @@ class RiderCashController extends Controller
             // uses -- cash-in-hand only applies to delivery riders (COD on
             // food orders and parcels), not taxi drivers.
             $riders = User::with('profile:id,user_id,phone_number,city')
-                ->role('driver')
-                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
+                ->role('rider')
                 ->get()
                 ->map(function ($rider) {
                     $rider->cash_balance = RiderCashService::currentBalance($rider->id);

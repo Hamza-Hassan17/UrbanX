@@ -23,7 +23,8 @@ class CustomRideController extends Controller
     {
         $this->authorize('view custom rides');
         try {
-            $drivers = $this->getDriverMapData();
+            // Taxi drivers only -- delivery riders (Rider app) aren't offered rides.
+            $drivers = $this->getDriverMapData()->reject(fn ($d) => $d['is_delivery'])->values();
 
             $driver = User::role('driver')
                 ->acceptingJobs()
@@ -86,7 +87,7 @@ class CustomRideController extends Controller
         // the misleading "No driver found with ID: x". They still can't be
         // assigned a ride (no vehicle_type_id), but the UI can now say why.
         return User::with('driverVehicle.vehicleType', 'profile:id,user_id,city')
-            ->role('driver')
+            ->role(['driver', 'rider'])
             ->get()
             ->map(function ($driver) {
                 return [
@@ -108,9 +109,7 @@ class CustomRideController extends Controller
                     // DeliveryController::getLatestRides uses to decide who can see
                     // delivery jobs at all, reused here so the dispatch queue only
                     // ever offers a delivery-capable driver for a delivery job.
-                    'is_delivery' => $driver->driverVehicle && $driver->driverVehicle->vehicleType
-                                    ? (bool) $driver->driverVehicle->vehicleType->is_delivery
-                                    : false,
+                    'is_delivery' => $driver->hasRole('rider'),
                     // Admin-assigned at onboarding (Live Ops brief Task 1) -- not
                     // derived from GPS. Null until someone sets it via the driver
                     // detail page; the UI buckets these under "Unassigned".
@@ -282,7 +281,7 @@ class CustomRideController extends Controller
             'rideCounts'           => $rideCounts,
             'rides'                => $rides,
             // Live driver markers on the dispatch map.
-            'drivers'              => $this->getDriverMapData()->values(),
+            'drivers'              => $this->getDriverMapData()->reject(fn ($d) => $d['is_delivery'])->values(),
         ];
     }
 

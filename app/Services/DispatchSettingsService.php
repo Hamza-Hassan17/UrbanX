@@ -68,7 +68,6 @@ class DispatchSettingsService
         }
 
         $isTaxiType = \App\Models\VehicleType::whereKey($id)
-            ->where('is_delivery', '0')
             ->where('is_active', 'active')
             ->exists();
 

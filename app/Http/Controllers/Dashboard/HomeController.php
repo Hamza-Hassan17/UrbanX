@@ -70,8 +70,7 @@ class HomeController extends Controller
             'drivers_available' => User::role('driver')->acceptingJobs()->where('driver_status', 'available')->count(),
             'drivers_busy' => User::role('driver')->acceptingJobs()->where('driver_status', 'busy')->count(),
             // Batch 3 Part 4 -- drivers who switched themselves (or were auto-switched) offline.
-            'drivers_offline' => User::role('driver')->where('online_status', 'offline')
-                ->whereDoesntHave('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))->count(),
+            'drivers_offline' => User::role('driver')->where('online_status', 'offline')->count(),
             'revenue_today' => $canSeeRevenue
                 ? (float) Ride::whereIn('ride_type', Ride::TAXI_TYPES)->whereDate('completed_at', $today)->where('status', 'completed')->sum('total_fare')
                 : null,
@@ -109,13 +108,11 @@ class HomeController extends Controller
             'food_today' => $foodToday,
             'parcel_today' => $parcelToday,
             'completed_today' => Ride::where('ride_type', 'delivery')->whereDate('completed_at', $today)->where('status', 'completed')->count(),
-            'riders_available' => User::role('driver')
+            'riders_available' => User::role('rider')
                 ->acceptingJobs()
                 ->where('driver_status', 'available')
-                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
                 ->count(),
-            'riders_offline' => User::role('driver')->where('online_status', 'offline')
-                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
+            'riders_offline' => User::role('rider')->where('online_status', 'offline')
                 ->count(),
             'revenue_today' => $canSeeRevenue
                 ? (float) Ride::where('ride_type', 'delivery')->whereDate('completed_at', $today)->where('status', 'completed')->sum('total_fare')
@@ -154,10 +151,8 @@ class HomeController extends Controller
             'orders_today' => Ride::where('ride_type', 'delivery')->whereDate('requested_at', $today)->count(),
             'completed_today' => Ride::whereIn('ride_type', ['ride', 'delivery', 'parcel'])->whereDate('completed_at', $today)->where('status', 'completed')->count(),
             'cancelled_today' => Ride::whereIn('ride_type', ['ride', 'delivery', 'parcel'])->whereDate('cancelled_at', $today)->where('status', 'cancelled')->count(),
-            'drivers_available' => User::role('driver')->acceptingJobs()->where('driver_status', 'available')
-                ->whereDoesntHave('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))->count(),
-            'riders_available' => User::role('driver')->acceptingJobs()->where('driver_status', 'available')
-                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))->count(),
+            'drivers_available' => User::role('driver')->acceptingJobs()->where('driver_status', 'available')->count(),
+            'riders_available' => User::role('rider')->acceptingJobs()->where('driver_status', 'available')->count(),
             'revenue_today' => $revenueToday,
             'labels' => $labels,
             'rides_trend' => $ridesTrend,

@@ -426,8 +426,8 @@ class DeliveryController extends Controller
 
         $rider = null;
         if ($request->filled('rider_id')) {
-            $rider = \App\Models\User::role('driver')
-                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
+            $rider = \App\Models\User::role('rider')
+                ->whereHas('driverVehicle')
                 ->with('driverVehicle')
                 ->find($request->rider_id);
             if (!$rider) {
@@ -588,7 +588,7 @@ class DeliveryController extends Controller
 
             // The new rider/driver must drive the job's vehicle type (a
             // delivery bike for food, the parcel vehicle type for parcels).
-            $newRider = \App\Models\User::role('driver')
+            $newRider = \App\Models\User::role($order ? 'rider' : 'driver')
                 ->whereHas('driverVehicle', fn ($q) => $q->where('vehicle_type_id', $ride->vehicle_type_id))
                 ->find($request->driver_id);
             if (!$newRider) {
@@ -676,10 +676,10 @@ class DeliveryController extends Controller
         $jobs = fn () => Ride::whereIn('ride_type', $rideTypes)
             ->when(!$isParcel, fn ($q) => $q->whereIn('id', RestaurantOrder::whereNotNull('ride_id')->select('ride_id')));
 
-        $riders = \App\Models\User::role('driver')
+        // Food jobs -> Rider app accounts; parcels -> Driver app accounts.
+        $riders = \App\Models\User::role($isParcel ? 'driver' : 'rider')
             ->when($isParcel,
-                fn ($q) => $q->whereHas('driverVehicle', fn ($v) => $v->where('vehicle_type_id', $parcelVehicleTypeId ?? 0)),
-                fn ($q) => $q->whereHas('driverVehicle.vehicleType', fn ($v) => $v->where('is_delivery', '1')))
+                fn ($q) => $q->whereHas('driverVehicle', fn ($v) => $v->where('vehicle_type_id', $parcelVehicleTypeId ?? 0)))
             ->with(['profile:id,user_id,city', 'driverVehicle:id,driver_id,vehicle_name,vehicle_make'])
             ->get(['id', 'name', 'phone', 'lat', 'lang', 'driver_status', 'online_status', 'last_location_at'])
             ->map(function ($rider) use ($cashLimit, $isParcel) {

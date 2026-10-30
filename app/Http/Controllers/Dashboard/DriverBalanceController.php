@@ -30,7 +30,6 @@ class DriverBalanceController extends Controller
         try {
             $drivers = User::with('profile:id,user_id,phone_number,city')
                 ->role('driver')
-                ->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '0'))
                 ->get()
                 ->map(function ($driver) {
                     $driver->outstanding_balance = RiderCashService::currentBalance($driver->id);

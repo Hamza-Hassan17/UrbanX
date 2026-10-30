@@ -100,11 +100,10 @@ class DriverController extends Controller
      */
     private function driverQuery(bool $delivery)
     {
-        $query = User::with('profile:id,user_id,phone_number,city', 'driverVerification')->role('driver');
-
-        return $delivery
-            ? $query->whereHas('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'))
-            : $query->whereDoesntHave('driverVehicle.vehicleType', fn ($q) => $q->where('is_delivery', '1'));
+        // Rider app signs up as 'rider', Driver app as 'driver' -- the
+        // account role decides the workspace, not the vehicle type.
+        return User::with('profile:id,user_id,phone_number,city', 'driverVerification')
+            ->role($delivery ? 'rider' : 'driver');
     }
 
     /**
