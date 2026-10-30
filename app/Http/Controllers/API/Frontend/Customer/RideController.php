@@ -171,7 +171,7 @@ class RideController extends Controller
                 ], Response::HTTP_BAD_REQUEST);
             }
             // CHECK PER RIDE LIMIT
-            $rideUsedCount = Ride::where('promo_code_id', $promoCode->id)->count();
+            $rideUsedCount = Ride::where('promo_code_id', $promoCode->id)->where('status', '!=', 'cancelled')->count();
             if ($rideUsedCount >= $promoCode->usage_limit) {
                 return response()->json([
                     'message' => 'Promo code usage limit reached for this ride.'
@@ -181,6 +181,7 @@ class RideController extends Controller
             // CHECK PER USER LIMIT
             $userUsedCount = Ride::where('passenger_id', auth()->id())
                 ->where('promo_code_id', $promoCode->id)
+                ->where('status', '!=', 'cancelled')
                 ->count();
 
             if ($userUsedCount >= $promoCode->usage_limit_per_user) {
@@ -450,8 +451,8 @@ class RideController extends Controller
                 ->where('valid_until', '>=', now())
                 ->first();
             if ($promo
-                && Ride::where('promo_code_id', $promo->id)->count() < $promo->usage_limit
-                && Ride::where('passenger_id', $request->user()->id)->where('promo_code_id', $promo->id)->count() < $promo->usage_limit_per_user
+                && Ride::where('promo_code_id', $promo->id)->where('status', '!=', 'cancelled')->count() < $promo->usage_limit
+                && Ride::where('passenger_id', $request->user()->id)->where('promo_code_id', $promo->id)->where('status', '!=', 'cancelled')->count() < $promo->usage_limit_per_user
             ) {
                 $promoCodeId = $promo->id;
                 $discount = $promo->discount_percentage > 0 ? round($subtotal * $promo->discount_percentage / 100, 2) : 0.0;

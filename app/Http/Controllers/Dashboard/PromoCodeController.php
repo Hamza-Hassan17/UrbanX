@@ -69,8 +69,8 @@ class PromoCodeController extends Controller
             $promoCode->name = $request->name;
             $promoCode->code = $request->code;
             $promoCode->discount_percentage = $request->discount_percentage;
-            $promoCode->valid_from = $request->valid_from;
-            $promoCode->valid_until = $request->valid_until;
+            $promoCode->valid_from = \Carbon\Carbon::parse($request->valid_from)->startOfDay();
+            $promoCode->valid_until = \Carbon\Carbon::parse($request->valid_until)->endOfDay();
             $promoCode->usage_limit_per_user = $request->usage_limit_per_user ?? 1;
             $promoCode->usage_limit = $request->usage_limit ?? 1;
             $promoCode->save();
@@ -135,8 +135,8 @@ class PromoCodeController extends Controller
             $promocode->name = $request->name;
             $promocode->code = $request->code;
             $promocode->discount_percentage = $request->discount_percentage;
-            $promocode->valid_from = $request->valid_from;
-            $promocode->valid_until = $request->valid_until;
+            $promocode->valid_from = \Carbon\Carbon::parse($request->valid_from)->startOfDay();
+            $promocode->valid_until = \Carbon\Carbon::parse($request->valid_until)->endOfDay();
             $promocode->usage_limit_per_user = $request->usage_limit_per_user ?? 1;
             $promocode->usage_limit = $request->usage_limit ?? 1;
             $promocode->save();
