@@ -34,7 +34,8 @@
                                 <td>{{ $driver->email }}</td>
                                 <td>{{ $driver->profile->phone_number ?? 'N/A' }}</td>
                                 <td>{{ $driver->driverVerification->submitted_at?->format('M d, Y h:i A') ?? 'N/A' }}</td>
-                                <td class="d-flex">
+                                @php $viewed = \App\Http\Controllers\Dashboard\DriverController::documentsViewed($driver); @endphp
+                                <td class="d-flex align-items-center">
                                     <a href="{{ route('dashboard.drivers.show', $driver->id) }}"
                                         class="btn btn-icon btn-text-warning waves-effect waves-light rounded-pill me-1"
                                         data-bs-toggle="tooltip" data-bs-placement="top"
@@ -42,6 +43,11 @@
                                         <i class="ti ti-eye ti-md"></i>
                                     </a>
                                     @can(['update driver'])
+                                    @if (!$viewed)
+                                        <small class="text-muted" title="{{ __('Approve / Reject unlock after you view the documents') }}">
+                                            <i class="ti ti-lock"></i> {{ __('View documents first') }}
+                                        </small>
+                                    @else
                                         <form action="{{ route('dashboard.drivers.verification.approve', $driver->id) }}" method="POST">
                                             @csrf
                                             <button type="submit"
@@ -78,6 +84,7 @@
                                                 </form>
                                             </div>
                                         </div>
+                                    @endif
                                     @endcan
                                 </td>
                             </tr>

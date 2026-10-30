@@ -131,6 +131,8 @@ class DriverController extends Controller
         $this->authorize('view driver');
         try {
             $driver = User::with('driverCnic', 'driverLicense', 'driverSelfie', 'driverVehicle.vehicleType', 'driverVerification', 'profile')->findOrFail($id);
+            // Approve/Reject unlock only after this admin has opened the documents.
+            session()->put(self::viewedKey($driver->id), self::submissionStamp($driver));
             return view('dashboard.drivers.show', compact('driver'));
         } catch (\Throwable $th) {
             Log::error('Drivers Show Failed', ['error' => $th->getMessage()]);
@@ -167,11 +169,38 @@ class DriverController extends Controller
      * the driver_verifications row itself is overwritten each cycle
      * (submitted -> approved|rejected -> re-submitted -> ...).
      */
+    /** Session key: has the current admin viewed this driver's KYC documents? */
+    public static function viewedKey(int $driverId): string
+    {
+        return 'kyc_viewed.' . $driverId;
+    }
+
+    /** Ties the "viewed" mark to one submission, so a resubmission must be viewed again. */
+    public static function submissionStamp(User $driver): string
+    {
+        return (string) optional($driver->driverVerification?->submitted_at)->timestamp;
+    }
+
+    public static function documentsViewed(User $driver): bool
+    {
+        return session(self::viewedKey($driver->id)) === self::submissionStamp($driver);
+    }
+
+    private function mustViewFirst(User $driver)
+    {
+        return self::documentsViewed($driver)
+            ? null
+            : redirect()->back()->with('error', 'Please view the documents first (eye icon) before approving or rejecting.');
+    }
+
     public function approveVerification(string $id)
     {
         $this->authorize('update driver');
         try {
             $driver = User::findOrFail($id);
+            if ($blocked = $this->mustViewFirst($driver)) {
+                return $blocked;
+            }
             $verification = $driver->driverVerification()->firstOrCreate(['driver_id' => $driver->id]);
             $verification->status = 'approved';
             $verification->rejection_reason = null;
@@ -194,6 +223,9 @@ class DriverController extends Controller
         ]);
         try {
             $driver = User::findOrFail($id);
+            if ($blocked = $this->mustViewFirst($driver)) {
+                return $blocked;
+            }
             $verification = $driver->driverVerification()->firstOrCreate(['driver_id' => $driver->id]);
             $verification->status = 'rejected';
             $verification->rejection_reason = $request->rejection_reason;
