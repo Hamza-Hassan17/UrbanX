@@ -204,6 +204,8 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
 
         Route::group(['prefix' => 'customer'], function () {
             Route::get('/home', [CustomerController::class, 'getHomeData']);
+            Route::get('/home-v2', [\App\Http\Controllers\API\Frontend\Restaurant\HomeFeedController::class, 'home']);
+            Route::get('/explore', [\App\Http\Controllers\API\Frontend\Restaurant\HomeFeedController::class, 'explore']);
             Route::get('/categories', [CustomerController::class, 'getCategories']);
             Route::get('/support-info', [CustomerController::class, 'getSupportInfo']);
             Route::get('/restaurants/{category?}', [CustomerController::class, 'getRestaurants']);

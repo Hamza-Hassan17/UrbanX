@@ -66,7 +66,8 @@ class CustomerController extends Controller
                 'message' => 'Restaurant Customer Home Data',
                 'user' => $user,
                 'popular_categories' => $popularRestaurantCategories,
-                'pupular_restaurants' => $popularRestaurants,
+                'pupular_restaurants' => $popularRestaurants, // misspelt key kept for existing app builds
+                'popular_restaurants' => $popularRestaurants,
             ], Response::HTTP_OK);
         } catch (\Throwable $th) {
             Log::error('API Restaurant Customer Home failed', ['error' => $th->getMessage()]);

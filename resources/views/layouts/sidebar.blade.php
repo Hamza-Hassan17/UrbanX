@@ -343,6 +343,11 @@
                                 <div>{{__('Categories')}}</div>
                             </a>
                         </li>
+                        <li class="menu-item {{ request()->routeIs('dashboard.home-banners.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.home-banners.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Home Banners')}}</div>
+                            </a>
+                        </li>
                         <li class="menu-item {{ request()->routeIs('dashboard.eats-support-info.*') ? 'active' : '' }}">
                             <a href="{{route('dashboard.eats-support-info.edit')}}" class="menu-link" style="color: #fff !important;">
                                 <div>{{__('Contact & About')}}</div>

@@ -67,6 +67,7 @@ return [
         'dashboard.restaurant-verifications.' => 'delivery',
         'dashboard.restaurant-categories.' => 'delivery',
         'dashboard.eats-support-info.' => 'delivery',
+        'dashboard.home-banners.' => 'delivery',
         'dashboard.restaurant-vouchers.' => 'delivery',
         'dashboard.restaurant-owners.' => 'delivery',
         'dashboard.delivery.' => 'delivery',

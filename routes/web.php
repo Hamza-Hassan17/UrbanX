@@ -293,6 +293,12 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('support-requests/{id}/close', [SupportRequestController::class, 'close'])->name('support-requests.close');
             Route::post('support-requests/{id}/reply', [SupportRequestController::class, 'reply'])->name('support-requests.reply');
 
+            //Urban Eats Home Banners
+            Route::get('home-banners', [\App\Http\Controllers\Dashboard\Restaurant\HomeBannerController::class, 'index'])->name('home-banners.index');
+            Route::post('home-banners', [\App\Http\Controllers\Dashboard\Restaurant\HomeBannerController::class, 'store'])->name('home-banners.store');
+            Route::post('home-banners/{homeBanner}/toggle', [\App\Http\Controllers\Dashboard\Restaurant\HomeBannerController::class, 'toggle'])->name('home-banners.toggle');
+            Route::delete('home-banners/{homeBanner}', [\App\Http\Controllers\Dashboard\Restaurant\HomeBannerController::class, 'destroy'])->name('home-banners.destroy');
+
             //Urban Eats Contact & About
             Route::get('eats-support-info', [\App\Http\Controllers\Dashboard\Restaurant\SupportInfoController::class, 'edit'])->name('eats-support-info.edit');
             Route::put('eats-support-info', [\App\Http\Controllers\Dashboard\Restaurant\SupportInfoController::class, 'update'])->name('eats-support-info.update');
