@@ -259,6 +259,12 @@
                         <span class="badge bg-label-secondary">{{ ucwords(str_replace('_', ' ', $relatedOrder->status)) }}</span>
                     </div>
                     <div class="card-body">
+                        @if($relatedOrder->admin_booking_reason)
+                            <div class="alert alert-warning py-2 small">
+                                <strong>{{ __('Booked manually by') }} {{ \App\Models\User::find($ride->created_by)?->name ?? __('admin') }}:</strong>
+                                {{ $relatedOrder->admin_booking_reason }}
+                            </div>
+                        @endif
                         @include('dashboard.restaurant.restaurants.partials.order-items', ['items' => $relatedOrder->items])
                         <hr>
                         <div class="d-flex justify-content-between small">

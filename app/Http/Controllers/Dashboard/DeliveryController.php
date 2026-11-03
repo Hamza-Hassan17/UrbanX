@@ -400,6 +400,41 @@ class DeliveryController extends Controller
      * restaurant) + its delivery ride; optionally hands it to a rider.
      * Delivery fee always computed server-side from Pricing & Fees.
      */
+    /** Orderable menu of one restaurant, for the manual booking form. */
+    public function restaurantMenu($restaurant_id)
+    {
+        $this->authorize('view delivery');
+        $this->authorize('assign ride');
+
+        $menus = \App\Models\RestaurantMenu::where('restaurant_id', $restaurant_id)->pluck('name', 'id');
+
+        $items = \App\Models\RestaurantItem::where('restaurant_id', $restaurant_id)
+            ->where('is_active', 'active')
+            ->where('is_available', '1')
+            ->with('optionGroups.options')
+            ->orderBy('name')
+            ->get()
+            ->map(fn ($item) => [
+                'id' => $item->id,
+                'name' => $item->name,
+                'menu' => $menus[$item->restaurant_menu_id] ?? __('Other'),
+                'price' => $item->basePrice(),
+                'groups' => $item->optionGroups->map(fn ($group) => [
+                    'id' => $group->id,
+                    'name' => $group->name,
+                    'min' => $group->effectiveMin(),
+                    'max' => $group->effectiveMax(),
+                    'options' => $group->options->where('is_available', true)->values()->map(fn ($option) => [
+                        'id' => $option->id,
+                        'name' => $option->name,
+                        'price' => (float) $option->price_adjustment,
+                    ]),
+                ]),
+            ]);
+
+        return response()->json(['items' => $items]);
+    }
+
     public function storeFoodDelivery(Request $request)
     {
         $this->authorize('view delivery');
@@ -411,15 +446,39 @@ class DeliveryController extends Controller
             'dropoff_longitude' => 'required|numeric',
             'customer_name' => 'required|string|max:255',
             'customer_phone' => 'required|string|max:30',
-            'order_amount' => 'nullable|numeric|min:0',
+            'items' => 'required|array|min:1',
+            'items.*.id' => 'required|integer',
+            'items.*.quantity' => 'required|integer|min:1|max:99',
+            'items.*.option_ids' => 'nullable|array',
+            'items.*.option_ids.*' => 'integer',
+            'admin_reason' => 'required|string|min:5|max:1000',
             'rider_note' => 'nullable|string|max:255',
             'rider_id' => 'nullable|exists:users,id',
+        ], [
+            'items.required' => 'Please select at least one food item.',
+            'admin_reason.required' => 'Please write why this order is being booked manually.',
+            'admin_reason.min' => 'Please write a clearer reason for this manual booking.',
         ]);
         if ($validator->fails()) {
             return response()->json(['message' => $validator->errors()->first(), 'errors' => $validator->errors()], 422);
         }
 
         $restaurant = \App\Models\Restaurant::find($request->restaurant_id);
+
+        // Same server-side pricing and add-on rules as a customer's order.
+        $pricedLines = [];
+        foreach ($request->input('items') as $input) {
+            $menuItem = \App\Models\RestaurantItem::where('restaurant_id', $restaurant->id)->find($input['id']);
+            if (!$menuItem) {
+                return response()->json(['message' => 'A selected item does not belong to this restaurant.'], 422);
+            }
+            try {
+                $line = \App\Services\MenuOptionService::priceLine($menuItem, $input['option_ids'] ?? []);
+            } catch (\InvalidArgumentException $e) {
+                return response()->json(['message' => $e->getMessage()], 422);
+            }
+            $pricedLines[] = [$menuItem, (int) $input['quantity'], $line];
+        }
         if (!$restaurant->latitude || !$restaurant->longitude) {
             return response()->json(['message' => 'This restaurant has no location set.'], 422);
         }
@@ -446,7 +505,7 @@ class DeliveryController extends Controller
         $chargedKm = max(\App\Services\FareBreakdownService::roundUpToKm($actualKm), 1);
         $deliveryFee = $feeSettings['first_km_fee'] + max($chargedKm - 1, 0) * $feeSettings['per_km_fee'];
         $deliveryFee = round($deliveryFee, 2);
-        $orderAmount = round((float) $request->input('order_amount', 0), 2);
+        $orderAmount = round(collect($pricedLines)->sum(fn ($l) => $l[2]['unit_price'] * $l[1]), 2);
 
         $vehicleTypeId = $rider
             ? $rider->driverVehicle->vehicle_type_id
@@ -473,6 +532,7 @@ class DeliveryController extends Controller
             $order->delivery_lat = $request->dropoff_latitude;
             $order->delivery_lang = $request->dropoff_longitude;
             $order->rider_note = $request->rider_note;
+            $order->admin_booking_reason = $request->admin_reason;
             $order->payment_method = 'cod';
             $order->payment_status = 'unpaid';
             $order->status = 'accepted'; // admin confirmed it with the restaurant
@@ -487,6 +547,19 @@ class DeliveryController extends Controller
                 'delivery_fee' => $deliveryFee,
             ]);
             $order->save();
+
+            foreach ($pricedLines as [$menuItem, $quantity, $line]) {
+                $order->items()->create([
+                    'restaurant_item_id' => $menuItem->id,
+                    'item_name' => $menuItem->name,
+                    'quantity' => $quantity,
+                    'price_per_item' => $line['unit_price'],
+                    'base_price' => $line['base_price'],
+                    'total_price' => round($line['unit_price'] * $quantity, 2),
+                    'selected_options' => $line['selected_options'] ?: null,
+                    'notes' => null,
+                ]);
+            }
 
             $ride = new Ride();
             $ride->passenger_id = $customer->id;
@@ -534,7 +607,7 @@ class DeliveryController extends Controller
         AdminActivityLog::record(
             'Booked food delivery for customer',
             [],
-            ['ride_id' => $ride->id, 'order_id' => $order->id, 'rider_id' => $rider?->id, 'delivery_fee' => $deliveryFee],
+            ['ride_id' => $ride->id, 'order_id' => $order->id, 'rider_id' => $rider?->id, 'delivery_fee' => $deliveryFee, 'reason' => $request->admin_reason],
             Ride::class,
             $ride->id
         );

@@ -170,6 +170,13 @@
                     </div>
 
                     @unless($isParcel)
+                    <div class="field field-full">
+                        <label><i class="fas fa-utensils"></i>{{ __('Food items') }}</label>
+                        <div id="menu-picker" style="max-height:240px; overflow-y:auto; border:1px solid #e5e5e5; border-radius:6px; padding:8px; font-size:12px;">
+                            <span class="text-muted">{{ __('Select a restaurant to see its menu') }}</span>
+                        </div>
+                    </div>
+
                     <div class="subhead">{{ __('Customer') }}</div>
                     <div class="field">
                         <label for="customer_name"><i class="fas fa-user"></i>{{ __('Name') }}</label>
@@ -181,11 +188,15 @@
                     </div>
                     <div class="field">
                         <label for="order_amount"><i class="fas fa-receipt"></i>{{ __('Food bill (Rs)') }}</label>
-                        <input type="number" id="order_amount" class="form-control" min="0" step="1" placeholder="0">
+                        <input type="text" id="order_amount" class="form-control" value="0" readonly>
                     </div>
                     <div class="field">
                         <label for="rider_note"><i class="fas fa-note-sticky"></i>{{ __('Note for rider') }}</label>
                         <input type="text" id="rider_note" class="form-control" placeholder="{{ __('Optional') }}" maxlength="255">
+                    </div>
+                    <div class="field field-full">
+                        <label for="admin_reason"><i class="fas fa-clipboard"></i>{{ __('Reason for manual booking') }} <span class="text-danger">*</span></label>
+                        <textarea id="admin_reason" class="form-control" rows="2" maxlength="1000" placeholder="{{ __('e.g. Customer could not place the order in the app') }}"></textarea>
                     </div>
                     @endunless
 
@@ -339,6 +350,7 @@
             canReassign: @json(auth()->user()->can('reassign ride')),
             isParcel: @json($isParcel),
             foodUrl: @json($isParcel ? null : route('dashboard.delivery-assignment.food')),
+            menuUrlTemplate: @json($isParcel ? null : route('dashboard.delivery-assignment.menu', ['restaurant_id' => '__ID__'])),
             food: @json($foodSettings ?? null),
             csrf: document.querySelector('meta[name="csrf-token"]').content,
         };
@@ -619,6 +631,83 @@
             }
         });
 
+        // ---------------- Food menu picker ----------------
+        let menuItems = [];
+        const menuPicker = document.getElementById('menu-picker');
+        const menuEsc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+        function renderMenu() {
+            if (!menuItems.length) {
+                menuPicker.innerHTML = '<span class="text-muted">{{ __('This restaurant has no available items') }}</span>';
+                return;
+            }
+            let lastMenu = null;
+            menuPicker.innerHTML = menuItems.map(item => {
+                const heading = item.menu !== lastMenu ? `<div style="font-weight:700; margin:6px 0 2px;">${menuEsc(item.menu)}</div>` : '';
+                lastMenu = item.menu;
+                const groups = item.groups.map(group => `
+                    <div style="padding-left:8px; margin-top:2px;">
+                        <div class="text-muted">${menuEsc(group.name)}${group.min > 0 ? ' *' : ''}</div>
+                        ${group.options.map(o => `<label style="display:block; font-weight:400; text-transform:none; margin:0;">
+                            <input type="${group.max === 1 ? 'radio' : 'checkbox'}" name="menu-group-${group.id}" data-item="${item.id}" data-option="${o.id}" data-price="${o.price}">
+                            ${menuEsc(o.name)}${o.price ? ` (${o.price > 0 ? '+' : ''}${o.price})` : ''}
+                        </label>`).join('')}
+                    </div>`).join('');
+                return `${heading}<div style="padding:4px 0; border-bottom:1px dashed #eee;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:6px;">
+                        <span>${menuEsc(item.name)} <span class="text-muted">Rs ${item.price}</span></span>
+                        <input type="number" min="0" max="99" value="0" data-qty="${item.id}" class="form-control form-control-sm" style="width:58px; flex:none;">
+                    </div>
+                    <div data-options="${item.id}" style="display:none;">${groups}</div>
+                </div>`;
+            }).join('');
+            updateFoodBill();
+        }
+
+        function selectedMenuItems() {
+            return menuItems.map(item => {
+                const qty = parseInt(menuPicker.querySelector(`[data-qty="${item.id}"]`)?.value, 10) || 0;
+                const options = [...menuPicker.querySelectorAll(`input[data-item="${item.id}"]:checked`)];
+                return { item, qty, options };
+            }).filter(l => l.qty > 0);
+        }
+
+        function updateFoodBill() {
+            menuItems.forEach(item => {
+                const row = menuPicker.querySelector(`[data-options="${item.id}"]`);
+                const qty = parseInt(menuPicker.querySelector(`[data-qty="${item.id}"]`)?.value, 10) || 0;
+                if (row) row.style.display = qty > 0 ? '' : 'none';
+            });
+            const total = selectedMenuItems().reduce((sum, l) =>
+                sum + l.qty * (l.item.price + l.options.reduce((s, o) => s + parseFloat(o.dataset.price), 0)), 0);
+            document.getElementById('order_amount').value = Math.round(total * 100) / 100;
+        }
+
+        if (menuPicker) {
+            menuPicker.addEventListener('input', updateFoodBill);
+            menuPicker.addEventListener('change', updateFoodBill);
+            document.getElementById('pickup-restaurant').addEventListener('change', async function () {
+                menuItems = [];
+                document.getElementById('order_amount').value = 0;
+                if (!this.value) {
+                    menuPicker.innerHTML = '<span class="text-muted">{{ __('Select a restaurant to see its menu') }}</span>';
+                    return;
+                }
+                const restaurantId = this.value;
+                menuPicker.innerHTML = '<span class="text-muted">{{ __('Loading menu...') }}</span>';
+                try {
+                    const res = await fetch(DISPATCH.menuUrlTemplate.replace('__ID__', restaurantId), { headers: { 'Accept': 'application/json' } });
+                    if (!res.ok) throw new Error();
+                    const data = await res.json();
+                    if (this.value !== restaurantId) return; // restaurant changed while loading
+                    menuItems = data.items;
+                    renderMenu();
+                } catch (e) {
+                    menuPicker.innerHTML = '<span class="text-danger">{{ __('Could not load the menu') }}</span>';
+                }
+            });
+        }
+
         async function searchLocations(query) {
             try {
                 const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=pk`);
@@ -744,9 +833,11 @@
         });
 
         async function saveFoodDelivery(btn, val) {
-            for (const [id, label] of [['customer_name', 'Customer name'], ['customer_phone', 'Customer phone']]) {
+            for (const [id, label] of [['customer_name', 'Customer name'], ['customer_phone', 'Customer phone'], ['admin_reason', 'Reason for manual booking']]) {
                 if (!val(id)) { toast(`${label} is required`, 'error'); document.getElementById(id).focus(); return; }
             }
+            const lines = selectedMenuItems();
+            if (!lines.length) { toast('Please select at least one food item', 'error'); return; }
             if (formRider && !inRadius(formRider) &&
                 !confirm(`${formRider.name} is more than ${DISPATCH.food.max_distance_km} km from the restaurant. Assign anyway?`)) {
                 return;
@@ -764,7 +855,8 @@
                         restaurant_id: val('pickup-restaurant'),
                         dropoff_latitude: dropoffCoords.lat, dropoff_longitude: dropoffCoords.lng,
                         customer_name: val('customer_name'), customer_phone: val('customer_phone'),
-                        order_amount: val('order_amount') || 0,
+                        items: lines.map(l => ({ id: l.item.id, quantity: l.qty, option_ids: l.options.map(o => parseInt(o.dataset.option, 10)) })),
+                        admin_reason: val('admin_reason'),
                         rider_note: val('rider_note') || null,
                         rider_id: formRider ? formRider.id : null,
                     }),
@@ -772,8 +864,11 @@
                 const data = await res.json();
                 if (!res.ok) { toast(data.message || 'Could not book delivery', 'error'); return; }
                 toast(data.message);
-                ['customer_name', 'customer_phone', 'order_amount', 'rider_note'].forEach(id => { document.getElementById(id).value = ''; });
+                ['customer_name', 'customer_phone', 'rider_note', 'admin_reason'].forEach(id => { document.getElementById(id).value = ''; });
                 resetForm();
+                menuItems = [];
+                document.getElementById('order_amount').value = 0;
+                menuPicker.innerHTML = '<span class="text-muted">{{ __('Select a restaurant to see its menu') }}</span>';
                 refreshQueue();
                 refreshStats();
             } catch (e) {
