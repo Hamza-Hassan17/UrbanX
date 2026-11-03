@@ -343,6 +343,11 @@
                                 <div>{{__('Categories')}}</div>
                             </a>
                         </li>
+                        <li class="menu-item {{ request()->routeIs('dashboard.eats-support-info.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.eats-support-info.edit')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Contact & About')}}</div>
+                            </a>
+                        </li>
                     @endcan
                     @can(['view restaurant'])
                         <li class="menu-item {{ request()->routeIs('dashboard.restaurant-verifications.*') ? 'active' : '' }}">

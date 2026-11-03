@@ -204,6 +204,8 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
 
         Route::group(['prefix' => 'customer'], function () {
             Route::get('/home', [CustomerController::class, 'getHomeData']);
+            Route::get('/categories', [CustomerController::class, 'getCategories']);
+            Route::get('/support-info', [CustomerController::class, 'getSupportInfo']);
             Route::get('/restaurants/{category?}', [CustomerController::class, 'getRestaurants']);
             Route::post('/search', [CustomerController::class, 'searchRestaurants']);
             Route::get('/restaurant-details/{restaurant_id}', [CustomerController::class, 'getRestaurantDetails']);

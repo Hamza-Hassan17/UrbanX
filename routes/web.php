@@ -293,6 +293,10 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('support-requests/{id}/close', [SupportRequestController::class, 'close'])->name('support-requests.close');
             Route::post('support-requests/{id}/reply', [SupportRequestController::class, 'reply'])->name('support-requests.reply');
 
+            //Urban Eats Contact & About
+            Route::get('eats-support-info', [\App\Http\Controllers\Dashboard\Restaurant\SupportInfoController::class, 'edit'])->name('eats-support-info.edit');
+            Route::put('eats-support-info', [\App\Http\Controllers\Dashboard\Restaurant\SupportInfoController::class, 'update'])->name('eats-support-info.update');
+
             //Restaurant Categories
             Route::resource('restaurant-categories', RestaurantCategoryController::class);
             Route::get('restaurant-categories/status/{id}', [RestaurantCategoryController::class, 'updateStatus'])->name('restaurant-categories.status.update');

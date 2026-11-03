@@ -40,7 +40,8 @@ class CustomerController extends Controller
 
             $popularRestaurantCategories = RestaurantCategory::where('is_active', 'active')->where('is_popular', '1')->limit(5)->get();
             $popularRestaurantCategories = $popularRestaurantCategories->map(function ($item) {
-                $item->image = $item->image ? url('storage/' . $item->image) : null;
+                // Admin uploads are saved under public/, not storage/.
+                $item->image = $item->image ? asset($item->image) : null;
                 return $item;
             });
 
@@ -115,6 +116,38 @@ class CustomerController extends Controller
                 $restaurant->distance_km = round($this->haversineDistanceKm($request->lat, $request->lang, $restaurant->latitude, $restaurant->longitude), 2);
             }
         })->values();
+    }
+
+    /** "See all" screen: every active food category. */
+    public function getCategories()
+    {
+        $categories = RestaurantCategory::where('is_active', 'active')
+            ->orderBy('name')
+            ->get(['id', 'name', 'image', 'is_popular'])
+            ->map(function ($item) {
+                $item->image = $item->image ? asset($item->image) : null;
+                return $item;
+            });
+
+        return response()->json(['categories' => $categories], Response::HTTP_OK);
+    }
+
+    /** Contact Support screen: phone, email, address, about, social links. */
+    public function getSupportInfo()
+    {
+        $info = \App\Models\EatsSupportInfo::first();
+
+        return response()->json([
+            'support_info' => [
+                'phone' => $info?->phone,
+                'email' => $info?->email,
+                'address' => $info?->address,
+                'about' => $info?->about,
+                'facebook_url' => $info?->facebook_url,
+                'instagram_url' => $info?->instagram_url,
+                'twitter_url' => $info?->twitter_url,
+            ],
+        ], Response::HTTP_OK);
     }
 
     public function getRestaurants(Request $request, $category = null)

@@ -32,7 +32,7 @@
                             @enderror
                         </div>
                         <div class="mb-4 col-md-6">
-                            <label for="image" class="form-label">{{ __('Main Image') }}</label>
+                            <label for="image" class="form-label">{{ __('Icon (transparent PNG, 512x512)') }}</label>
                             <input class="form-control @error('image') is-invalid @enderror" type="file"
                                 id="image" name="image" accept="image/*"/>
                             @error('image')
