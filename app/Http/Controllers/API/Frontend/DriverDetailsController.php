@@ -107,28 +107,39 @@ class DriverDetailsController extends Controller
         }
     }
 
+    /**
+     * Delivery riders (Rider app, bikes only) have a shorter KYC than taxi
+     * drivers: licence optional, 1 vehicle photo, no video, plate required.
+     */
+    private function isRider($user): bool
+    {
+        return $user->hasRole('rider');
+    }
+
     public function updateVehicleDetails(Request $request)
     {
         if ($this->documentsLocked($request->user())) {
             return $this->lockedResponse($request->user());
         }
 
+        $isRider = $this->isRider($request->user());
+
         $validator = Validator::make($request->all(), [
             'vehicle_type_id' => 'required|exists:vehicle_types,id',
-            'vehicle_name' => 'required|string',
+            'vehicle_name' => $isRider ? 'nullable|string' : 'required|string',
             'vehicle_make' => 'nullable|string',
             'vehicle_model' => 'nullable|string',
             'vehicle_color' => 'nullable|string',
             'vehicle_year' => 'nullable|string',
-            'vehicle_plate_number' => 'nullable|string',
-            'vehicle_images' => 'required|array|size:4',
+            'vehicle_plate_number' => $isRider ? 'required|string' : 'nullable|string',
+            'vehicle_images' => $isRider ? 'required|array|min:1|max:4' : 'required|array|size:4',
             'vehicle_images.*' => 'image|mimes:jpeg,png,jpg,gif,svg|max_size',
             'registration_paper' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max_size',
             // Size checked below (videos get their own, bigger limit).
             'vehicle_video' => 'nullable|file|mimes:mp4,mov,avi,3gp,mkv,webm',
         ]);
 
-        $validator->after(function ($v) use ($request) {
+        $validator->after(function ($v) use ($request, $isRider) {
             $type = VehicleType::find($request->vehicle_type_id);
             if (!$type) {
                 return;
@@ -136,7 +147,7 @@ class DriverDetailsController extends Controller
             $existing = DriverVehicle::where('driver_id', $request->user()->id)
                 ->where('vehicle_type_id', $type->id)
                 ->value('vehicle_video');
-            if ($type->requires_vehicle_video && !$request->hasFile('vehicle_video') && !$existing) {
+            if (!$isRider && $type->requires_vehicle_video && !$request->hasFile('vehicle_video') && !$existing) {
                 $v->errors()->add('vehicle_video', 'A vehicle video (up to 10 minutes) is required for this vehicle type.');
             }
             if ($request->hasFile('vehicle_video') && $request->file('vehicle_video')->getSize() > self::MAX_VIDEO_MB * 1024 * 1024) {
@@ -162,7 +173,7 @@ class DriverDetailsController extends Controller
             }
 
             $driverVehicle->vehicle_type_id = $request->input('vehicle_type_id');
-            $driverVehicle->vehicle_name = $request->input('vehicle_name');
+            $driverVehicle->vehicle_name = $request->input('vehicle_name') ?: VehicleType::find($request->vehicle_type_id)->name;
             $driverVehicle->vehicle_make = $request->input('vehicle_make');
             $driverVehicle->vehicle_model = $request->input('vehicle_model');
             $driverVehicle->vehicle_color = $request->input('vehicle_color');
@@ -259,7 +270,7 @@ class DriverDetailsController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string',
             'license_number' => 'required|string',
-            'address' => 'required|string',
+            'address' => $this->isRider($request->user()) ? 'nullable|string' : 'required|string',
             'front_picture' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max_size',
             'back_picture' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max_size',
         ]);
@@ -454,7 +465,7 @@ class DriverDetailsController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string',
             'cnic_number' => 'required|string',
-            'issue_date' => 'required|string',
+            'issue_date' => $this->isRider($request->user()) ? 'nullable|string' : 'required|string',
             'front_picture' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max_size',
             'back_picture' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max_size',
         ]);
@@ -681,11 +692,12 @@ class DriverDetailsController extends Controller
                 return $this->lockedResponse($user);
             }
 
+            $isRider = $this->isRider($user);
             $missing = [];
             if (!$user->driverCnic || !$user->driverCnic->front_picture || !$user->driverCnic->back_picture) {
                 $missing[] = 'cnic';
             }
-            if (!$user->driverLicense || !$user->driverLicense->front_picture || !$user->driverLicense->back_picture) {
+            if (!$isRider && (!$user->driverLicense || !$user->driverLicense->front_picture || !$user->driverLicense->back_picture)) {
                 $missing[] = 'license';
             }
             if (!$user->driverSelfie || !$user->driverSelfie->picture) {
@@ -693,8 +705,11 @@ class DriverDetailsController extends Controller
             }
             $vehicle = $user->driverVehicle;
             $vehicleImageCount = $vehicle && $vehicle->vehicle_images ? count(json_decode($vehicle->vehicle_images, true) ?: []) : 0;
-            if (!$vehicle || $vehicleImageCount < 4 || !$vehicle->registration_paper
-                || ($vehicle->vehicleType?->requires_vehicle_video && !$vehicle->vehicle_video)) {
+            $vehicleIncomplete = $isRider
+                ? (!$vehicle || $vehicleImageCount < 1 || !$vehicle->registration_paper || !$vehicle->vehicle_plate_number)
+                : (!$vehicle || $vehicleImageCount < 4 || !$vehicle->registration_paper
+                    || ($vehicle->vehicleType?->requires_vehicle_video && !$vehicle->vehicle_video));
+            if ($vehicleIncomplete) {
                 $missing[] = 'vehicle';
             }
 
