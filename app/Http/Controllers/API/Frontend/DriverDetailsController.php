@@ -124,6 +124,13 @@ class DriverDetailsController extends Controller
 
         $isRider = $this->isRider($request->user());
 
+        // Delivery riders only ride bikes, so the app doesn't have to ask.
+        if ($isRider && !$request->filled('vehicle_type_id')) {
+            $request->merge([
+                'vehicle_type_id' => VehicleType::where('is_active', 'active')->where('name', 'like', '%bike%')->orderBy('id')->value('id'),
+            ]);
+        }
+
         $validator = Validator::make($request->all(), [
             'vehicle_type_id' => 'required|exists:vehicle_types,id',
             'vehicle_name' => $isRider ? 'nullable|string' : 'required|string',
@@ -134,7 +141,7 @@ class DriverDetailsController extends Controller
             'vehicle_plate_number' => $isRider ? 'required|string' : 'nullable|string',
             'vehicle_images' => $isRider ? 'required|array|min:1|max:4' : 'required|array|size:4',
             'vehicle_images.*' => 'image|mimes:jpeg,png,jpg,gif,svg|max_size',
-            'registration_paper' => 'required|image|mimes:jpeg,png,jpg,gif,svg|max_size',
+            'registration_paper' => ($isRider ? 'nullable' : 'required') . '|image|mimes:jpeg,png,jpg,gif,svg|max_size',
             // Size checked below (videos get their own, bigger limit).
             'vehicle_video' => 'nullable|file|mimes:mp4,mov,avi,3gp,mkv,webm',
         ]);
@@ -706,7 +713,7 @@ class DriverDetailsController extends Controller
             $vehicle = $user->driverVehicle;
             $vehicleImageCount = $vehicle && $vehicle->vehicle_images ? count(json_decode($vehicle->vehicle_images, true) ?: []) : 0;
             $vehicleIncomplete = $isRider
-                ? (!$vehicle || $vehicleImageCount < 1 || !$vehicle->registration_paper || !$vehicle->vehicle_plate_number)
+                ? (!$vehicle || $vehicleImageCount < 1 || !$vehicle->vehicle_plate_number)
                 : (!$vehicle || $vehicleImageCount < 4 || !$vehicle->registration_paper
                     || ($vehicle->vehicleType?->requires_vehicle_video && !$vehicle->vehicle_video));
             if ($vehicleIncomplete) {
