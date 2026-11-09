@@ -44,6 +44,15 @@
                                     </a>
                                     @can(['update driver'])
                                     @if (!$viewed)
+                                        @if (\App\Http\Controllers\Dashboard\DriverController::canQuickApprove())
+                                            <form action="{{ route('dashboard.drivers.verification.quick-approve', $driver->id) }}" method="POST"
+                                                onsubmit="return confirm('{{ __('Verify without reviewing the documents?') }}')">
+                                                @csrf
+                                                <button type="submit" class="btn btn-sm btn-success me-2">
+                                                    <i class="ti ti-bolt ti-xs me-1"></i>{{ __('Verify') }}
+                                                </button>
+                                            </form>
+                                        @endif
                                         <small class="text-muted" title="{{ __('Approve / Reject unlock after you view the documents') }}">
                                             <i class="ti ti-lock"></i> {{ __('View documents first') }}
                                         </small>

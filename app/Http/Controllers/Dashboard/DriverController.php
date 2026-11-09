@@ -214,6 +214,36 @@ class DriverController extends Controller
         }
     }
 
+    public static function canQuickApprove(): bool
+    {
+        return auth()->user()->hasAnyRole(['super-admin', 'admin']);
+    }
+
+    /** Super admin / admin only: approve a submitted KYC without opening the documents. */
+    public function quickApproveVerification(string $id)
+    {
+        $this->authorize('update driver');
+        abort_unless(self::canQuickApprove(), 403);
+
+        try {
+            $verification = User::findOrFail($id)->driverVerification;
+            if ($verification?->status !== 'submitted') {
+                return redirect()->back()->with('error', 'This verification is no longer waiting for approval.');
+            }
+
+            $verification->status = 'approved';
+            $verification->rejection_reason = null;
+            $verification->reviewed_by = auth()->id();
+            $verification->reviewed_at = now();
+            $verification->save();
+
+            return redirect()->back()->with('success', 'Verified without document review.');
+        } catch (\Throwable $th) {
+            Log::error('Driver Verification Quick Approve Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
+        }
+    }
+
     public function rejectVerification(Request $request, string $id)
     {
         $this->authorize('update driver');

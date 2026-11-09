@@ -187,6 +187,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             // from the driver's registration location, not admin-editable.
             Route::resource('drivers', DriverController::class)->except(['update']);
             Route::post('drivers/{id}/verification/approve', [DriverController::class, 'approveVerification'])->name('drivers.verification.approve');
+            Route::post('drivers/{id}/verification/quick-approve', [DriverController::class, 'quickApproveVerification'])->name('drivers.verification.quick-approve');
             Route::post('drivers/{id}/verification/reject', [DriverController::class, 'rejectVerification'])->name('drivers.verification.reject');
             Route::get('drivers/{id}/documents/pdf', [DriverController::class, 'exportDocumentsPdf'])->name('drivers.documents.pdf');
 
