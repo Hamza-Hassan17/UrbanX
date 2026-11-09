@@ -127,10 +127,7 @@
                     <thead>
                         <tr>
                             <th>{{ __('Sr.') }}</th>
-                            <th>{{ __('Name') }}</th>
-                            <th>{{ __('Username') }}</th>
-                            <th>{{ __('Email') }}</th>
-                            <th>{{ __('Role') }}</th>
+                            <th>{{ __('Customer') }}</th>
                             <th>{{ __('Created Date') }}</th>
                             <th>{{ __('Status') }}</th>
                             <th>{{ __('Terms Accepted') }}</th>
@@ -141,17 +138,8 @@
                         @foreach ($users as $index => $user)
                             <tr>
                                 <td>{{ $index + 1 }}</td>
-                                <td>
-                                    @can(['view user'])
-                                        <a href="{{ route('dashboard.customers.show', $user->id) }}">{{ $user->name }}</a>
-                                    @else
-                                        {{ $user->name }}
-                                    @endcan
-                                </td>
-                                <td>{{ $user->username }}</td>
-                                <td>{{ $user->email }}</td>
-                                <td>{{ $user->getRoleNames()->map(fn($r) => Str::title(str_replace('-', ' ', $r)))->implode(', ') }}</td>
-                                <td>{{ $user->created_at->format('Y-m-d') }}</td>
+                                <td>@include('dashboard.partials.person-cell', ['name' => $user->name, 'email' => $user->email, 'url' => auth()->user()->can('view user') ? route('dashboard.customers.show', $user->id) : null])</td>
+                                <td class="text-nowrap">{{ $user->created_at->format('M d, Y') }}</td>
                                 <td>
                                     <span
                                         class="badge me-4 bg-label-{{ $user->is_active == 'active' ? 'success' : 'danger' }}">{{ ucfirst($user->is_active) }}</span>
@@ -164,49 +152,31 @@
                                     @endif
                                 </td>
                                 @canany(['delete user', 'update user', 'view user'])
-                                    <td class="d-flex">
-                                        @canany(['delete user'])
-                                            @if (!($user->getRoleNames()->first() == 'admin' || $user->getRoleNames()->first() == 'super-admin'))
-                                                <form action="{{ route('dashboard.user.destroy', $user->id) }}" method="POST">
-                                                    @method('DELETE')
-                                                    @csrf
-                                                    <a href="#" type="submit"
-                                                        class="btn btn-icon btn-text-danger waves-effect waves-light rounded-pill delete-record delete_confirmation"
-                                                        data-bs-toggle="tooltip" data-bs-placement="top" title="{{ __('Archive User') }}">
-                                                        <i class="ti ti-trash ti-md"></i>
-                                                    </a>
-                                                </form>
-                                            @endif
-                                        @endcan
-                                        @canany(['update user'])
-                                            <span class="text-nowrap">
-                                                <button
-                                                    class="btn btn-icon btn-text-primary waves-effect waves-light rounded-pill me-1"
-                                                    data-bs-toggle="offcanvas" data-bs-target="#offcanvasEditUser"
-                                                    data-user-id="{{ $user->id }}">
-                                                    <i class="ti ti-edit ti-md"></i>
-                                                </button>
-                                            </span>
-                                            <span class="text-nowrap">
-                                                <a href="{{ route('dashboard.user.status.update', $user->id) }}"
-                                                    class="btn btn-icon btn-text-primary waves-effect waves-light rounded-pill me-1"
-                                                    data-bs-toggle="tooltip" data-bs-placement="top"
-                                                    title="{{ $user->is_active == 'active' ? __('Deactivate User') : __('Activate User') }}">
-                                                    @if ($user->is_active == 'active')
-                                                        <i class="ti ti-toggle-right ti-md text-success"></i>
-                                                    @else
-                                                        <i class="ti ti-toggle-left ti-md text-danger"></i>
-                                                    @endif
-                                                </a>
-                                            </span>
-                                        @endcan
-                                        @can(['view user'])
-                                            <button class="btn btn-icon btn-text-warning waves-effect waves-light rounded-pill me-1"
-                                                data-bs-toggle="modal" data-bs-target="#modalCenter"
-                                                data-user-id="{{ $user->id }}">
-                                                <i class="ti ti-eye ti-md"></i>
+                                    <td>
+                                        <div class="dropdown">
+                                            <button type="button" class="btn btn-icon btn-text-secondary waves-effect waves-light rounded-pill dropdown-toggle hide-arrow" data-bs-toggle="dropdown" data-bs-boundary="viewport" data-bs-popper-config='{"strategy":"fixed"}' aria-label="{{ __('Actions') }}">
+                                                <i class="ti ti-dots-vertical ti-md"></i>
                                             </button>
-                                        @endcan
+                                            <div class="dropdown-menu dropdown-menu-end">
+                                                @can(['view user'])
+                                                    <button type="button" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#modalCenter" data-user-id="{{ $user->id }}"><i class="ti ti-eye me-2"></i>{{ __('View details') }}</button>
+                                                @endcan
+                                                @canany(['update user'])
+                                                    <button type="button" class="dropdown-item" data-bs-toggle="offcanvas" data-bs-target="#offcanvasEditUser" data-user-id="{{ $user->id }}"><i class="ti ti-edit me-2"></i>{{ __('Edit') }}</button>
+                                                    <a class="dropdown-item" href="{{ route('dashboard.user.status.update', $user->id) }}"><i class="ti {{ $user->is_active == 'active' ? 'ti-user-off' : 'ti-user-check' }} me-2"></i>{{ $user->is_active == 'active' ? __('Deactivate') : __('Activate') }}</a>
+                                                @endcan
+                                                @canany(['delete user'])
+                                                    @if (!($user->getRoleNames()->first() == 'admin' || $user->getRoleNames()->first() == 'super-admin'))
+                                                        <div class="dropdown-divider"></div>
+                                                        <form action="{{ route('dashboard.user.destroy', $user->id) }}" method="POST">
+                                                            @method('DELETE')
+                                                            @csrf
+                                                            <a href="#" class="dropdown-item text-danger delete_confirmation"><i class="ti ti-archive me-2"></i>{{ __('Archive') }}</a>
+                                                        </form>
+                                                    @endif
+                                                @endcan
+                                            </div>
+                                        </div>
                                     </td>
                                 @endcan
                             </tr>
