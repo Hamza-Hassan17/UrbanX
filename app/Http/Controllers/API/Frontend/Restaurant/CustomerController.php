@@ -412,6 +412,8 @@ class CustomerController extends Controller
                 ->where('customer_id', $userId)
                 ->get();
 
+            $carts->each(fn ($cart) => \App\Services\MenuOptionService::refreshCart($cart));
+
             $minimums = Restaurant::whereIn('id', $carts->pluck('restaurant_id'))->pluck('minimum_order_amount', 'id');
 
             // Format item images
@@ -504,6 +506,8 @@ class CustomerController extends Controller
                     'message' => 'Cart not found'
                 ], Response::HTTP_NOT_FOUND);
             }
+
+            \App\Services\MenuOptionService::refreshCart($cart);
 
             // Format item images
             $cart->cartItems->each(function ($cartItem) {
@@ -750,7 +754,7 @@ class CustomerController extends Controller
             ], Response::HTTP_BAD_REQUEST);
         }
         try {
-            $cart = RestaurantCart::with('cartItems')->find($request->cart_id);
+            $cart = RestaurantCart::with('cartItems')->where('id', $request->cart_id)->where('customer_id', $request->user()->id)->first();
             if (!$cart) {
                 return response()->json([
                     'message' => 'Cart not found'

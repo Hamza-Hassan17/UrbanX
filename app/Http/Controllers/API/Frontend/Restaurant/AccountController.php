@@ -10,6 +10,7 @@ use App\Models\RestaurantCart;
 use App\Models\RestaurantFavourite;
 use App\Models\RestaurantOrder;
 use App\Models\VoucherCode;
+use App\Services\MenuOptionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -49,6 +50,7 @@ class AccountController extends Controller
     {
         $user = $request->user();
         $carts = RestaurantCart::with('cartItems.restaurantItem')->where('customer_id', $user->id)->latest('updated_at')->get();
+        $carts->each(fn ($cart) => MenuOptionService::refreshCart($cart));
         $restaurants = Restaurant::whereIn('id', $carts->pluck('restaurant_id'))->get()->keyBy('id');
 
         $cards = $carts->map(function ($cart) use ($restaurants) {
@@ -73,6 +75,7 @@ class AccountController extends Controller
                     'name' => $line->restaurantItem?->name,
                     'image' => $line->restaurantItem?->image ? url('storage/' . $line->restaurantItem->image) : null,
                     'quantity' => (int) $line->quantity,
+                    'unavailable_reason' => $line->unavailable_reason,
                 ])->values(),
             ];
         })->sortByDesc('is_available')->values();

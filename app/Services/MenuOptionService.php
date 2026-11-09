@@ -2,7 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\RestaurantCart;
 use App\Models\RestaurantItem;
+use App\Models\VoucherCode;
 use InvalidArgumentException;
 
 /**
@@ -160,6 +162,48 @@ class MenuOptionService
             'max_select' => $max,
             'sort_order' => (int) ($input['sort_order'] ?? 0),
         ];
+    }
+
+    /**
+     * Brings a saved cart up to the live menu, so a cart left for days shows
+     * what checkout will really charge. Lines that can no longer be ordered
+     * keep their old price and get an unavailable_reason for the app.
+     */
+    public static function refreshCart(RestaurantCart $cart): void
+    {
+        foreach ($cart->cartItems as $line) {
+            $reason = null;
+            if (!$line->restaurantItem) {
+                $reason = 'This item is no longer on the menu.';
+            } else {
+                try {
+                    $priced = self::priceLine($line->restaurantItem, self::optionIdsFromSnapshot($line->selected_options));
+                    $line->update([
+                        'price_per_item' => $priced['unit_price'],
+                        'total_price' => round($priced['unit_price'] * $line->quantity, 2),
+                    ]);
+                } catch (InvalidArgumentException $e) {
+                    $reason = $e->getMessage();
+                }
+            }
+            $line->setAttribute('unavailable_reason', $reason);
+        }
+
+        $subtotal = round((float) $cart->cartItems->sum('total_price'), 2);
+        $discount = (float) $cart->discount;
+        $voucher = $cart->voucher_code_id ? VoucherCode::find($cart->voucher_code_id) : null;
+        if ($voucher && $voucher->discount_type === 'percentage') {
+            $discount = round(($voucher->discount_amount / 100) * $subtotal, 2);
+        }
+        $discount = min($discount, $subtotal);
+
+        $cart->subtotal = $subtotal;
+        $cart->discount = $discount;
+        $cart->total_price = round($subtotal - $discount + $cart->tax + $cart->platform_fee + $cart->delivery_fee, 2);
+        // Viewing a cart is not editing it: keep updated_at (card order).
+        $cart->timestamps = false;
+        $cart->save();
+        $cart->timestamps = true;
     }
 
     /**
