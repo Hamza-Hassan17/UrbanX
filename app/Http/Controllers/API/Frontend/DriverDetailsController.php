@@ -29,7 +29,12 @@ class DriverDetailsController extends Controller
      */
     private function documentsLocked(User $user): bool
     {
-        return in_array($user->driverVerification?->status, ['submitted', 'approved'], true);
+        $verification = $user->driverVerification;
+
+        // Verified by an admin without ever submitting: they can still add
+        // documents (jobs need a saved vehicle).
+        return $verification?->status === 'submitted'
+            || ($verification?->status === 'approved' && $verification->submitted_at !== null);
     }
 
     private function lockedResponse(User $user)
@@ -697,6 +702,14 @@ class DriverDetailsController extends Controller
 
             if ($this->documentsLocked($user)) {
                 return $this->lockedResponse($user);
+            }
+
+            // Already verified by an admin: submitting must not undo that.
+            if ($user->driverVerification?->status === 'approved') {
+                return response()->json([
+                    'message' => 'Your account is already verified.',
+                    'status' => 'approved',
+                ], Response::HTTP_OK);
             }
 
             $isRider = $this->isRider($user);

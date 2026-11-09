@@ -219,16 +219,18 @@ class DriverController extends Controller
         return auth()->user()->hasAnyRole(['super-admin', 'admin']);
     }
 
-    /** Super admin / admin only: approve a submitted KYC without opening the documents. */
+    /** Super admin / admin only: verify any unverified driver or rider, documents or not. */
     public function quickApproveVerification(string $id)
     {
         $this->authorize('update driver');
         abort_unless(self::canQuickApprove(), 403);
 
         try {
-            $verification = User::findOrFail($id)->driverVerification;
-            if ($verification?->status !== 'submitted') {
-                return redirect()->back()->with('error', 'This verification is no longer waiting for approval.');
+            $driver = User::findOrFail($id);
+            abort_unless($driver->hasAnyRole(['driver', 'rider']), 404);
+            $verification = $driver->driverVerification()->firstOrCreate(['driver_id' => $driver->id]);
+            if ($verification->status === 'approved') {
+                return redirect()->back()->with('error', 'This account is already verified.');
             }
 
             $verification->status = 'approved';

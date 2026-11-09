@@ -82,6 +82,12 @@
                                     @elseif ($verificationStatus === 'rejected')
                                         <span class="badge bg-label-danger">{{ __('Rejected') }}</span>
                                     @endif
+                                    @if ($verificationStatus !== 'approved' && \App\Http\Controllers\Dashboard\DriverController::canQuickApprove())
+                                        <form action="{{ route('dashboard.drivers.verification.quick-approve', $driver->id) }}" method="POST" class="mt-1" onsubmit="return confirm('{{ __('Verify this account?') }}')">
+                                            @csrf
+                                            <button type="submit" class="btn btn-xs btn-success"><i class="ti ti-bolt ti-xs me-1"></i>{{ __('Verify') }}</button>
+                                        </form>
+                                    @endif
                                 </td>
                                 <td>
                                     @if ($driver->hasAcceptedCurrentTerms() && $driver->terms_accepted_at)
