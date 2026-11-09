@@ -452,7 +452,7 @@ class CustomerController extends Controller
 
             $cartItem = RestaurantCartItem::find($request->cart_item_id);
 
-            if (!$cartItem) {
+            if (!$cartItem || (int) $cartItem->cart->customer_id !== (int) $request->user()->id) {
                 return response()->json([
                     'message' => 'Cart item not found'
                 ], Response::HTTP_NOT_FOUND);
@@ -567,7 +567,7 @@ class CustomerController extends Controller
 
             DB::beginTransaction();
 
-            $cart = RestaurantCart::find($request->cart_id);
+            $cart = RestaurantCart::where('id', $request->cart_id)->where('customer_id', $request->user()->id)->first();
 
             if (!$cart) {
                 return response()->json([

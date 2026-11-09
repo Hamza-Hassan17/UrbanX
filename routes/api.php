@@ -10,6 +10,7 @@ use App\Http\Controllers\API\Frontend\Driver\RideController as DriverRideControl
 use App\Http\Controllers\API\Frontend\DriverDetailsController;
 use App\Http\Controllers\API\Frontend\NotificationController;
 use App\Http\Controllers\API\Frontend\ProfileController;
+use App\Http\Controllers\API\Frontend\Restaurant\AccountController;
 use App\Http\Controllers\API\Frontend\Restaurant\CustomerController;
 use App\Http\Controllers\API\Frontend\Restaurant\DeliveryController;
 use App\Http\Controllers\API\Frontend\Restaurant\RestaurantController;
@@ -228,6 +229,16 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
             Route::get('/calculate-delivery-fare', [CustomerController::class, 'calculateDeliveryFare']);
             Route::post('/favourite/{restaurant_id}', [CustomerController::class, 'toggleFavourite']);
             Route::get('/favourites', [CustomerController::class, 'getFavourites']);
+            Route::get('/account', [AccountController::class, 'account']);
+            Route::get('/carts-overview', [AccountController::class, 'carts']);
+            Route::delete('/cart/{cart_id}', [AccountController::class, 'deleteCart']);
+            Route::get('/addresses', [AccountController::class, 'addresses']);
+            Route::post('/addresses', [AccountController::class, 'storeAddress']);
+            Route::post('/addresses/{id}', [AccountController::class, 'updateAddress']);
+            Route::post('/addresses/{id}/default', [AccountController::class, 'setDefaultAddress']);
+            Route::delete('/addresses/{id}', [AccountController::class, 'deleteAddress']);
+            Route::get('/settings', [AccountController::class, 'settings']);
+            Route::post('/settings', [AccountController::class, 'updateSettings']);
         });
 
         Route::group(['prefix' => 'delivery'], function () {
