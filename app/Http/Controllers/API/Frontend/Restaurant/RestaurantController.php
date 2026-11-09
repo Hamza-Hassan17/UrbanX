@@ -569,6 +569,10 @@ class RestaurantController extends Controller
             $order->status = 'accepted';
             $order->save();
 
+            // Riders are offered the job from this moment, so their 10-minute
+            // window starts at acceptance, not when the customer ordered.
+            Ride::where('id', $order->ride_id)->where('status', 'requested')->update(['requested_at' => now()]);
+
             // Notify customer-facing listeners. A broadcast failure must never
             // fail an order that already saved successfully.
             try {
@@ -775,6 +779,25 @@ class RestaurantController extends Controller
                 broadcast(new \App\Events\RestaurantOrderUpdated($order));
             } catch (\Throwable $e) {
                 Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+            }
+
+            // Push to the assigned rider (works even when live updates are down).
+            if ($order->status === 'ready_for_pickup') {
+                $rider = $order->ride_id ? Ride::find($order->ride_id)?->driver : null;
+                if ($rider) {
+                    try {
+                        app('notificationService')->notifyUsers(
+                            [$rider],
+                            'Order ready for pickup',
+                            "Order #{$order->order_number} is ready at {$restaurant->name}. Please pick it up.",
+                            'rides',
+                            $order->ride_id,
+                            'delivery_details'
+                        );
+                    } catch (\Throwable $e) {
+                        Log::error('Ready-for-pickup rider notification failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+                    }
+                }
             }
 
             return response()->json([

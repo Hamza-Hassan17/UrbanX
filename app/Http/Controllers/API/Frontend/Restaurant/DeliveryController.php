@@ -157,7 +157,9 @@ class DeliveryController extends Controller
                 ->whereIn('id', function ($q) {
                     $q->select('ride_id')
                         ->from('restaurant_orders')
-                        ->where('status', 'accepted')
+                        // Still needs a rider while the kitchen works on it,
+                        // not only at the moment it was accepted.
+                        ->whereIn('status', ['accepted', 'preparing', 'ready_for_pickup'])
                         ->whereNotNull('ride_id');
                 })
                 ->where('requested_at', '>=', $tenMinutesAgo)
