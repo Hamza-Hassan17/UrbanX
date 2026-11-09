@@ -54,6 +54,7 @@
                                 <th>{{ __('Sales (Full Price)') }}</th>
                                 <th>{{ __('Restaurant-Funded Discounts') }}</th>
                                 <th>{{ __('Commission') }}</th>
+                                <th>{{ __('SST & Tax') }}</th>
                                 <th>{{ __('Payable') }}</th>
                                 <th>{{ __('Status') }}</th>
                                 <th>{{ __('Action') }}</th>
@@ -67,6 +68,7 @@
                                     <td>{{ \App\Helpers\Helper::formatCurrency($row['sales_full_price']) }}</td>
                                     <td class="text-danger">({{ \App\Helpers\Helper::formatCurrency($row['restaurant_funded_discounts']) }})</td>
                                     <td class="text-danger">({{ \App\Helpers\Helper::formatCurrency($row['commission']) }})</td>
+                                    <td class="text-danger">({{ \App\Helpers\Helper::formatCurrency($row['sst_and_tax']) }})</td>
                                     <td><strong>{{ \App\Helpers\Helper::formatCurrency($row['payable_amount']) }}</strong></td>
                                     <td>
                                         @if ($row['paid'])
@@ -91,7 +93,7 @@
                                     </td>
                                 </tr>
                             @empty
-                                <tr><td colspan="8" class="text-center text-muted">{{ __('No completed orders found for this selection.') }}</td></tr>
+                                <tr><td colspan="9" class="text-center text-muted">{{ __('No completed orders found for this selection.') }}</td></tr>
                             @endforelse
                         </tbody>
                         <tfoot>
@@ -101,6 +103,7 @@
                                 <th>{{ \App\Helpers\Helper::formatCurrency($report['grand_total_sales']) }}</th>
                                 <th>({{ \App\Helpers\Helper::formatCurrency($report['grand_total_discounts']) }})</th>
                                 <th>({{ \App\Helpers\Helper::formatCurrency($report['grand_total_commission']) }})</th>
+                                <th>({{ \App\Helpers\Helper::formatCurrency($report['grand_total_sst_and_tax']) }})</th>
                                 <th>{{ \App\Helpers\Helper::formatCurrency($report['grand_total_payable']) }}</th>
                                 <th colspan="2"></th>
                             </tr>

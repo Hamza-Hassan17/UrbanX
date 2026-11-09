@@ -910,6 +910,7 @@ class CustomerController extends Controller
             $distanceChargedKm = $distanceActualKm !== null ? FareBreakdownService::roundUpToKm($distanceActualKm) : null;
 
             $order->fare_breakdown = FareBreakdownService::buildOrderSnapshot([
+                'restaurant' => $restaurant,
                 'subtotal' => $order->subtotal,
                 'discount' => $order->discount,
                 'discount_funded_by' => $order->discount_funded_by,

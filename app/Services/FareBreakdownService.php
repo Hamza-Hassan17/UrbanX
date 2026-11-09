@@ -158,10 +158,22 @@ class FareBreakdownService
         $fundedBy = $input['discount_funded_by'] ?? null; // 'platform' | 'restaurant' | null
         $deliveryFee = (float) ($input['delivery_fee'] ?? 0);
 
-        $commissionRate = self::restaurantCommissionPercent();
+        // Per-restaurant rates (admin restaurant page). Empty commission
+        // falls back to the Pricing & Fees default; empty SST / tax = 0.
+        // SST is on the commission, tax is on the food subtotal; both are
+        // deducted from what the restaurant is paid.
+        $restaurant = $input['restaurant'] ?? null;
+        $commissionRate = $restaurant?->commission_percent !== null && $restaurant?->commission_percent !== ''
+            ? (float) $restaurant->commission_percent
+            : self::restaurantCommissionPercent();
+        $restaurantSstRate = (float) ($restaurant?->sst_percent ?? 0);
+        $restaurantTaxRate = (float) ($restaurant?->tax_percent ?? 0);
+
         $commissionAmount = round($subtotal * $commissionRate / 100, 2);
+        $restaurantSstAmount = round($commissionAmount * $restaurantSstRate / 100, 2);
+        $restaurantTaxAmount = round($subtotal * $restaurantTaxRate / 100, 2);
         $restaurantFundedDiscount = $fundedBy === 'restaurant' ? $discount : 0;
-        $restaurantPayable = round($subtotal - $commissionAmount - $restaurantFundedDiscount, 2);
+        $restaurantPayable = round($subtotal - $commissionAmount - $restaurantSstAmount - $restaurantTaxAmount - $restaurantFundedDiscount, 2);
 
         $riderBreakdown = self::calculate($deliveryFee, null, self::platformShareAmount());
 
@@ -175,6 +187,10 @@ class FareBreakdownService
             'total_payable_by_customer' => round($subtotal - $discount + $deliveryFee, 2),
             'commission_rate' => $commissionRate,
             'commission_amount' => $commissionAmount,
+            'restaurant_sst_rate' => $restaurantSstRate,
+            'restaurant_sst_amount' => $restaurantSstAmount,
+            'restaurant_tax_rate' => $restaurantTaxRate,
+            'restaurant_tax_amount' => $restaurantTaxAmount,
             'restaurant_payable' => $restaurantPayable,
             'platform_share_flat_pkr' => self::platformShareAmount(),
             'platform_share_amount' => $riderBreakdown['commission'],

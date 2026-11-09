@@ -539,6 +539,7 @@ class DeliveryController extends Controller
             $order->delivery_code = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
             $order->discount_funded_by = 'platform';
             $order->fare_breakdown = \App\Services\FareBreakdownService::buildOrderSnapshot([
+                'restaurant' => \App\Models\Restaurant::find($order->restaurant_id),
                 'subtotal' => $orderAmount,
                 'discount' => 0,
                 'discount_funded_by' => 'platform',

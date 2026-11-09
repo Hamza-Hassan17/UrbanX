@@ -144,6 +144,7 @@ class FinanceController extends Controller
             $sales = 0.0;
             $discounts = 0.0;
             $commission = 0.0;
+            $taxes = 0.0;
             $payable = 0.0;
 
             foreach ($restaurantOrders as $order) {
@@ -151,6 +152,7 @@ class FinanceController extends Controller
                     $sales += (float) $order->fare_breakdown['subtotal'];
                     $discounts += $order->discount_funded_by === 'restaurant' ? (float) $order->fare_breakdown['discount'] : 0;
                     $commission += (float) $order->fare_breakdown['commission_amount'];
+                    $taxes += (float) ($order->fare_breakdown['restaurant_sst_amount'] ?? 0) + (float) ($order->fare_breakdown['restaurant_tax_amount'] ?? 0);
                     $payable += (float) $order->fare_breakdown['restaurant_payable'];
                 } else {
                     // Legacy order with no snapshot -- commission rate at
@@ -172,6 +174,7 @@ class FinanceController extends Controller
                 'sales_full_price' => round($sales, 2),
                 'restaurant_funded_discounts' => round($discounts, 2),
                 'commission' => round($commission, 2),
+                'sst_and_tax' => round($taxes, 2),
                 'payable_amount' => round($payable, 2),
                 'paid' => $alreadyPaid,
             ];
@@ -184,6 +187,7 @@ class FinanceController extends Controller
             'grand_total_sales' => round($rows->sum('sales_full_price'), 2),
             'grand_total_discounts' => round($rows->sum('restaurant_funded_discounts'), 2),
             'grand_total_commission' => round($rows->sum('commission'), 2),
+            'grand_total_sst_and_tax' => round($rows->sum('sst_and_tax'), 2),
             'grand_total_payable' => round($rows->sum('payable_amount'), 2),
         ];
     }

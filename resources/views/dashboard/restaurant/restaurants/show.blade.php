@@ -320,6 +320,28 @@
                             <small class="text-muted">On the food subtotal, before delivery fee and discounts.</small>
                         </div>
 
+                        <div class="row">
+                            <div class="col-md-4 mb-2">
+                                <label>Commission (%)</label>
+                                <input type="number" step="0.01" min="0" max="100" name="commission_percent" class="form-control"
+                                    value="{{ old('commission_percent', $restaurant->commission_percent) }}" placeholder="Default {{ rtrim(rtrim(number_format(\App\Services\FareBreakdownService::restaurantCommissionPercent(), 2), '0'), '.') }}%">
+                                <small class="text-muted">Of the food subtotal. Empty = default.</small>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label>SST (%)</label>
+                                <input type="number" step="0.01" min="0" max="100" name="sst_percent" class="form-control"
+                                    value="{{ old('sst_percent', $restaurant->sst_percent) }}" placeholder="0">
+                                <small class="text-muted">Of the commission.</small>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label>Tax (%)</label>
+                                <input type="number" step="0.01" min="0" max="100" name="tax_percent" class="form-control"
+                                    value="{{ old('tax_percent', $restaurant->tax_percent) }}" placeholder="0">
+                                <small class="text-muted">Of the food subtotal.</small>
+                            </div>
+                            <small class="text-muted">All three are deducted from the restaurant's payout. Changes apply to new orders only.</small>
+                        </div>
+
                     </div>
 
                     <div class="modal-footer">

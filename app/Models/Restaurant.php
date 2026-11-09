@@ -25,10 +25,16 @@ class Restaurant extends Model
         'is_active',
         'is_approved',
         'minimum_order_amount',
+        'commission_percent',
+        'sst_percent',
+        'tax_percent',
     ];
 
     protected $casts = [
         'minimum_order_amount' => 'decimal:2',
+        'commission_percent' => 'decimal:2',
+        'sst_percent' => 'decimal:2',
+        'tax_percent' => 'decimal:2',
     ];
 
     /**
