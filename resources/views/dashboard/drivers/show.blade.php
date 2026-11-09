@@ -204,7 +204,7 @@
                                     </tr>
                                     <tr>
                                         <th>Issue Date</th>
-                                        <td>{{ \Carbon\Carbon::parse($driver->driverCnic->issue_date)->format('d M, Y') }}</td>
+                                        <td>{{ $driver->driverCnic->issue_date ? \Carbon\Carbon::parse($driver->driverCnic->issue_date)->format('d M, Y') : '—' }}</td>
                                     </tr>
                                     <tr>
                                         <th>CNIC Images</th>
