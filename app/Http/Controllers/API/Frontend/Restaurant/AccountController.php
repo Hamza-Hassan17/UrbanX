@@ -68,6 +68,7 @@ class AccountController extends Controller
                 'is_available' => $available,
                 'unavailable_label' => $available ? null : 'Store unavailable',
                 'subtotal' => (float) $cart->subtotal,
+                'voucher_notice' => $cart->voucher_notice,
                 'minimum_order_amount' => $restaurant?->minimum_order_amount !== null ? (float) $restaurant->minimum_order_amount : null,
                 'items_count' => (int) $cart->cartItems->sum('quantity'),
                 'items' => $cart->cartItems->map(fn ($line) => [

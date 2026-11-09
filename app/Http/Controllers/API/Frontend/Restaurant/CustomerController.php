@@ -739,17 +739,20 @@ class CustomerController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'cart_id' => 'required|exists:restaurant_carts,id',
-            'payment_method' => 'required|in:cod,card,cash,jazzcash,easypaisa',
+            // No payment gateway is connected yet: cash on delivery only.
+            'payment_method' => 'required|in:cod,cash',
             'delivery_lat' => 'required',
             'delivery_lang' => 'required',
             'rider_note' => 'nullable|string|max:255',
             'distance_km' => 'nullable|numeric|min:0',
             'duration_minutes' => 'nullable|integer|min:0',
+        ], [
+            'payment_method.in' => 'Only cash on delivery is available right now.',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'message' => 'Validation failed',
+                'message' => $validator->errors()->has('payment_method') ? $validator->errors()->first('payment_method') : 'Validation failed',
                 'errors' => $validator->errors()
             ], Response::HTTP_BAD_REQUEST);
         }
@@ -766,7 +769,7 @@ class CustomerController extends Controller
             // Batch 2 Part 4 -- an unapproved restaurant cannot receive
             // orders, even if the cart was built back when it was still
             // (incorrectly) visible, or via a stale deep link.
-            if (!$restaurant || !$restaurant->is_approved) {
+            if (!$restaurant || !$restaurant->is_approved || $restaurant->is_active !== 'active' || $restaurant->is_open !== 'open') {
                 return response()->json([
                     'message' => 'This restaurant is not currently accepting orders.'
                 ], Response::HTTP_BAD_REQUEST);
@@ -842,6 +845,19 @@ class CustomerController extends Controller
                 ], Response::HTTP_BAD_REQUEST);
             }
 
+            // A voucher can expire while a cart waits. Take it off and stop
+            // here so the customer sees the new total before confirming.
+            if ($voucherNotice = \App\Services\MenuOptionService::dropInvalidVoucher($cart)) {
+                $cart->total_price = round($subtotal + $cart->tax + $cart->platform_fee + $cart->delivery_fee, 2);
+                $cart->subtotal = $subtotal;
+                $cart->save();
+
+                return response()->json([
+                    'message' => $voucherNotice . ' Please review your total and confirm again.',
+                    'voucher_removed' => true,
+                ], Response::HTTP_BAD_REQUEST);
+            }
+
             // Keep the voucher discount consistent with the re-priced
             // subtotal: percentage vouchers recompute, fixed ones never
             // exceed the subtotal.
@@ -870,8 +886,8 @@ class CustomerController extends Controller
             $order->delivery_lat = $request->delivery_lat;
             $order->delivery_lang = $request->delivery_lang;
             $order->rider_note = $request->rider_note;
-            $order->payment_method = $request->payment_method;
-            $order->payment_status = $request->payment_method == 'cod' ? 'unpaid' : 'paid';
+            $order->payment_method = 'cod';
+            $order->payment_status = 'unpaid';
             $order->status = 'pending';
 
             // Batch 1 Part 7 -- 4-digit proof-of-delivery code, shown to the

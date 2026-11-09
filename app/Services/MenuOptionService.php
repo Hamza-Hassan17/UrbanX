@@ -189,6 +189,8 @@ class MenuOptionService
             $line->setAttribute('unavailable_reason', $reason);
         }
 
+        $voucherNotice = self::dropInvalidVoucher($cart);
+
         $subtotal = round((float) $cart->cartItems->sum('total_price'), 2);
         $discount = (float) $cart->discount;
         $voucher = $cart->voucher_code_id ? VoucherCode::find($cart->voucher_code_id) : null;
@@ -204,6 +206,32 @@ class MenuOptionService
         $cart->timestamps = false;
         $cart->save();
         $cart->timestamps = true;
+        $cart->setAttribute('voucher_notice', $voucherNotice);
+    }
+
+    /**
+     * Takes an expired or switched-off voucher off a saved cart. Returns the
+     * message for the customer, or null if there was nothing to remove.
+     * The caller saves the cart.
+     */
+    public static function dropInvalidVoucher(RestaurantCart $cart): ?string
+    {
+        if (!$cart->voucher_code_id) {
+            return null;
+        }
+
+        $stillValid = VoucherCode::where('id', $cart->voucher_code_id)
+            ->where('is_active', 'active')
+            ->where('expires_at', '>', now())
+            ->exists();
+        if ($stillValid) {
+            return null;
+        }
+
+        $cart->voucher_code_id = null;
+        $cart->discount = 0;
+
+        return 'Your voucher has expired and was removed from this cart.';
     }
 
     /**
