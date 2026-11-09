@@ -94,12 +94,6 @@ class DeliveryController extends Controller
             }
 
             // -------------------------
-            // Time windows
-            // -------------------------
-            $tenMinutesAgo   = now()->subMinutes(10);   // ride life
-            $logWindowStart  = now()->subHours(10);     // logs window
-
-            // -------------------------
             // Driver vehicle type
             // -------------------------
             $driverVehicleType = DriverVehicle::join('vehicle_types', 'driver_vehicles.vehicle_type_id', '=', 'vehicle_types.id')
@@ -115,75 +109,15 @@ class DeliveryController extends Controller
             }
 
             // -------------------------
-            // Rides already sent / accepted (last 10 hours)
+            // One job at a time, nearest rider first, with a time limit and
+            // repeat rounds -- see FoodDispatchService.
             // -------------------------
-            $busyRideIds = DB::table('ride_driver_logs')
-                ->whereIn('action', ['sent', 'accepted'])
-                ->where('created_at', '>=', $logWindowStart)
-                ->pluck('ride_id');
-
-            Log::info('Busy Ride IDs', ['driver_id' => $driver->id, 'busy_ride_ids' => $busyRideIds]);
-
-            // -------------------------
-            // Rides rejected by this driver (last 10 hours)
-            // -------------------------
-            $rejectedByMe = DB::table('ride_driver_logs')
-                ->where('driver_id', $driver->id)
-                ->where('action', 'rejected')
-                ->where('created_at', '>=', $logWindowStart)
-                ->pluck('ride_id');
-
-            Log::info('Rides Rejected by Driver', ['driver_id' => $driver->id, 'rejected_ride_ids' => $rejectedByMe]);
-
-            // -------------------------
-            // Fetch nearest single ride
-            // -------------------------
-            $rides = Ride::selectRaw("
-                    rides.*,
-                    (6371 * acos(
-                        cos(radians(?)) *
-                        cos(radians(pickup_latitude)) *
-                        cos(radians(pickup_longitude) - radians(?)) +
-                        sin(radians(?)) *
-                        sin(radians(pickup_latitude))
-                    )) AS distance
-                ", [
-                    $driver->lat,
-                    $driver->lang,
-                    $driver->lat
-                ])
-                ->where('ride_type', 'delivery')
-                ->where('status', 'requested')
-                ->whereIn('id', function ($q) {
-                    $q->select('ride_id')
-                        ->from('restaurant_orders')
-                        // Still needs a rider while the kitchen works on it,
-                        // not only at the moment it was accepted.
-                        ->whereIn('status', ['accepted', 'preparing', 'ready_for_pickup'])
-                        ->whereNotNull('ride_id');
-                })
-                ->where('requested_at', '>=', $tenMinutesAgo)
-                ->where('vehicle_type_id', $driverVehicleType)
-                ->whereNotIn('id', $busyRideIds)
-                ->whereNotIn('id', $rejectedByMe)
-                // Only riders within the pickup radius of the restaurant
-                // (Pricing & Fees -> Rider Pickup Radius, default 4 km).
-                ->having('distance', '<=', \App\Services\FareBreakdownService::foodDeliveryFeeSettings()['max_distance_km'])
-                ->orderBy('distance')
-                ->limit(1)
-                ->get();
-
-            // -------------------------
-            // Log ride as "sent"
-            // -------------------------
-            if ($rides->count()) {
-                Log::info('Ride Sent to Driver', ['driver_id' => $driver->id, 'ride_id' => $rides[0]->id]);
-                RideDriverLog::create([
-                    'ride_id'   => $rides[0]->id,
-                    'driver_id' => $driver->id,
-                    'action'    => 'sent',
-                    'note'      => 'Ride sent to nearest driver'
-                ]);
+            $ride = \App\Services\FoodDispatchService::offerFor($driver, (int) $driverVehicleType);
+            $rides = collect($ride ? [$ride] : []);
+            if ($ride) {
+                $ride->distance = round($this->kmTo($driver, $ride), 2);
+                $ride->offer_timeout_seconds = \App\Services\FoodDispatchService::timeoutSeconds();
+                Log::info('Ride Sent to Driver', ['driver_id' => $driver->id, 'ride_id' => $ride->id, 'round' => $ride->offer_round]);
             }
 
             // -------------------------
@@ -222,6 +156,14 @@ class DeliveryController extends Controller
         }
     }
 
+    private function kmTo($driver, $ride): float
+    {
+        $dLat = deg2rad((float) $ride->pickup_latitude - (float) $driver->lat);
+        $dLng = deg2rad((float) $ride->pickup_longitude - (float) $driver->lang);
+        $a = sin($dLat / 2) ** 2 + cos(deg2rad((float) $driver->lat)) * cos(deg2rad((float) $ride->pickup_latitude)) * sin($dLng / 2) ** 2;
+        return 6371 * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
+
     public function acceptRide(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -245,7 +187,7 @@ class DeliveryController extends Controller
 
         try {
             $ride = Ride::find($request->ride_id);
-            if ($ride->status !== 'requested') {
+            if ($ride->status !== 'requested' || RideOffer::where('ride_id', $ride->id)->where('status', 'accepted')->exists()) {
                 return response()->json([
                     'message' => 'Ride is no longer available for offer.'
                 ], Response::HTTP_BAD_REQUEST);
@@ -262,16 +204,13 @@ class DeliveryController extends Controller
             $rideOffer->status = 'accepted';
             $rideOffer->save();
 
-            RideDriverLog::updateOrCreate(
-                [
-                    'ride_id' => $ride->id,
-                    'driver_id' => auth()->id(),
-                ],
-                [
-                    'action' => 'sent',
-                    'note'   => $request->note ?? 'Delivery offer Accepted by driver',
-                ]
-            );
+            RideDriverLog::create([
+                'ride_id' => $ride->id,
+                'driver_id' => auth()->id(),
+                'action' => 'accepted',
+                'round' => $ride->offer_round ?? 1,
+                'note' => $request->note ?? 'Delivery offer accepted by rider',
+            ]);
 
             try {
                 broadcast(new \App\Events\RideStatusUpdated($ride));
@@ -375,6 +314,7 @@ class DeliveryController extends Controller
     {
         $rideDriverLog = RideDriverLog::where('ride_id', $request->ride_id)
             ->where('driver_id', auth()->id())
+            ->latest('id')
             ->first();
 
         if (!$rideDriverLog) {

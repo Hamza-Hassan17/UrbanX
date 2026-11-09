@@ -56,6 +56,8 @@ class PricingFeesController extends Controller
             'stale_unassigned_minutes' => 'required|integer|min:1',
             'stale_restaurant_accept_minutes' => 'required|integer|min:1',
             'stale_ready_for_pickup_minutes' => 'required|integer|min:1',
+            'rider_offer_timeout_seconds' => 'required|integer|min:10|max:600',
+            'rider_offer_rounds' => 'required|integer|min:1|max:10',
             'taxi_outstanding_limit' => 'required|numeric|min:0',
             'auto_offline_minutes' => 'required|integer|min:1|max:1440',
             'no_driver_handling' => 'required|in:0,1',

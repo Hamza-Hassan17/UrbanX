@@ -161,6 +161,20 @@
                         @error('stale_ready_for_pickup_minutes')<span class="invalid-feedback">{{ $message }}</span>@enderror
                     </div>
                     <div class="col-md-4">
+                        <label for="rider_offer_timeout_seconds" class="form-label">{{ __('Rider: Time to Accept a Food Job (seconds)') }}</label><span class="text-danger">*</span>
+                        <small class="fw-medium text-primary d-block">({{ __('No answer in time = the job moves to the next nearest rider') }})</small>
+                        <input class="form-control @error('rider_offer_timeout_seconds') is-invalid @enderror" type="number" min="10" max="600" id="rider_offer_timeout_seconds" name="rider_offer_timeout_seconds"
+                            value="{{ old('rider_offer_timeout_seconds', $settings->rider_offer_timeout_seconds ?? 60) }}" required/>
+                        @error('rider_offer_timeout_seconds')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="col-md-4">
+                        <label for="rider_offer_rounds" class="form-label">{{ __('Rider: Offer Rounds') }}</label><span class="text-danger">*</span>
+                        <small class="fw-medium text-primary d-block">({{ __('After every nearby rider skips, admins are alerted and it starts again from the nearest') }})</small>
+                        <input class="form-control @error('rider_offer_rounds') is-invalid @enderror" type="number" min="1" max="10" id="rider_offer_rounds" name="rider_offer_rounds"
+                            value="{{ old('rider_offer_rounds', $settings->rider_offer_rounds ?? 3) }}" required/>
+                        @error('rider_offer_rounds')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="col-md-4">
                         <label for="parcel_vehicle_type_id" class="form-label">{{ __('Parcel vehicle type') }}</label>
                         <small class="fw-medium text-primary d-block">({{ __('Parcels go to taxi drivers of this vehicle type in the Driver app. Empty = old behaviour, parcels go to delivery riders.') }})</small>
                         <select class="form-select @error('parcel_vehicle_type_id') is-invalid @enderror" id="parcel_vehicle_type_id" name="parcel_vehicle_type_id">

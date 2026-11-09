@@ -13,6 +13,7 @@ class RideDriverLog extends Model
         'ride_id',
         'driver_id',
         'action',
+        'round',
         'note',
     ];
 }

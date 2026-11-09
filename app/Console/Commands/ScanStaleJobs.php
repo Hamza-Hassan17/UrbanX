@@ -30,6 +30,7 @@ class ScanStaleJobs extends Command
         $raised += $this->scanReadyForPickupNotPickedUp();
         $raised += $this->scanFailedParcels();
         $raised += $this->scanCashDiscrepancies();
+        $raised += \App\Services\FoodDispatchService::sweep();
 
         $this->info("Scan complete -- {$raised} new alert(s) raised.");
     }

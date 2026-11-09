@@ -783,7 +783,10 @@ class RestaurantController extends Controller
 
             // Push to the assigned rider (works even when live updates are down).
             if ($order->status === 'ready_for_pickup') {
-                $rider = $order->ride_id ? Ride::find($order->ride_id)?->driver : null;
+                $rider = $order->ride_id
+                    ? (Ride::find($order->ride_id)?->driver
+                        ?? \App\Models\RideOffer::where('ride_id', $order->ride_id)->where('status', 'accepted')->latest('id')->first()?->driver)
+                    : null;
                 if ($rider) {
                     try {
                         app('notificationService')->notifyUsers(
