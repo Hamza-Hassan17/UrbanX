@@ -47,6 +47,10 @@ return [
                 // subdomain's own cert; only disable verification if soketi is
                 // reached directly over plain http during local dev.
                 'verify' => env('PUSHER_VERIFY_TLS', true),
+                // Live updates are sent during the API request: never let a down
+                // websocket server hold the response for more than a few seconds.
+                'connect_timeout' => 2,
+                'timeout' => 3,
             ],
         ],
 
