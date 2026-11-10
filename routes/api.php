@@ -232,6 +232,8 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
             Route::get('/account', [AccountController::class, 'account']);
             Route::get('/carts-overview', [AccountController::class, 'carts']);
             Route::delete('/cart/{cart_id}', [AccountController::class, 'deleteCart']);
+            Route::post('/update-cart-item', [AccountController::class, 'updateCartItem']);
+            Route::get('/popular-items/{restaurant_id}', [AccountController::class, 'popularItems']);
             Route::get('/addresses', [AccountController::class, 'addresses']);
             Route::post('/addresses', [AccountController::class, 'storeAddress']);
             Route::post('/addresses/{id}', [AccountController::class, 'updateAddress']);

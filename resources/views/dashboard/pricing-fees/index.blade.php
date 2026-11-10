@@ -175,6 +175,27 @@
                         @error('rider_offer_rounds')<span class="invalid-feedback">{{ $message }}</span>@enderror
                     </div>
                     <div class="col-md-4">
+                        <label for="eats_platform_fee" class="form-label">{{ __('Food: Platform Fee (PKR)') }}</label><span class="text-danger">*</span>
+                        <small class="fw-medium text-primary d-block">({{ __('Added to every food order. 0 = none') }})</small>
+                        <input class="form-control @error('eats_platform_fee') is-invalid @enderror" type="number" step="0.01" min="0" id="eats_platform_fee" name="eats_platform_fee"
+                            value="{{ old('eats_platform_fee', $settings->eats_platform_fee ?? 0) }}" required/>
+                        @error('eats_platform_fee')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="col-md-4">
+                        <label for="small_order_threshold" class="form-label">{{ __('Food: Small Order Below (PKR)') }}</label><span class="text-danger">*</span>
+                        <small class="fw-medium text-primary d-block">({{ __('Food subtotal under this pays the small order fee. 0 = off') }})</small>
+                        <input class="form-control @error('small_order_threshold') is-invalid @enderror" type="number" step="0.01" min="0" id="small_order_threshold" name="small_order_threshold"
+                            value="{{ old('small_order_threshold', $settings->small_order_threshold ?? 0) }}" required/>
+                        @error('small_order_threshold')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="col-md-4">
+                        <label for="small_order_fee" class="form-label">{{ __('Food: Small Order Fee (PKR)') }}</label><span class="text-danger">*</span>
+                        <small class="fw-medium text-primary d-block">({{ __('Charged when the order is below the amount above') }})</small>
+                        <input class="form-control @error('small_order_fee') is-invalid @enderror" type="number" step="0.01" min="0" id="small_order_fee" name="small_order_fee"
+                            value="{{ old('small_order_fee', $settings->small_order_fee ?? 0) }}" required/>
+                        @error('small_order_fee')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="col-md-4">
                         <label for="parcel_vehicle_type_id" class="form-label">{{ __('Parcel vehicle type') }}</label>
                         <small class="fw-medium text-primary d-block">({{ __('Parcels go to taxi drivers of this vehicle type in the Driver app. Empty = old behaviour, parcels go to delivery riders.') }})</small>
                         <select class="form-select @error('parcel_vehicle_type_id') is-invalid @enderror" id="parcel_vehicle_type_id" name="parcel_vehicle_type_id">

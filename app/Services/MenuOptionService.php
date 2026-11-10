@@ -199,14 +199,22 @@ class MenuOptionService
         }
         $discount = min($discount, $subtotal);
 
+        $smallOrderFee = \App\Services\EatsPricingService::smallOrderFee($subtotal);
+
         $cart->subtotal = $subtotal;
         $cart->discount = $discount;
-        $cart->total_price = round($subtotal - $discount + $cart->tax + $cart->platform_fee + $cart->delivery_fee, 2);
+        $cart->platform_fee = \App\Services\EatsPricingService::platformFee();
+        $cart->total_price = round($subtotal - $discount + $cart->tax + $cart->platform_fee + $smallOrderFee + $cart->delivery_fee, 2);
         // Viewing a cart is not editing it: keep updated_at (card order).
         $cart->timestamps = false;
         $cart->save();
         $cart->timestamps = true;
         $cart->setAttribute('voucher_notice', $voucherNotice);
+        $cart->setAttribute('small_order_fee', $smallOrderFee);
+        $threshold = \App\Services\EatsPricingService::smallOrderThreshold();
+        $cart->setAttribute('small_order_fee_message', $smallOrderFee > 0
+            ? 'Spend Rs. ' . number_format($threshold - $subtotal, 2) . ' more to avoid the small order fee.'
+            : null);
     }
 
     /**

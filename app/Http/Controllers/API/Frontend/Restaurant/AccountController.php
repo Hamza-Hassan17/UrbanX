@@ -7,6 +7,8 @@ use App\Models\CustomerAddress;
 use App\Models\CustomerPreference;
 use App\Models\Restaurant;
 use App\Models\RestaurantCart;
+use App\Models\RestaurantCartItem;
+use App\Models\RestaurantItem;
 use App\Models\RestaurantFavourite;
 use App\Models\RestaurantOrder;
 use App\Models\VoucherCode;
@@ -85,6 +87,97 @@ class AccountController extends Controller
             'message' => 'All carts',
             'deliver_to' => $this->addressQuery($user->id)->first(),
             'carts' => $cards,
+        ], Response::HTTP_OK);
+    }
+
+    /** Set a cart line's quantity (the - / + buttons). 0 removes the line. */
+    public function updateCartItem(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'cart_item_id' => 'required|integer',
+            'quantity' => 'required|integer|min:0|max:100',
+        ]);
+        if ($validator->fails()) {
+            return $this->validationError($validator);
+        }
+
+        $line = RestaurantCartItem::with('cart')->find($request->cart_item_id);
+        if (!$line || (int) $line->cart?->customer_id !== (int) $request->user()->id) {
+            return response()->json(['message' => 'Cart item not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $cart = $line->cart;
+        if ((int) $request->quantity === 0) {
+            $line->delete();
+        } else {
+            $line->update([
+                'quantity' => (int) $request->quantity,
+                'total_price' => round((float) $line->price_per_item * (int) $request->quantity, 2),
+            ]);
+        }
+
+        if ($cart->cartItems()->count() === 0) {
+            $cart->delete();
+            return response()->json(['message' => 'Cart is now empty', 'cart' => null], Response::HTTP_OK);
+        }
+
+        $cart->touch(); // edited now: moves to the top of All carts
+        $cart = RestaurantCart::with('cartItems.restaurantItem')->find($cart->id);
+        MenuOptionService::refreshCart($cart);
+
+        return response()->json(['message' => 'Cart updated', 'cart' => $cart], Response::HTTP_OK);
+    }
+
+    /**
+     * "Popular with your order": the restaurant's best sellers (last 90
+     * days) that aren't already in the cart, topped up with its other
+     * available dishes while it has few orders.
+     */
+    public function popularItems(Request $request, $restaurant_id)
+    {
+        $inCart = $request->filled('cart_id')
+            ? RestaurantCartItem::whereHas('cart', fn ($q) => $q->where('id', $request->cart_id)->where('customer_id', $request->user()->id))
+                ->pluck('restaurant_item_id')
+            : collect();
+
+        $available = fn ($q) => $q->where('restaurant_id', $restaurant_id)
+            ->where('is_active', 'active')
+            ->where('is_available', '1')
+            ->whereNotIn('id', $inCart);
+
+        $bestSellerIds = DB::table('restaurant_order_items')
+            ->join('restaurant_orders', 'restaurant_orders.id', '=', 'restaurant_order_items.order_id')
+            ->where('restaurant_orders.restaurant_id', $restaurant_id)
+            ->whereIn('restaurant_orders.status', ['delivered', 'completed'])
+            ->where('restaurant_orders.created_at', '>=', now()->subDays(90))
+            ->groupBy('restaurant_order_items.restaurant_item_id')
+            ->orderByRaw('SUM(restaurant_order_items.quantity) DESC')
+            ->limit(30)
+            ->pluck('restaurant_order_items.restaurant_item_id');
+
+        $items = $available(RestaurantItem::query())->whereIn('id', $bestSellerIds)->get()
+            ->sortBy(fn ($i) => $bestSellerIds->search($i->id))
+            ->values();
+
+        if ($items->count() < 10) {
+            $items = $items->concat(
+                $available(RestaurantItem::query())->whereNotIn('id', $items->pluck('id'))
+                    ->orderByDesc('discount_percentage')->orderByDesc('id')
+                    ->limit(10 - $items->count())->get()
+            );
+        }
+
+        return response()->json([
+            'message' => 'Popular with your order',
+            'items' => $items->take(10)->map(fn ($i) => [
+                'id' => $i->id,
+                'name' => $i->name,
+                'image' => $i->image ? url('storage/' . $i->image) : null,
+                'price' => (float) $i->price,
+                'discount_price' => $i->discount_price !== null ? (float) $i->discount_price : null,
+                'discount_percentage' => (int) $i->discount_percentage,
+                'has_options' => $i->optionGroups()->exists(),
+            ])->values(),
         ], Response::HTTP_OK);
     }
 

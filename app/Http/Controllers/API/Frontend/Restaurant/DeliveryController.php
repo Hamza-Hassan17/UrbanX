@@ -432,7 +432,7 @@ class DeliveryController extends Controller
 
                         \App\Services\RiderCashService::recordCollected(
                             auth()->id(),
-                            $amountDue,
+                            round($amountDue - (float) $order->tip_amount, 2),
                             RestaurantOrder::class,
                             $order->id
                         );
@@ -534,7 +534,7 @@ class DeliveryController extends Controller
             }
             $order->save();
 
-            \App\Services\RiderCashService::recordCollected(auth()->id(), $amountDue, RestaurantOrder::class, $order->id);
+            \App\Services\RiderCashService::recordCollected(auth()->id(), round($amountDue - (float) $order->tip_amount, 2), RestaurantOrder::class, $order->id);
 
             try {
                 broadcast(new \App\Events\RestaurantOrderUpdated($order));

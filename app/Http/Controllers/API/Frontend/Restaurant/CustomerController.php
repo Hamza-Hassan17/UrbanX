@@ -520,6 +520,10 @@ class CustomerController extends Controller
             $cartRestaurant = Restaurant::find($cart->restaurant_id);
             $cart->setAttribute('minimum_order_amount', $cartRestaurant?->minimum_order_amount);
             $cart->setAttribute('minimum_order_message', $cartRestaurant?->minimumOrderShortfallMessage((float) $cart->subtotal));
+            // Pass ?lat=&lang= (delivery address) for a travel-time estimate.
+            $cart->setAttribute('estimated_delivery', $cartRestaurant
+                ? \App\Services\EatsPricingService::eta($cartRestaurant, $cart->cartItems->pluck('restaurantItem'), $request->query('lat'), $request->query('lang'))
+                : null);
 
             return response()->json([
                 'message' => 'Cart Details',
@@ -746,6 +750,8 @@ class CustomerController extends Controller
             'rider_note' => 'nullable|string|max:255',
             'distance_km' => 'nullable|numeric|min:0',
             'duration_minutes' => 'nullable|integer|min:0',
+            // Optional rider tip; the rider keeps it out of the cash collected.
+            'tip_amount' => 'nullable|numeric|min:0|max:10000',
         ], [
             'payment_method.in' => 'Only cash on delivery is available right now.',
         ]);
@@ -879,10 +885,15 @@ class CustomerController extends Controller
             $order->order_number = 'ORD-' . strtoupper(uniqid());
             $order->subtotal = $subtotal;
             $order->discount = $discount;
+            $platformFee = \App\Services\EatsPricingService::platformFee();
+            $smallOrderFee = \App\Services\EatsPricingService::smallOrderFee($subtotal);
+            $tip = round((float) $request->input('tip_amount', 0), 2);
             $order->tax = $cart->tax;
-            $order->platform_fee = $cart->platform_fee;
+            $order->platform_fee = $platformFee;
+            $order->small_order_fee = $smallOrderFee;
+            $order->tip_amount = $tip;
             $order->delivery_fee = $deliveryFee;
-            $order->total_price = round($subtotal - $discount + $cart->tax + $cart->platform_fee + $deliveryFee, 2);
+            $order->total_price = round($subtotal - $discount + $cart->tax + $platformFee + $smallOrderFee + $tip + $deliveryFee, 2);
             $order->delivery_lat = $request->delivery_lat;
             $order->delivery_lang = $request->delivery_lang;
             $order->rider_note = $request->rider_note;
@@ -911,6 +922,9 @@ class CustomerController extends Controller
 
             $order->fare_breakdown = FareBreakdownService::buildOrderSnapshot([
                 'restaurant' => $restaurant,
+                'platform_fee' => $order->platform_fee,
+                'small_order_fee' => $order->small_order_fee,
+                'tip_amount' => $order->tip_amount,
                 'subtotal' => $order->subtotal,
                 'discount' => $order->discount,
                 'discount_funded_by' => $order->discount_funded_by,
@@ -1081,6 +1095,25 @@ class CustomerController extends Controller
                     'message' => 'Order not found'
                 ], Response::HTTP_NOT_FOUND);
             }
+
+            // Waiting screen: rider and estimated arrival.
+            $deliveryRide = $order->ride_id ? \App\Models\Ride::find($order->ride_id) : null;
+            $riderUser = $deliveryRide?->driver
+                ?? ($order->ride_id ? \App\Models\RideOffer::where('ride_id', $order->ride_id)->where('status', 'accepted')->latest('id')->first()?->driver : null);
+            $order->setAttribute('rider', $riderUser ? [
+                'id' => $riderUser->id,
+                'name' => $riderUser->name,
+                'phone' => $riderUser->phone,
+                'rating' => round((float) $riderUser->driverReviews()->avg('rating'), 1),
+                'latitude' => $order->rider_latitude,
+                'longitude' => $order->rider_longitude,
+                'location_updated_at' => $order->rider_location_updated_at,
+            ] : null);
+            $order->setAttribute('delivery_status', $deliveryRide?->status);
+            $orderRestaurant = Restaurant::find($order->restaurant_id);
+            $order->setAttribute('estimated_delivery', $orderRestaurant && !in_array($order->status, ['delivered', 'completed', 'cancelled', 'rejected'], true)
+                ? \App\Services\EatsPricingService::eta($orderRestaurant, $order->items->pluck('restaurantItem'), $order->delivery_lat, $order->delivery_lang)
+                : null);
 
             $order->setAttribute('has_complaint', !empty(\App\Models\Complain::orderIdsWithComplaint($request->user()->id, [$order->id])));
 
