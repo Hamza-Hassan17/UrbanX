@@ -623,6 +623,8 @@ class DriverDetailsController extends Controller
         try {
             $user = $request->user();
             \App\Services\DriverPresenceService::goOffline($user, 'manual');
+            // Deliberate tap only (auto-offline doesn't come through here).
+            \App\Services\FoodDispatchService::releaseOffersFor($user);
 
             return response()->json(array_merge(
                 ['message' => 'You are offline and will not receive new jobs.'],

@@ -96,6 +96,20 @@ class FoodDispatchService
     }
 
     /**
+     * The rider tapped "Go offline": any food job currently offered to them
+     * moves to the next nearest rider now instead of after the time limit.
+     * Recorded as a skip, so the round logic treats it like a rejection.
+     */
+    public static function releaseOffersFor(User $rider): int
+    {
+        return RideDriverLog::where('driver_id', $rider->id)
+            ->where('action', 'sent')
+            ->where('updated_at', '>', now()->subSeconds(self::timeoutSeconds()))
+            ->whereIn('ride_id', Ride::where('ride_type', 'delivery')->where('status', 'requested')->select('id'))
+            ->update(['action' => 'rejected', 'note' => 'Rider went offline', 'updated_at' => now()]);
+    }
+
+    /**
      * Every-minute safety net: finish rounds where nobody nearby is left to
      * try (e.g. the last rider went offline), so admins still get alerted.
      */
