@@ -239,11 +239,36 @@ class DriverController extends Controller
             $verification->reviewed_at = now();
             $verification->save();
 
-            return redirect()->back()->with('success', 'Verified without document review.');
+            // Jobs only go to riders with a delivery vehicle on file. A rider
+            // verified without documents gets the default delivery bike;
+            // they can still add their own details from the app later.
+            $bikeAdded = $driver->hasRole('rider') && self::giveDefaultBike($driver);
+
+            return redirect()->back()->with('success', 'Verified without document review.'
+                . ($bikeAdded ? ' A delivery bike was added so they can receive jobs.' : ''));
         } catch (\Throwable $th) {
             Log::error('Driver Verification Quick Approve Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
         }
+    }
+
+    /** Adds the active delivery vehicle type for a rider with no vehicle. Returns true if added. */
+    public static function giveDefaultBike(User $rider): bool
+    {
+        if (\App\Models\DriverVehicle::where('driver_id', $rider->id)->exists()) {
+            return false;
+        }
+        $type = \App\Models\VehicleType::where('is_delivery', '1')->where('is_active', 'active')->orderBy('id')->first();
+        if (!$type) {
+            return false;
+        }
+        \App\Models\DriverVehicle::create([
+            'driver_id' => $rider->id,
+            'vehicle_type_id' => $type->id,
+            'vehicle_name' => $type->name,
+            'vehicle_images' => json_encode([]),
+        ]);
+        return true;
     }
 
     public function rejectVerification(Request $request, string $id)

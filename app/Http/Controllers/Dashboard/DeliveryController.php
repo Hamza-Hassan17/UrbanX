@@ -667,7 +667,10 @@ class DeliveryController extends Controller
                 ->find($request->driver_id);
             if (!$newRider) {
                 \Illuminate\Support\Facades\DB::rollBack();
-                return response()->json(['message' => 'Selected driver does not drive the vehicle type for this job.'], 422);
+                $hasVehicle = \App\Models\DriverVehicle::where('driver_id', $request->driver_id)->exists();
+                return response()->json(['message' => $hasVehicle
+                    ? 'Selected ' . ($order ? 'rider' : 'driver') . ' drives a different vehicle type than this job needs.'
+                    : 'Selected ' . ($order ? 'rider' : 'driver') . ' has no vehicle saved yet (verified without documents?). Add their vehicle first.'], 422);
             }
 
             $oldRider = \App\Models\User::find($ride->driver_id);
@@ -881,7 +884,9 @@ class DeliveryController extends Controller
         }
 
         if ($order) {
-            return $order->status === 'rider_assigned';
+            // Until the rider has the food: the restaurant moving the order
+            // on to preparing / ready doesn't mean it was picked up.
+            return in_array($order->status, ['accepted', 'rider_assigned', 'preparing', 'ready_for_pickup'], true);
         }
 
         return in_array($ride->status, ['accepted', 'en_route', 'arrived'], true);
