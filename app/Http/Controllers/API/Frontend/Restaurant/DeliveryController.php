@@ -93,6 +93,22 @@ class DeliveryController extends Controller
                 return response()->json(['rides' => [], 'online_status' => 'offline'], 200);
             }
 
+            // The rider's current position, sent with each job check. Jobs go
+            // to riders near the restaurant, so a stale or missing position
+            // means no jobs at all.
+            $lat = $request->input('latitude', $request->input('lat'));
+            $lng = $request->input('longitude', $request->input('lang'));
+            if (is_numeric($lat) && is_numeric($lng) && abs($lat) <= 90 && abs($lng) <= 180) {
+                $driver->forceFill(['lat' => $lat, 'lang' => $lng, 'last_location_at' => now()])->saveQuietly();
+            }
+            if ($driver->lat === null || $driver->lang === null) {
+                return response()->json([
+                    'rides' => [],
+                    'location_missing' => true,
+                    'message' => 'Location needed: send latitude and longitude to see nearby jobs.',
+                ], 200);
+            }
+
             // -------------------------
             // Driver vehicle type
             // -------------------------
@@ -557,9 +573,11 @@ class DeliveryController extends Controller
     public function updateRiderLocation(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'order_id'  => 'required|exists:restaurant_orders,id',
-            'latitude'  => 'required|numeric',
-            'longitude' => 'required|numeric',
+            // Optional: without an order this just keeps the rider's own
+            // position current while they wait for jobs.
+            'order_id'  => 'nullable|exists:restaurant_orders,id',
+            'latitude'  => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
         ]);
 
         if ($validator->fails()) {
@@ -567,6 +585,15 @@ class DeliveryController extends Controller
                 'message' => 'Validation failed',
                 'errors'  => $validator->errors(),
             ], Response::HTTP_BAD_REQUEST);
+        }
+
+        if (!$request->filled('order_id')) {
+            \App\Models\User::whereKey(auth()->id())->update([
+                'lat' => $request->latitude,
+                'lang' => $request->longitude,
+                'last_location_at' => now(),
+            ]);
+            return response()->json(['message' => 'Location updated.'], Response::HTTP_OK);
         }
 
         try {
