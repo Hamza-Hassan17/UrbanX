@@ -532,6 +532,10 @@ class RestaurantController extends Controller
                 'id' => $orderRider->id,
                 'name' => $orderRider->name,
                 'phone' => $orderRider->phone,
+                // For the restaurant's map: where the rider is now.
+                'latitude' => $orderRider->lat !== null ? (float) $orderRider->lat : null,
+                'longitude' => $orderRider->lang !== null ? (float) $orderRider->lang : null,
+                'location_updated_at' => $orderRider->last_location_at,
             ] : null);
             $order->setAttribute('rider_status', match ($order->ride_id ? Ride::whereKey($order->ride_id)->value('status') : null) {
                 'accepted' => 'assigned',

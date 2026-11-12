@@ -1851,6 +1851,18 @@ class RideController extends Controller
                 ->first();
 
             $driver = $ride->driver;
+            $statusOut = $ride->status;
+
+            // Food delivery: the customer only sees the rider once the food
+            // is picked up (same rule as the order details screen).
+            if ($isPassenger && $ride->ride_type === 'delivery') {
+                $foodOrderStatus = \App\Models\RestaurantOrder::where('ride_id', $ride->id)->value('status');
+                if ($foodOrderStatus !== null && !in_array($foodOrderStatus, \App\Services\FoodOrderFlowService::RIDER_VISIBLE_STATUSES, true)) {
+                    $driver = null;
+                    $lastPing = null;
+                    $statusOut = in_array($foodOrderStatus, ['cancelled', 'rejected'], true) ? 'cancelled' : 'waiting_for_pickup';
+                }
+            }
 
             // Wait-time meter: live while the driver is waiting at pickup,
             // frozen (from wait_penalty) once the ride has started.
@@ -1863,7 +1875,7 @@ class RideController extends Controller
             }
 
             return response()->json([
-                'status' => $ride->status,
+                'status' => $statusOut,
                 'wait_seconds' => $waitSeconds,
                 'wait_grace_seconds' => Ride::waitGraceMinutes() * 60,
                 'extra_charge' => (float) $extraCharge,
