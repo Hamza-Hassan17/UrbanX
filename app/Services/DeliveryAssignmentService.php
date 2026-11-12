@@ -49,8 +49,12 @@ class DeliveryAssignmentService
         }
 
         if ($order) {
-            $order->status = 'rider_assigned';
-            $order->save();
+            // Only from "accepted": a (re)assignment must not undo the
+            // restaurant's own progress (preparing / ready for pickup).
+            if ($order->status === 'accepted') {
+                $order->status = 'rider_assigned';
+                $order->save();
+            }
 
             try {
                 broadcast(new \App\Events\RestaurantOrderUpdated($order, [

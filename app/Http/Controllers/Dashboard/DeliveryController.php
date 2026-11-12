@@ -721,6 +721,12 @@ class DeliveryController extends Controller
             'Reassigned by admin'
         );
 
+        // The restaurant expects a specific rider; tell them it changed.
+        // (The customer isn't told: they only hear about the rider at pickup.)
+        if ($order) {
+            \App\Services\FoodOrderFlowService::notifyRestaurant($order, 'Rider changed', "Order #{$order->order_number} will now be collected by {$newRider->name}.");
+        }
+
         AdminActivityLog::record(
             'Reassigned delivery rider',
             ['driver_id' => $oldRider?->id],

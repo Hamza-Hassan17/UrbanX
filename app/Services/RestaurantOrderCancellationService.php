@@ -37,6 +37,10 @@ class RestaurantOrderCancellationService
                 $ride->cancelled_at = now();
                 $ride->cancel_reason = $reason;
                 $ride->save();
+
+                // Withdraw the rider's acceptance, so the released rider can
+                // no longer act on this order from the app.
+                \App\Models\RideOffer::where('ride_id', $ride->id)->where('status', 'accepted')->update(['status' => 'rejected']);
             }
         }
 

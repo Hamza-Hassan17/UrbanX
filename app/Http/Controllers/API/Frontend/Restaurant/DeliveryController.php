@@ -388,6 +388,15 @@ class DeliveryController extends Controller
                 ], Response::HTTP_FORBIDDEN);
             }
 
+            // A closed order can't be moved by anyone from the app.
+            if (in_array($order->status, ['cancelled', 'rejected', 'delivered', 'completed'], true)) {
+                return response()->json([
+                    'message' => $order->status === 'cancelled' || $order->status === 'rejected'
+                        ? 'This order was cancelled.'
+                        : 'This order is already delivered.',
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
             $flow = \App\Services\FoodOrderFlowService::class;
             $beforePickup = in_array($order->status, $flow::BEFORE_PICKUP_STATUSES, true);
 
