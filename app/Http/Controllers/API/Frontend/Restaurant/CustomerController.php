@@ -978,6 +978,8 @@ class CustomerController extends Controller
 
             DB::commit();
 
+            \App\Services\FoodOrderFlowService::notifyRestaurant($order, 'New order', "New order #{$order->order_number} - Rs. " . number_format((float) $order->total_price, 2) . ". Please accept it.");
+
             // Notify restaurant app in real time. A broadcast failure (e.g. the
             // websocket server being down) must never fail an order that already
             // saved successfully -- log and move on, same as Firebase's old
@@ -1100,6 +1102,9 @@ class CustomerController extends Controller
             $deliveryRide = $order->ride_id ? \App\Models\Ride::find($order->ride_id) : null;
             $riderUser = $deliveryRide?->driver
                 ?? ($order->ride_id ? \App\Models\RideOffer::where('ride_id', $order->ride_id)->where('status', 'accepted')->latest('id')->first()?->driver : null);
+            // The customer sees the rider only once the food is picked up.
+            $riderVisible = in_array($order->status, \App\Services\FoodOrderFlowService::RIDER_VISIBLE_STATUSES, true);
+            $riderUser = $riderVisible ? $riderUser : null;
             $order->setAttribute('rider', $riderUser ? [
                 'id' => $riderUser->id,
                 'name' => $riderUser->name,
@@ -1109,7 +1114,7 @@ class CustomerController extends Controller
                 'longitude' => $order->rider_longitude,
                 'location_updated_at' => $order->rider_location_updated_at,
             ] : null);
-            $order->setAttribute('delivery_status', $deliveryRide?->status);
+            $order->setAttribute('delivery_status', $riderVisible ? $deliveryRide?->status : null);
             $orderRestaurant = Restaurant::find($order->restaurant_id);
             $order->setAttribute('estimated_delivery', $orderRestaurant && !in_array($order->status, ['delivered', 'completed', 'cancelled', 'rejected'], true)
                 ? \App\Services\EatsPricingService::eta($orderRestaurant, $order->items->pluck('restaurantItem'), $order->delivery_lat, $order->delivery_lang)

@@ -261,11 +261,18 @@ class DeliveryController extends Controller
             }
 
 
-            // Update RestaurantOrder status to rider_assigned
+            // The rider is now on the delivery itself (earnings, reassign,
+            // and stale-job checks all read it from there).
+            \App\Services\FoodOrderFlowService::riderAccepted($ride, $request->user());
+
+            // Update RestaurantOrder status to rider_assigned -- only from
+            // "accepted": don't undo the restaurant's preparing / ready.
             $restaurantOrder = RestaurantOrder::where('ride_id', $ride->id)->first();
             if ($restaurantOrder) {
-                $restaurantOrder->status = 'rider_assigned';
-                $restaurantOrder->save();
+                if ($restaurantOrder->status === 'accepted') {
+                    $restaurantOrder->status = 'rider_assigned';
+                    $restaurantOrder->save();
+                }
 
                 $rider = $rideOffer->driver;
                 try {
@@ -280,15 +287,9 @@ class DeliveryController extends Controller
                 }
             }
 
+            // The customer is not told about the rider yet: they hear about
+            // them at pickup ("on the way with [rider]").
             $passenger = $ride->passenger;
-            app('notificationService')->notifyUsers(
-                [$passenger],
-                'New Delivery Ride Offer',
-                'A driver has offered a delivery ride for your request.',
-                'ride_offers',
-                $rideOffer->id,
-                'ride_offer_details'
-            );
 
             // Build restaurant info for rider screen
             $restaurant = $restaurantOrder
@@ -353,7 +354,10 @@ class DeliveryController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'order_id' => 'required|exists:restaurant_orders,id',
-            'status'   => 'required|in:picked_up,on_the_way,delivered',
+            // on_the_way_to_restaurant / arrived_at_restaurant: before pickup.
+            // picked_up is a backup for the restaurant's "handed over".
+            // on_the_way: heading to the customer with the food.
+            'status'   => 'required|in:on_the_way_to_restaurant,arrived_at_restaurant,picked_up,on_the_way,delivered',
             // Batch 1 Part 7 -- required only when marking delivered.
             'delivery_code' => 'required_if:status,delivered|nullable|string|size:4',
             // Batch 1 Part 8 follow-up -- required when marking delivered
@@ -382,6 +386,39 @@ class DeliveryController extends Controller
                 return response()->json([
                     'message' => 'You are not assigned to this delivery.'
                 ], Response::HTTP_FORBIDDEN);
+            }
+
+            $flow = \App\Services\FoodOrderFlowService::class;
+            $beforePickup = in_array($order->status, $flow::BEFORE_PICKUP_STATUSES, true);
+
+            if (in_array($request->status, ['on_the_way_to_restaurant', 'arrived_at_restaurant'], true)) {
+                if (!$beforePickup) {
+                    return response()->json(['message' => 'You already have the food for this order.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+                $request->status === 'on_the_way_to_restaurant'
+                    ? $flow::riderHeadingToRestaurant($order, $request->user())
+                    : $flow::riderArrived($order, $request->user());
+
+                return response()->json([
+                    'message' => 'Delivery status updated.',
+                    'order'   => $order->fresh(),
+                ], Response::HTTP_OK);
+            }
+
+            if ($request->status === 'picked_up') {
+                if (!$beforePickup && $order->status !== 'picked_up') {
+                    return response()->json(['message' => 'This order cannot be picked up now.'], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+                $flow::pickedUp($order, 'rider');
+
+                return response()->json([
+                    'message' => 'Delivery status updated.',
+                    'order'   => $order->fresh(),
+                ], Response::HTTP_OK);
+            }
+
+            if (in_array($request->status, ['on_the_way', 'delivered'], true) && $beforePickup) {
+                return response()->json(['message' => 'Pick up the food first.'], Response::HTTP_UNPROCESSABLE_ENTITY);
             }
 
             // Batch 1 Part 7 -- proof of delivery. Capped at 5 attempts
@@ -454,6 +491,8 @@ class DeliveryController extends Controller
                         );
                     });
 
+                    $flow::delivered($order);
+
                     try {
                         broadcast(new \App\Events\RestaurantOrderUpdated($order));
                     } catch (\Throwable $e) {
@@ -469,6 +508,10 @@ class DeliveryController extends Controller
 
             $order->status = $request->status;
             $order->save();
+
+            if ($order->status === 'delivered') {
+                $flow::delivered($order);
+            }
 
             try {
                 broadcast(new \App\Events\RestaurantOrderUpdated($order));

@@ -526,6 +526,22 @@ class RestaurantController extends Controller
                 ], Response::HTTP_NOT_FOUND);
             }
 
+            // The restaurant always sees the rider and where they are.
+            $orderRider = \App\Services\FoodOrderFlowService::rider($order);
+            $order->setAttribute('rider', $orderRider ? [
+                'id' => $orderRider->id,
+                'name' => $orderRider->name,
+                'phone' => $orderRider->phone,
+            ] : null);
+            $order->setAttribute('rider_status', match ($order->ride_id ? Ride::whereKey($order->ride_id)->value('status') : null) {
+                'accepted' => 'assigned',
+                'en_route' => 'on_the_way_to_restaurant',
+                'arrived' => 'arrived_at_restaurant',
+                'started' => 'delivering',
+                'completed' => 'delivered',
+                default => $orderRider ? 'assigned' : 'finding_rider',
+            });
+
             return response()->json([
                 'message' => 'Restaurant Order Details',
                 'order' => $order
@@ -572,6 +588,8 @@ class RestaurantController extends Controller
             // Riders are offered the job from this moment, so their 10-minute
             // window starts at acceptance, not when the customer ordered.
             Ride::where('id', $order->ride_id)->where('status', 'requested')->update(['requested_at' => now()]);
+
+            \App\Services\FoodOrderFlowService::notifyCustomer($order, 'Order accepted', "{$restaurant->name} accepted your order.");
 
             // Notify customer-facing listeners. A broadcast failure must never
             // fail an order that already saved successfully.
@@ -742,7 +760,8 @@ class RestaurantController extends Controller
     public function updateOrderStatus(Request $request, $order_id)
     {
         $validator = Validator::make($request->all(), [
-            'status' => 'required|in:preparing,ready_for_pickup',
+            // handed_over = the restaurant gave the food to the rider.
+            'status' => 'required|in:preparing,ready_for_pickup,handed_over',
         ]);
 
         if ($validator->fails()) {
@@ -772,6 +791,26 @@ class RestaurantController extends Controller
                 ], Response::HTTP_NOT_FOUND);
             }
 
+            if (!in_array($order->status, \App\Services\FoodOrderFlowService::BEFORE_PICKUP_STATUSES, true)) {
+                return response()->json([
+                    'message' => 'This order has already been picked up or closed.'
+                ], Response::HTTP_UNPROCESSABLE_ENTITY);
+            }
+
+            if ($request->status === 'handed_over') {
+                if (!\App\Services\FoodOrderFlowService::rider($order)) {
+                    return response()->json([
+                        'message' => 'No rider has taken this order yet.'
+                    ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+                \App\Services\FoodOrderFlowService::pickedUp($order, 'restaurant');
+
+                return response()->json([
+                    'message' => 'Order handed over to the rider.',
+                    'order'   => $order->fresh(),
+                ], Response::HTTP_OK);
+            }
+
             $order->status = $request->status;
             $order->save();
 
@@ -779,6 +818,11 @@ class RestaurantController extends Controller
                 broadcast(new \App\Events\RestaurantOrderUpdated($order));
             } catch (\Throwable $e) {
                 Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+            }
+
+            if ($order->status === 'preparing') {
+                \App\Services\FoodOrderFlowService::notifyCustomer($order, 'Preparing your food', "{$restaurant->name} is preparing your order.");
+                \App\Services\FoodOrderFlowService::notifyRider($order, 'Food is being prepared', "Order #{$order->order_number} is being prepared at {$restaurant->name}.");
             }
 
             // Push to the assigned rider (works even when live updates are down).

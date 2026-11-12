@@ -129,6 +129,8 @@ class ScanStaleJobs extends Command
                 "Order #{$order->order_number} has been ready for pickup for over {$thresholdMinutes} minute(s) with no rider pickup."
             );
             if ($alert) {
+                // Raised once per order, so the customer hears this once.
+                \App\Services\FoodOrderFlowService::notifyCustomer($order, 'Slight delay', "Your order is taking a little longer. We're finding a rider.");
                 $count++;
             }
         }

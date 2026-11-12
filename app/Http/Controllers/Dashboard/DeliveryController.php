@@ -952,6 +952,8 @@ class DeliveryController extends Controller
             $order->delivery_override_at = now();
             $order->save();
 
+            \App\Services\FoodOrderFlowService::delivered($order);
+
             AdminActivityLog::record(
                 'Overrode food order delivery',
                 [],
