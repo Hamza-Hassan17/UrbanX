@@ -30,47 +30,36 @@ class DeliveryController extends Controller
         try {
             $user = $request->user();
 
-            $today = now()->toDateString();
+            // Earnings are the rider's NET pay (delivery fee minus platform
+            // share and SST, plus tips), the same figures as the Earnings
+            // screen -- not the gross delivery fee.
+            $history = \App\Services\RiderDeliveryHistoryService::class;
+            $rides = $history::query($user)->orderByDesc('id')->get();
+            $rows = $history::rows($rides);
+            $done = $rows->where('status', 'delivered');
+
+            $today = now()->startOfDay();
             $startOfWeek = now()->startOfWeek(); // Monday
-            $endOfWeek = now()->endOfWeek();
-
-            // Today Deliveries
-            $today_deliveries = Ride::where('driver_id', $user->id)
-                ->where('ride_type', 'delivery')
-                ->where('status', 'completed')
-                ->whereDate('completed_at', $today)
-                ->count();
-
-            // Today Earnings
-            $today_earning = Ride::where('driver_id', $user->id)
-                ->where('ride_type', 'delivery')
-                ->where('status', 'completed')
-                ->whereDate('completed_at', $today)
-                ->sum('total_fare');
-
-            // This Week Deliveries
-            $this_week_deliveries = Ride::where('driver_id', $user->id)
-                ->where('ride_type', 'delivery')
-                ->where('status', 'completed')
-                ->whereBetween('completed_at', [$startOfWeek, $endOfWeek])
-                ->count();
-
-            // This Week Earnings
-            $this_week_earning = Ride::where('driver_id', $user->id)
-                ->where('ride_type', 'delivery')
-                ->where('status', 'completed')
-                ->whereBetween('completed_at', [$startOfWeek, $endOfWeek])
-                ->sum('total_fare');
+            $inRange = fn ($row, $from) => $row['completed_at'] && \Illuminate\Support\Carbon::parse($row['completed_at'])->gte($from);
+            $todayRows = $done->filter(fn ($r) => $inRange($r, $today));
+            $weekRows = $done->filter(fn ($r) => $inRange($r, $startOfWeek));
 
             return response()->json([
                 'message' => 'Delivery Rider Home Stats',
 
                 'stats' => [
-                    'today_earning' => (float) $today_earning,
-                    'today_deliveries' => $today_deliveries,
-                    'this_week_earning' => (float) $this_week_earning,
-                    'this_week_deliveries' => $this_week_deliveries,
-                ]
+                    'total_earning' => round($done->sum(fn ($r) => $r['earning']['earned']), 2),
+                    'total_deliveries' => $done->count(),
+                    'in_progress' => $rows->where('status', 'in_progress')->count(),
+                    'today_earning' => round($todayRows->sum(fn ($r) => $r['earning']['earned']), 2),
+                    'today_deliveries' => $todayRows->count(),
+                    'this_week_earning' => round($weekRows->sum(fn ($r) => $r['earning']['earned']), 2),
+                    'this_week_deliveries' => $weekRows->count(),
+                ],
+
+                // Latest 5 deliveries for "Recent activity"; open one with
+                // GET /restaurant/delivery/my-deliveries/{ride_id}.
+                'recent_activity' => $rows->take(5)->values(),
 
             ], Response::HTTP_OK);
 
@@ -170,6 +159,59 @@ class DeliveryController extends Controller
                 'message' => 'Something went wrong'
             ], 500);
         }
+    }
+
+    /**
+     * My Deliveries list. ?status=all|delivered|in_progress|cancelled and
+     * ?search= (order number or address).
+     */
+    public function myDeliveries(Request $request)
+    {
+        try {
+            $history = \App\Services\RiderDeliveryHistoryService::class;
+            $rows = $history::rows($history::query($request->user())->orderByDesc('id')->get());
+
+            $counts = [
+                'all' => $rows->count(),
+                'delivered' => $rows->where('status', 'delivered')->count(),
+                'in_progress' => $rows->where('status', 'in_progress')->count(),
+                'cancelled' => $rows->where('status', 'cancelled')->count(),
+            ];
+
+            $status = $request->query('status', 'all');
+            if ($status !== 'all' && array_key_exists($status, $counts)) {
+                $rows = $rows->where('status', $status);
+            }
+            if ($search = trim((string) $request->query('search', ''))) {
+                $needle = mb_strtolower($search);
+                $rows = $rows->filter(fn ($r) => str_contains(mb_strtolower(implode(' ', [
+                    $r['order_number'], $r['ride_id'], $r['from']['name'], $r['from']['address'], $r['to']['address'],
+                ])), $needle));
+            }
+
+            return response()->json([
+                'message' => 'My deliveries',
+                'counts' => $counts,
+                'deliveries' => $rows->values(),
+            ], Response::HTTP_OK);
+        } catch (\Throwable $th) {
+            Log::error('API My Deliveries failed', ['error' => $th->getMessage()]);
+            return response()->json(['message' => 'Something went wrong!'], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /** One delivery's full details (order screen). */
+    public function myDeliveryDetails(Request $request, $ride_id)
+    {
+        $ride = \App\Services\RiderDeliveryHistoryService::query($request->user())->whereKey($ride_id)->first();
+        if (!$ride) {
+            return response()->json(['message' => 'Delivery not found.'], Response::HTTP_NOT_FOUND);
+        }
+
+        return response()->json([
+            'message' => 'Delivery details',
+            'delivery' => \App\Services\RiderDeliveryHistoryService::detail($ride),
+        ], Response::HTTP_OK);
     }
 
     private function kmTo($driver, $ride): float

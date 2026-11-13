@@ -752,6 +752,8 @@ class CustomerController extends Controller
             'duration_minutes' => 'nullable|integer|min:0',
             // Optional rider tip; the rider keeps it out of the cash collected.
             'tip_amount' => 'nullable|numeric|min:0|max:10000',
+            // Written address of the drop-off point, shown to the rider.
+            'delivery_address' => 'nullable|string|max:500',
         ], [
             'payment_method.in' => 'Only cash on delivery is available right now.',
         ]);
@@ -896,6 +898,7 @@ class CustomerController extends Controller
             $order->total_price = round($subtotal - $discount + $cart->tax + $platformFee + $smallOrderFee + $tip + $deliveryFee, 2);
             $order->delivery_lat = $request->delivery_lat;
             $order->delivery_lang = $request->delivery_lang;
+            $order->delivery_address = $request->delivery_address;
             $order->rider_note = $request->rider_note;
             $order->payment_method = 'cod';
             $order->payment_status = 'unpaid';

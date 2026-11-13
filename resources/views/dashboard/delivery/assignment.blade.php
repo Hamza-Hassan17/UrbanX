@@ -854,6 +854,7 @@
                     body: JSON.stringify({
                         restaurant_id: val('pickup-restaurant'),
                         dropoff_latitude: dropoffCoords.lat, dropoff_longitude: dropoffCoords.lng,
+                        dropoff_address: val('dropoff-input') || null,
                         customer_name: val('customer_name'), customer_phone: val('customer_phone'),
                         items: lines.map(l => ({ id: l.item.id, quantity: l.qty, option_ids: l.options.map(o => parseInt(o.dataset.option, 10)) })),
                         admin_reason: val('admin_reason'),

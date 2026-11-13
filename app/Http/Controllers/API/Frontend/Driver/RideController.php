@@ -1363,8 +1363,13 @@ class RideController extends Controller
             // take-home, matching the same figures shown in admin payroll.
             $rideHistory = $rides->map(function (Ride $ride) {
                 $data = $ride->toArray();
+                // Deliveries use the flat platform share (and their saved
+                // snapshot), not the taxi commission percent.
+                $isDelivery = in_array($ride->ride_type, ['delivery', 'parcel'], true);
                 $data['fare_breakdown'] = $ride->status === 'completed' && $ride->total_fare > 0
-                    ? FareBreakdownService::calculate((float) $ride->total_fare)
+                    ? ($isDelivery
+                        ? FareBreakdownService::calculate((float) $ride->total_fare, null, FareBreakdownService::platformShareAmount())
+                        : FareBreakdownService::calculate((float) $ride->total_fare))
                     : null;
 
                 return $data;

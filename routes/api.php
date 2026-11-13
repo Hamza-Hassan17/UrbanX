@@ -246,6 +246,8 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
         Route::group(['prefix' => 'delivery'], function () {
             Route::get('/home', [DeliveryController::class, 'getHomeData']);
             Route::get('/get-rides', [DeliveryController::class, 'getLatestRides']);
+            Route::get('/my-deliveries', [DeliveryController::class, 'myDeliveries']);
+            Route::get('/my-deliveries/{ride_id}', [DeliveryController::class, 'myDeliveryDetails']);
             // Batch 3 Part 4 -- same online/offline endpoints for the Delivery app
             Route::post('/go-online', [DriverDetailsController::class, 'goOnline']);
             Route::post('/go-offline', [DriverDetailsController::class, 'goOffline']);

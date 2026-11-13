@@ -444,6 +444,7 @@ class DeliveryController extends Controller
             'restaurant_id' => 'required|exists:restaurants,id',
             'dropoff_latitude' => 'required|numeric',
             'dropoff_longitude' => 'required|numeric',
+            'dropoff_address' => 'nullable|string|max:500',
             'customer_name' => 'required|string|max:255',
             'customer_phone' => 'required|string|max:30',
             'items' => 'required|array|min:1',
@@ -531,6 +532,7 @@ class DeliveryController extends Controller
             $order->total_price = round($orderAmount + $deliveryFee, 2);
             $order->delivery_lat = $request->dropoff_latitude;
             $order->delivery_lang = $request->dropoff_longitude;
+            $order->delivery_address = $request->dropoff_address;
             $order->rider_note = $request->rider_note;
             $order->admin_booking_reason = $request->admin_reason;
             $order->payment_method = 'cod';
