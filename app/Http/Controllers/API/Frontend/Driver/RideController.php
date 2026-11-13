@@ -1030,6 +1030,9 @@ class RideController extends Controller
                         'sst_method' => $fb['sst_method'] ?? null,
                         'sst_amount' => (float) ($fb['sst_amount'] ?? 0),
                         'net' => (float) ($fb['rider_net'] ?? 0),
+                        // Customer tip: 100% the rider's, kept from the cash.
+                        'tip' => round((float) $order->tip_amount, 2),
+                        'earned' => round((float) ($fb['rider_net'] ?? 0) + (float) $order->tip_amount, 2),
                     ];
                 });
             }
@@ -1041,6 +1044,9 @@ class RideController extends Controller
                 'commission' => round($rows->sum('commission_amount'), 2),
                 'sst' => round($rows->sum('sst_amount'), 2),
                 'net' => round($rows->sum('net'), 2),
+                'tips' => round($rows->sum('tip'), 2),
+                // net + tips: everything the rider made.
+                'earned' => round($rows->sum('net') + $rows->sum('tip'), 2),
                 'count' => $rows->count(),
             ];
 
