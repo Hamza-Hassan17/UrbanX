@@ -70,4 +70,14 @@ class RestaurantOrder extends Model
     {
         return $this->hasMany(RestaurantOrderItem::class, 'order_id');
     }
+
+    public function restaurantReview()
+    {
+        return $this->hasOne(RestaurantReview::class, 'order_id');
+    }
+
+    public function riderReview()
+    {
+        return $this->hasOne(DriverReview::class, 'order_id');
+    }
 }

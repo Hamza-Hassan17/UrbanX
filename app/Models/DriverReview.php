@@ -12,6 +12,7 @@ class DriverReview extends Model
     protected $fillable = [
         'driver_id',
         'review_by',
+        'order_id',
         'rating',
         'comments',
     ];

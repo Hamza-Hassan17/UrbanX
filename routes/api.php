@@ -225,6 +225,9 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
             Route::get('/orders', [CustomerController::class, 'getOrders']);
             Route::get('/order-details/{order_id}', [CustomerController::class, 'getOrderDetails']);
             Route::post('/post-review', [CustomerController::class, 'postReview']);
+            Route::get('/pending-rating', [\App\Http\Controllers\API\Frontend\Restaurant\OrderRatingController::class, 'pending']);
+            Route::post('/orders/{order_id}/rate', [\App\Http\Controllers\API\Frontend\Restaurant\OrderRatingController::class, 'rate']);
+            Route::post('/orders/{order_id}/skip-rating', [\App\Http\Controllers\API\Frontend\Restaurant\OrderRatingController::class, 'skip']);
             Route::get('/get-reviews/{restaurant_id}', [CustomerController::class, 'getReviews']);
             Route::get('/calculate-delivery-fare', [CustomerController::class, 'calculateDeliveryFare']);
             Route::post('/favourite/{restaurant_id}', [CustomerController::class, 'toggleFavourite']);

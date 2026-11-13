@@ -12,6 +12,7 @@ class RestaurantReview extends Model
     protected $fillable = [
         'restaurant_id',
         'customer_id',
+        'order_id',
         'rating',
         'comment',
         'is_active',

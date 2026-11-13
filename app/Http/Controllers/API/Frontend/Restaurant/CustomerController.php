@@ -1101,6 +1101,8 @@ class CustomerController extends Controller
                 ], Response::HTTP_NOT_FOUND);
             }
 
+            $order->setAttribute('rating', \App\Http\Controllers\API\Frontend\Restaurant\OrderRatingController::ratingOf($order));
+
             // Waiting screen: rider and estimated arrival.
             $deliveryRide = $order->ride_id ? \App\Models\Ride::find($order->ride_id) : null;
             $riderUser = $deliveryRide?->driver
@@ -1158,6 +1160,17 @@ class CustomerController extends Controller
                     'message' => 'Validation failed',
                     'errors' => $validator->errors()
                 ], Response::HTTP_BAD_REQUEST);
+            }
+
+            // Only real customers: at least one delivered order from this restaurant.
+            $hasOrdered = \App\Models\RestaurantOrder::where('customer_id', $request->user()->id)
+                ->where('restaurant_id', $request->restaurant_id)
+                ->whereIn('status', ['delivered', 'completed'])
+                ->exists();
+            if (!$hasOrdered) {
+                return response()->json([
+                    'message' => 'You can review a restaurant after an order from it has been delivered.'
+                ], Response::HTTP_FORBIDDEN);
             }
 
             $review = new RestaurantReview();

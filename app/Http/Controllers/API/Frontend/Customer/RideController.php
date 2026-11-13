@@ -1362,6 +1362,17 @@ class RideController extends Controller
         try {
             $user = $request->user();
 
+            // Only someone who actually rode with (or got a delivery from) this driver.
+            $hadTrip = Ride::where('passenger_id', $user->id)
+                ->where('driver_id', $request->driver_id)
+                ->where('status', 'completed')
+                ->exists();
+            if (!$hadTrip) {
+                return response()->json([
+                    'message' => 'You can rate a driver after a completed trip with them.'
+                ], Response::HTTP_FORBIDDEN);
+            }
+
             $review = new DriverReview();
             $review->driver_id = $request->driver_id;
             $review->review_by = $user->id;
