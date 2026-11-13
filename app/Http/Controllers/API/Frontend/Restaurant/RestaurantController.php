@@ -40,33 +40,39 @@ class RestaurantController extends Controller
                 ], Response::HTTP_NOT_FOUND);
             }
 
-            // Total Orders
-            $total_orders = RestaurantOrder::where('restaurant_id', $restaurant->id)->count();
+            $reports = \App\Services\RestaurantReportService::class;
 
-            // Pending Orders
+            // All time: delivered orders and what the restaurant earned from
+            // them (food sales minus commission, SST, tax and its own
+            // discounts) -- not what customers paid, which also includes the
+            // rider's delivery fee and tips.
+            $allTime = $reports::totals($restaurant->id, \Illuminate\Support\Carbon::create(2000), now());
+
+            // Last 30 days vs the 30 before, for the trend arrows.
+            $last30 = $reports::totals($restaurant->id, now()->subDays(30), now());
+            $prev30 = $reports::totals($restaurant->id, now()->subDays(60), now()->subDays(30)->subSecond());
+
             $pending_orders = RestaurantOrder::where('restaurant_id', $restaurant->id)
                                 ->where('status', 'pending')
                                 ->count();
 
-            // Total Revenue (only completed/delivered)
-            $total_revenue = RestaurantOrder::where('restaurant_id', $restaurant->id)
-                                ->whereIn('status', ['completed', 'delivered'])
-                                ->sum('total_price');
-
-            // Average Rating
-            $rating = RestaurantReview::where('restaurant_id', $restaurant->id)
-                            ->where('is_active', 'active')
-                            ->avg('rating');
+            $ratings = $reports::ratings($restaurant->id);
 
             return response()->json([
                 'message' => 'Restaurant Home Data',
                 'user' => $user,
                 'restaurant' => $restaurant,
                 'stats' => [
-                    'total_orders' => $total_orders,
+                    'total_orders' => $allTime['orders'],            // delivered orders
                     'pending_orders' => $pending_orders,
-                    'total_revenue' => (float) $total_revenue,
-                    'rating' => round($rating, 1),
+                    'total_revenue' => $allTime['net_payable'],      // restaurant's earnings
+                    'total_food_sales' => $allTime['food_sales'],
+                    'cancelled_orders' => RestaurantOrder::where('restaurant_id', $restaurant->id)->whereIn('status', ['cancelled', 'rejected'])->count(),
+                    // null = nothing to compare with yet (show no arrow)
+                    'orders_change_percent' => $reports::change($last30['orders'], $prev30['orders']),
+                    'revenue_change_percent' => $reports::change($last30['net_payable'], $prev30['net_payable']),
+                    'rating' => $ratings['average'],
+                    'reviews_count' => $ratings['count'],
                 ]
 
             ], Response::HTTP_OK);

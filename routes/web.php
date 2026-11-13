@@ -288,6 +288,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
             //Driver Support Requests
             Route::get('support-requests', [SupportRequestController::class, 'index'])->name('support-requests.index');
+            Route::get('faqs', [\App\Http\Controllers\Dashboard\FaqController::class, 'index'])->name('faqs.index');
+            Route::post('faqs', [\App\Http\Controllers\Dashboard\FaqController::class, 'store'])->name('faqs.store');
+            Route::put('faqs/{faq}', [\App\Http\Controllers\Dashboard\FaqController::class, 'update'])->name('faqs.update');
+            Route::post('faqs/{faq}/toggle', [\App\Http\Controllers\Dashboard\FaqController::class, 'toggle'])->name('faqs.toggle');
+            Route::delete('faqs/{faq}', [\App\Http\Controllers\Dashboard\FaqController::class, 'destroy'])->name('faqs.destroy');
             Route::get('support-requests/{id}', [SupportRequestController::class, 'show'])->name('support-requests.show');
             Route::post('support-requests/{id}/approve', [SupportRequestController::class, 'approve'])->name('support-requests.approve');
             Route::post('support-requests/{id}/reject', [SupportRequestController::class, 'reject'])->name('support-requests.reject');

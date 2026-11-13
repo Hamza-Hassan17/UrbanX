@@ -14,7 +14,10 @@
                 <div>
                     <h5 class="mb-1">{{ $supportRequest->subject }}</h5>
                     <small class="text-muted">
-                        {{ __('From') }} {{ $supportRequest->driver->name ?? 'N/A' }}
+                        {{ __('From') }} {{ $supportRequest->driver->name ?? 'N/A' }} ({{ ucfirst($supportRequest->source ?? 'driver') }})
+                        @if ($supportRequest->order)
+                            &middot; {{ __('About order') }} #{{ $supportRequest->order->order_number }}
+                        @endif
                         @if ($supportRequest->driver && $supportRequest->driver->phone)
                             &middot; {{ $supportRequest->driver->phone }}
                         @endif
@@ -38,7 +41,7 @@
                              (messaging/calling back), not admin's own outreach. --}}
                         @if ($supportRequest->driver && $supportRequest->driver->phone)
                             <a href="tel:{{ $supportRequest->driver->phone }}" class="btn btn-success btn-sm align-self-center">
-                                <i class="ti ti-phone"></i> {{ __('Call Driver') }}
+                                <i class="ti ti-phone"></i> {{ __('Call') }} {{ ucfirst($supportRequest->source ?? 'driver') }}
                             </a>
                         @endif
                         @if ($supportRequest->status === 'pending')
@@ -166,7 +169,7 @@
                 .attr('data-message-id', messageId || '')
                 .html(
                     '<div class="p-3 rounded ' + (isAdmin ? 'bg-label-primary' : 'bg-label-secondary') + '" style="max-width: 70%;">' +
-                    '<div class="small fw-bold mb-1">' + (isAdmin ? 'Admin' : 'Driver') + '</div>' +
+                    '<div class="small fw-bold mb-1">' + (isAdmin ? 'Admin' : @json(ucfirst($supportRequest->source ?? 'driver'))) + '</div>' +
                     '<div></div>' +
                     '<div class="small text-muted mt-1"></div>' +
                     '</div>'

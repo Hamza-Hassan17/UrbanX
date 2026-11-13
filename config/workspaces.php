@@ -88,6 +88,7 @@ return [
         'dashboard.payroll.' => 'platform',
         'dashboard.reports.' => 'platform',
         'dashboard.support-requests.' => 'platform',
+        'dashboard.faqs.' => 'platform',
         'dashboard.announcements.' => 'platform',
         'dashboard.roles.' => 'platform',
         'dashboard.permissions.' => 'platform',

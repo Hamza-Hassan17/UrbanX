@@ -25,6 +25,8 @@ class SupportController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'subject' => 'required|string|max:255',
+            // Optional: the order this is about ("Report a problem").
+            'order_id' => 'nullable|integer',
         ]);
 
         if ($validator->fails()) {
@@ -37,9 +39,20 @@ class SupportController extends Controller
         try {
             $driver = $request->user();
 
+            $orderId = null;
+            if ($request->filled('order_id')) {
+                $order = \App\Models\RestaurantOrder::find($request->order_id);
+                if (!$order || !$this->canReportOn($driver, $order)) {
+                    return response()->json(['message' => 'Order not found.'], Response::HTTP_NOT_FOUND);
+                }
+                $orderId = $order->id;
+            }
+
             $supportRequest = SupportRequest::create([
                 'driver_id' => $driver->id,
+                'source' => self::sourceOf($driver),
                 'subject' => $request->subject,
+                'order_id' => $orderId,
                 'status' => 'pending',
             ]);
 
@@ -69,6 +82,24 @@ class SupportController extends Controller
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    /** Which app the request comes from: restaurant, rider or driver. */
+    public static function sourceOf(User $user): string
+    {
+        if ($user->hasRole('restaurant')) {
+            return 'restaurant';
+        }
+        return $user->hasRole('rider') ? 'rider' : 'driver';
+    }
+
+    /** A restaurant can report its own orders; a rider the ones they delivered. */
+    private function canReportOn(User $user, \App\Models\RestaurantOrder $order): bool
+    {
+        if ($user->hasRole('restaurant')) {
+            return (int) \App\Models\Restaurant::whereKey($order->restaurant_id)->value('user_id') === (int) $user->id;
+        }
+        return (int) \App\Services\FoodOrderFlowService::rider($order)?->id === (int) $user->id;
     }
 
     public function index(Request $request)
@@ -158,7 +189,7 @@ class SupportController extends Controller
             $message = SupportMessage::create([
                 'support_request_id' => $supportRequest->id,
                 'sender_id' => $driver->id,
-                'sender_role' => 'driver',
+                'sender_role' => self::sourceOf($driver),
                 'message' => $request->message,
             ]);
 

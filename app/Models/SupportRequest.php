@@ -11,7 +11,9 @@ class SupportRequest extends Model
 
     protected $fillable = [
         'driver_id',
+        'source',
         'subject',
+        'order_id',
         'status',
         'approved_by',
         'approved_at',
@@ -21,6 +23,11 @@ class SupportRequest extends Model
     protected $casts = [
         'approved_at' => 'datetime',
     ];
+
+    public function order()
+    {
+        return $this->belongsTo(RestaurantOrder::class, 'order_id');
+    }
 
     public function driver()
     {

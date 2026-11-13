@@ -502,6 +502,12 @@
                     @endif
                 </a>
             </li>
+            <li class="menu-item {{ request()->routeIs('dashboard.faqs.*') ? 'active' : '' }}">
+                <a href="{{ route('dashboard.faqs.index') }}" class="menu-link" style="color: #fff !important;">
+                    <i class="menu-icon tf-icons ti ti-help-circle"></i>
+                    <div>{{__('Help FAQs')}}</div>
+                </a>
+            </li>
         @endcan
 
         {{-- 10. Reviews -- omitted: no dashboard controller/view exists for DriverReview or RestaurantReview yet. --}}

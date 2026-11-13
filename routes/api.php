@@ -203,6 +203,14 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
         Route::post('/verification/submit', [RestaurantController::class, 'submitVerificationDocuments']);
         Route::get('/verification/status', [RestaurantController::class, 'getVerificationStatus']);
 
+        // Partner app: Reports, Help & Support (support chat shared with riders/drivers)
+        Route::get('/reports', [\App\Http\Controllers\API\Frontend\Restaurant\PartnerReportController::class, 'reports']);
+        Route::get('/help', [\App\Http\Controllers\API\Frontend\Restaurant\PartnerReportController::class, 'help']);
+        Route::post('/support/request', [DriverSupportController::class, 'store']);
+        Route::get('/support/requests', [DriverSupportController::class, 'index']);
+        Route::get('/support/requests/{id}/messages', [DriverSupportController::class, 'messages']);
+        Route::post('/support/requests/{id}/messages', [DriverSupportController::class, 'sendMessage']);
+
         Route::group(['prefix' => 'customer'], function () {
             Route::get('/home', [CustomerController::class, 'getHomeData']);
             Route::get('/home-v2', [\App\Http\Controllers\API\Frontend\Restaurant\HomeFeedController::class, 'home']);

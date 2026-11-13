@@ -10,7 +10,7 @@
     <div class="container-xxl flex-grow-1 container-p-y">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">{{ __('Driver Support Requests') }}</h5>
+                <h5 class="mb-0">{{ __('Support Requests') }}</h5>
                 <div class="btn-group">
                     <a href="{{ route('dashboard.support-requests.index') }}" class="btn btn-sm {{ !$status ? 'btn-primary' : 'btn-outline-primary' }}">{{ __('All') }}</a>
                     <a href="{{ route('dashboard.support-requests.index', ['status' => 'pending']) }}" class="btn btn-sm {{ $status === 'pending' ? 'btn-primary' : 'btn-outline-primary' }}">{{ __('Pending') }}</a>
@@ -24,7 +24,7 @@
                     <thead>
                         <tr>
                             <th>{{ __('Sr.') }}</th>
-                            <th>{{ __('Driver') }}</th>
+                            <th>{{ __('From') }}</th>
                             <th>{{ __('Subject') }}</th>
                             <th>{{ __('Status') }}</th>
                             <th>{{ __('Submitted At') }}</th>
@@ -35,8 +35,16 @@
                         @forelse ($requests as $index => $req)
                             <tr>
                                 <td>{{ $index + 1 }}</td>
-                                <td>{{ $req->driver->name ?? 'N/A' }}</td>
-                                <td>{{ $req->subject }}</td>
+                                <td>
+                                    {{ $req->driver->name ?? 'N/A' }}
+                                    <span class="badge bg-label-{{ ['restaurant' => 'warning', 'rider' => 'info'][$req->source] ?? 'primary' }} ms-1">{{ ucfirst($req->source ?? 'driver') }}</span>
+                                </td>
+                                <td>
+                                    {{ $req->subject }}
+                                    @if ($req->order)
+                                        <div class="small text-muted">{{ __('Order') }} #{{ $req->order->order_number }}</div>
+                                    @endif
+                                </td>
                                 <td>
                                     @php
                                         $badgeClass = [
