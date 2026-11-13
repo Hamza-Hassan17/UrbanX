@@ -276,13 +276,6 @@
                             </a>
                         </li>
                     @endcan
-                    @can(['create boost hour'])
-                        <li class="menu-item {{ request()->routeIs('dashboard.boost-hours.*') ? 'active' : '' }}">
-                            <a href="{{ route('dashboard.boost-hours.index') }}" class="menu-link" style="color: #fff !important;">
-                                <div>{{__('Boost Hours')}}</div>
-                            </a>
-                        </li>
-                    @endcan
                     @can(['manage rider cash'])
                         <li class="menu-item {{ request()->routeIs('dashboard.rider-cash.*') ? 'active' : '' }}">
                             <a href="{{ route('dashboard.rider-cash.index') }}" class="menu-link" style="color: #fff !important;">

@@ -126,28 +126,16 @@ class DeliveryController extends Controller
             }
 
             // -------------------------
-            // Boost logic
+            // No boost hours for food delivery: neither the customer's fee nor
+            // the rider's pay uses a boost, so the job shows the real fare.
+            // Fields kept for app compatibility. (Taxi rides still boost.)
             // -------------------------
-            $now = now()->format('H:i');
-            $busyHour = DB::table('boost_hours')
-                ->where('start', '<=', $now)
-                ->where('end', '>=', $now)
-                ->first();
-
-            Log::info('Boost Hour Check', ['current_time' => $now, 'busy_hour' => $busyHour]);
-
-            $multiplier = $busyHour ? (float)$busyHour->multiplier : 1.0;
-
-            $rides->transform(function ($ride) use ($multiplier) {
-                $ride->boost_multiplier = $multiplier;
-                $ride->is_boost = $multiplier > 1;
-                $ride->final_fare = isset($ride->total_fare)
-                    ? $ride->total_fare * $multiplier
-                    : null;
+            $rides->transform(function ($ride) {
+                $ride->boost_multiplier = 1.0;
+                $ride->is_boost = false;
+                $ride->final_fare = $ride->total_fare;
                 return $ride;
             });
-
-            Log::info('Rides after Boost Calculation', ['driver_id' => $driver->id, 'rides' => $rides]);
 
             return response()->json([
                 'rides' => $rides

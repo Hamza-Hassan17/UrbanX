@@ -48,7 +48,8 @@ return [
         'dashboard.custom-rides.live-tracking' => ['rides', 'delivery'],
         'dashboard.vehicle-types.' => ['rides', 'delivery'],
         'dashboard.vehicle-type-icons.' => ['rides', 'delivery'],
-        'dashboard.boost-hours.' => ['rides', 'delivery'],
+        // Boost hours only apply to taxi rides (food delivery doesn't boost).
+        'dashboard.boost-hours.' => ['rides'],
         'dashboard.complains.' => ['rides', 'delivery', 'platform'],
 
         // Rides
