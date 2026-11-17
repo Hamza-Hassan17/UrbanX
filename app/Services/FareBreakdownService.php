@@ -73,6 +73,8 @@ class FareBreakdownService
             'first_km_fee' => (float) ($settings?->food_first_km_fee ?? 150.00),
             'per_km_fee' => (float) ($settings?->food_per_km_fee ?? 45.00),
             'max_distance_km' => (int) ($settings?->food_max_distance_km ?? 4),
+            // How far from the restaurant food may be delivered (0 = no limit).
+            'max_delivery_km' => (int) ($settings?->food_max_delivery_km ?? 15),
         ];
     }
 

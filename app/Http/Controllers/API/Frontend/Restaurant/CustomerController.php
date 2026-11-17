@@ -112,8 +112,12 @@ class CustomerController extends Controller
         // No customer distance limit any more (food can be delivered at any
         // distance) -- the km setting now limits which riders see the order,
         // see DeliveryController::getLatestRides(). Still annotates distance_km.
-        return $restaurants->each(function ($restaurant) use ($request) {
+        $maxDelivery = FareBreakdownService::foodDeliveryFeeSettings()['max_delivery_km'];
+
+        return $restaurants->each(function ($restaurant) use ($request, $maxDelivery) {
             if ($restaurant->latitude && $restaurant->longitude) {
+                $km = $this->haversineDistanceKm($request->lat, $request->lang, $restaurant->latitude, $restaurant->longitude);
+                $restaurant->delivers_to_you = $maxDelivery <= 0 || $km <= $maxDelivery;
                 $restaurant->distance_km = round($this->haversineDistanceKm($request->lat, $request->lang, $restaurant->latitude, $restaurant->longitude), 2);
             }
         })->values();
@@ -804,6 +808,14 @@ class CustomerController extends Controller
                     $request->delivery_lat,
                     $request->delivery_lang
                 );
+
+                if ($feeSettings['max_delivery_km'] > 0 && $distanceToDelivery > $feeSettings['max_delivery_km']) {
+                    return response()->json([
+                        'message' => "This restaurant doesn't deliver to that address. Please choose an address within {$feeSettings['max_delivery_km']} km of the restaurant.",
+                        'distance_km' => round($distanceToDelivery, 1),
+                        'max_delivery_km' => $feeSettings['max_delivery_km'],
+                    ], Response::HTTP_BAD_REQUEST);
+                }
 
                 $distanceChargedKm = FareBreakdownService::roundUpToKm($distanceToDelivery);
                 $deliveryFee = $feeSettings['first_km_fee'];

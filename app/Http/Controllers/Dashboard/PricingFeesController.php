@@ -43,6 +43,7 @@ class PricingFeesController extends Controller
             'food_first_km_fee' => 'required|numeric|min:0',
             'food_per_km_fee' => 'required|numeric|min:0',
             'food_max_distance_km' => 'required|integer|min:1',
+            'food_max_delivery_km' => 'required|integer|min:0|max:500',
             'parcel_first_km_fee' => 'required|numeric|min:0',
             'parcel_per_km_fee' => 'required|numeric|min:0',
             'parcel_max_distance_km' => 'required|integer|min:1',

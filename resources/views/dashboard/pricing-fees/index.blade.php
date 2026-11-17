@@ -44,6 +44,13 @@
                             value="{{ old('food_max_distance_km', $settings->food_max_distance_km) }}" required/>
                         @error('food_max_distance_km')<span class="invalid-feedback">{{ $message }}</span>@enderror
                     </div>
+                    <div class="col-md-4">
+                        <label for="food_max_delivery_km" class="form-label">{{ __('Max Delivery Distance (km)') }}</label> <small class="text-muted">({{ __('customers further than this from the restaurant can\'t order; 0 = no limit') }})</small><span class="text-danger">*</span>
+                        <input class="form-control @error('food_max_delivery_km') is-invalid @enderror" type="number"
+                            step="1" min="0" max="500" id="food_max_delivery_km" name="food_max_delivery_km"
+                            value="{{ old('food_max_delivery_km', $settings->food_max_delivery_km ?? 15) }}" required/>
+                        @error('food_max_delivery_km')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
 
                     <div class="col-12 mt-5">
                         <h6 class="text-primary">{{ __('Parcel Delivery Fee') }}</h6>
