@@ -23,6 +23,8 @@ class EnsureTermsAccepted
         'api/user',
         'api/terms-and-conditions',
         'api/terms-and-conditions/accept',
+        // Registering for push must work even before terms are accepted.
+        'api/device/fcm-token',
     ];
 
     public function handle(Request $request, Closure $next)

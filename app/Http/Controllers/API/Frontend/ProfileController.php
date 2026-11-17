@@ -107,6 +107,29 @@ class ProfileController extends Controller
         }
     }
 
+    /**
+     * Register (or refresh) this phone for push notifications. Apps call it
+     * on start, when notifications are allowed, and when Firebase issues a
+     * new token -- not only at login, so a token that arrives late or
+     * changes is never lost.
+     */
+    public function updateFcmToken(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'fcm_token' => 'required|string|max:500',
+        ]);
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Validation failed', 'errors' => $validator->errors()], Response::HTTP_BAD_REQUEST);
+        }
+
+        $user = $request->user();
+        // The same phone token can't stay attached to another account.
+        \App\Models\UserDevice::where('fcm_token', $request->fcm_token)->where('user_id', '!=', $user->id)->delete();
+        \App\Models\UserDevice::updateOrCreate(['user_id' => $user->id], ['fcm_token' => $request->fcm_token]);
+
+        return response()->json(['message' => 'Notifications are on for this phone.', 'registered' => true], Response::HTTP_OK);
+    }
+
     public function updateUserPassword(Request $request)
     {
         $validator = Validator::make($request->all(), [

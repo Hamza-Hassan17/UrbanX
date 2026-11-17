@@ -57,6 +57,7 @@ Route::middleware(['auth:sanctum', 'terms.accepted'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'getUserProfile']);
     Route::post('/profile/update', [ProfileController::class, 'updateUserProfile']);
     Route::post('/password/update', [ProfileController::class, 'updateUserPassword']);
+    Route::post('/device/fcm-token', [ProfileController::class, 'updateFcmToken']);
 
     //Complain API
     Route::get('/get-complains', [ComplainController::class, 'getComplains']);
