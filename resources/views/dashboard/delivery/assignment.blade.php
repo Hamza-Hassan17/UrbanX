@@ -1137,7 +1137,7 @@
         // ---------------- Edit food order ----------------
         let editOrder = null;
         const eo = id => document.getElementById(id);
-        function closeEditOrder() { eo('edit-order-modal').classList.remove('open'); editOrder = null; }
+        function closeEditOrder() { eo('edit-order-modal').classList.remove('show'); editOrder = null; }
         async function openEditOrder(rideId) {
             const res = await fetch(DISPATCH.orderUrlTemplate.replace('__ID__', rideId), { headers: { 'Accept': 'application/json' } });
             const d = await res.json().catch(() => ({}));
@@ -1154,7 +1154,7 @@
             eo('edit-order-fee').value = Math.round(d.delivery_fee);
             eo('edit-order-note').value = d.rider_note ?? '';
             eo('edit-order-reason').value = '';
-            eo('edit-order-modal').classList.add('open');
+            eo('edit-order-modal').classList.add('show');
         }
         eo('edit-order-locate').addEventListener('click', function () {
             const address = eo('edit-order-address').value.trim();
