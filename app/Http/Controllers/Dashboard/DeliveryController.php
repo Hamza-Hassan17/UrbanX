@@ -513,7 +513,17 @@ class DeliveryController extends Controller
             if (!$rider) {
                 return response()->json(['message' => 'Selected rider does not have a delivery vehicle.'], 422);
             }
-            if ($busy = $this->busyMessage($rider)) {
+            $prep = (int) collect($pricedLines)->max(fn ($l) => (int) ($l[0]->preparation_time ?? 0));
+            $newJob = [
+                'restaurant_id' => (int) $restaurant->id,
+                'pickup_lat' => (float) $restaurant->latitude,
+                'pickup_lng' => (float) $restaurant->longitude,
+                'drop_lat' => (float) $request->dropoff_latitude,
+                'drop_lng' => (float) $request->dropoff_longitude,
+                // The kitchen starts now (admin bookings are already accepted).
+                'prep_left' => $prep > 0 ? $prep : \App\Services\OrderBatchingService::defaultPrepMinutes(),
+            ];
+            if ($busy = $this->busyMessage($rider, $newJob)) {
                 return response()->json(['message' => $busy], 422);
             }
         }
@@ -659,8 +669,17 @@ class DeliveryController extends Controller
      * Null if the rider/driver is free, else why they can't take another job:
      * they're already on a delivery, parcel or ride that isn't finished.
      */
-    private function busyMessage(\App\Models\User $person): ?string
+    private function busyMessage(\App\Models\User $person, ?array $newJob = null, ?Ride $newRide = null): ?string
     {
+        // A second food order from the same restaurant may be combined
+        // (Pricing & Fees -> Order batching, OrderBatchingService).
+        if ($newRide && \App\Services\OrderBatchingService::check((int) $person->id, $newRide) === null) {
+            return null;
+        }
+        if ($newJob && \App\Services\OrderBatchingService::checkJob((int) $person->id, $newJob) === null) {
+            return null;
+        }
+
         $current = Ride::where('driver_id', $person->id)
             ->whereIn('status', ['accepted', 'en_route', 'arrived', 'started'])
             ->latest('id')
@@ -722,7 +741,7 @@ class DeliveryController extends Controller
                     : 'Selected ' . ($order ? 'rider' : 'driver') . ' has no vehicle saved yet (verified without documents?). Add their vehicle first.'], 422);
             }
 
-            if ($busy = $this->busyMessage($newRider)) {
+            if ($busy = $this->busyMessage($newRider, null, $ride)) {
                 \Illuminate\Support\Facades\DB::rollBack();
                 return response()->json(['message' => $busy], 422);
             }

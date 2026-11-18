@@ -78,12 +78,13 @@ class DeliveryController extends Controller
 
             // The delivery this rider is on right now (accepted in the app or
             // assigned by an admin), so the app can always show it.
-            $active = $this->activeDeliveryFor($driver);
+            $activeList = $this->activeDeliveriesFor($driver);
+            $active = $activeList[0] ?? null;
 
             // Batch 3 Part 4 -- offline riders see no jobs. NULL (never used
             // the toggle) still counts as online.
             if ($driver->isOffline()) {
-                return response()->json(['rides' => [], 'online_status' => 'offline', 'active_delivery' => $active], 200);
+                return response()->json(['rides' => [], 'online_status' => 'offline', 'active_delivery' => $active, 'active_deliveries' => $activeList], 200);
             }
 
             // The rider's current position, sent with each job check. Jobs go
@@ -100,6 +101,7 @@ class DeliveryController extends Controller
                     'location_missing' => true,
                     'message' => 'Location needed: send latitude and longitude to see nearby jobs.',
                     'active_delivery' => $active,
+                    'active_deliveries' => $activeList,
                 ], 200);
             }
 
@@ -115,7 +117,7 @@ class DeliveryController extends Controller
 
             if (!$driverVehicleType) {
                 Log::warning("Driver does not have a valid delivery vehicle type", ['driver_id' => $driver->id]);
-                return response()->json(['rides' => [], 'active_delivery' => $active], 200);
+                return response()->json(['rides' => [], 'active_delivery' => $active, 'active_deliveries' => $activeList], 200);
             }
 
             // -------------------------
@@ -128,6 +130,9 @@ class DeliveryController extends Controller
                 $ride->distance = round($this->kmTo($driver, $ride), 2);
                 $ride->offer_timeout_seconds = \App\Services\FoodDispatchService::timeoutSeconds();
                 Log::info('Ride Sent to Driver', ['driver_id' => $driver->id, 'ride_id' => $ride->id, 'round' => $ride->offer_round]);
+                // A second order from the same restaurant, on top of what he has.
+                $ride->is_batch = !empty($activeList);
+                $ride->batch_with = collect($activeList)->pluck('order_number')->values();
             }
 
             // -------------------------
@@ -145,6 +150,7 @@ class DeliveryController extends Controller
             return response()->json([
                 'rides' => $rides,
                 'active_delivery' => $active,
+                    'active_deliveries' => $activeList,
             ], 200);
 
         } catch (\Throwable $e) {
@@ -199,28 +205,35 @@ class DeliveryController extends Controller
     {
         return response()->json([
             'message' => 'Active delivery',
-            'active_delivery' => $this->activeDeliveryFor($request->user()),
+            'active_delivery' => ($list = $this->activeDeliveriesFor($request->user()))[0] ?? null,
+            'active_deliveries' => $list,
         ], Response::HTTP_OK);
     }
 
-    private function activeDeliveryFor($rider): ?array
+    /**
+     * The rider's current deliveries (usually one; two when orders are
+     * combined), in drop-off order: the order he took first is delivered first.
+     */
+    private function activeDeliveriesFor($rider): array
     {
-        $ride = \App\Services\RiderDeliveryHistoryService::query($rider)
+        $rides = \App\Services\RiderDeliveryHistoryService::query($rider)
             ->whereIn('status', \App\Services\RiderDeliveryHistoryService::IN_PROGRESS)
-            ->latest('id')
-            ->first();
-        if (!$ride) {
-            return null;
+            ->orderBy('accepted_at')->orderBy('id')
+            ->get();
+
+        $list = [];
+        foreach ($rides as $ride) {
+            $detail = \App\Services\RiderDeliveryHistoryService::detail($ride);
+            // Cancelled orders aren't active even if the delivery row lags behind.
+            if ($detail['status'] !== 'in_progress') {
+                continue;
+            }
+            $detail['assigned_by_admin'] = $ride->status_updated_by_role === 'admin';
+            $detail['drop_off_position'] = count($list) + 1;
+            $list[] = $detail;
         }
 
-        $detail = \App\Services\RiderDeliveryHistoryService::detail($ride);
-        // Cancelled orders aren't active even if the delivery row lags behind.
-        if ($detail['status'] !== 'in_progress') {
-            return null;
-        }
-        $detail['assigned_by_admin'] = $ride->status_updated_by_role === 'admin';
-
-        return $detail;
+        return $list;
     }
 
     /** One delivery's full details (order screen). */
@@ -266,8 +279,11 @@ class DeliveryController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
-        // One delivery at a time.
-        if (in_array((int) $request->user()->id, \App\Services\FoodDispatchService::busyRiderIds(), true)) {
+        // One delivery at a time, unless this order may be combined with the
+        // one he has (same restaurant, nearby customers -- OrderBatchingService).
+        $acceptRide = Ride::find($request->ride_id);
+        if (in_array((int) $request->user()->id, \App\Services\FoodDispatchService::busyRiderIds(), true)
+            && (!$acceptRide || \App\Services\OrderBatchingService::check((int) $request->user()->id, $acceptRide) !== null)) {
             return response()->json([
                 'message' => 'Finish your current delivery before accepting another one.'
             ], Response::HTTP_BAD_REQUEST);

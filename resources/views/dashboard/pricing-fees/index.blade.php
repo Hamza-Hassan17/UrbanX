@@ -202,6 +202,35 @@
                             value="{{ old('small_order_fee', $settings->small_order_fee ?? 0) }}" required/>
                         @error('small_order_fee')<span class="invalid-feedback">{{ $message }}</span>@enderror
                     </div>
+                    <div class="col-12 mt-5">
+                        <h6 class="text-primary">{{ __('Order Batching') }}</h6>
+                        <small class="text-muted">{{ __('A rider already on a food delivery may take one more order when it is from the same restaurant, the customers are close to each other, he has not left the restaurant yet, and nobody is delayed more than the limit.') }}</small>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label d-block" for="batching_enabled">{{ __('Combine orders') }}</label>
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" id="batching_enabled" name="batching_enabled" value="1" @checked(old('batching_enabled', $settings->batching_enabled ?? false))>
+                            <label class="form-check-label" for="batching_enabled">{{ __('On') }}</label>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="batch_max_orders" class="form-label">{{ __('Max orders per rider') }}</label><span class="text-danger">*</span>
+                        <input class="form-control @error('batch_max_orders') is-invalid @enderror" type="number" min="2" max="3" id="batch_max_orders" name="batch_max_orders"
+                            value="{{ old('batch_max_orders', $settings->batch_max_orders ?? 2) }}" required/>
+                        @error('batch_max_orders')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="col-md-3">
+                        <label for="batch_customer_radius_km" class="form-label">{{ __('Customers within (km)') }}</label><span class="text-danger">*</span>
+                        <input class="form-control @error('batch_customer_radius_km') is-invalid @enderror" type="number" step="0.1" min="0.5" max="10" id="batch_customer_radius_km" name="batch_customer_radius_km"
+                            value="{{ old('batch_customer_radius_km', $settings->batch_customer_radius_km ?? 2) }}" required/>
+                        @error('batch_customer_radius_km')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
+                    <div class="col-md-3">
+                        <label for="batch_max_delay_minutes" class="form-label">{{ __('Max delay per customer (min)') }}</label><span class="text-danger">*</span>
+                        <input class="form-control @error('batch_max_delay_minutes') is-invalid @enderror" type="number" min="1" max="30" id="batch_max_delay_minutes" name="batch_max_delay_minutes"
+                            value="{{ old('batch_max_delay_minutes', $settings->batch_max_delay_minutes ?? 10) }}" required/>
+                        @error('batch_max_delay_minutes')<span class="invalid-feedback">{{ $message }}</span>@enderror
+                    </div>
                     <div class="col-md-4">
                         <label for="parcel_vehicle_type_id" class="form-label">{{ __('Parcel vehicle type') }}</label>
                         <small class="fw-medium text-primary d-block">({{ __('Parcels go to taxi drivers of this vehicle type in the Driver app. Empty = old behaviour, parcels go to delivery riders.') }})</small>

@@ -50,14 +50,14 @@ class FoodDispatchService
         if ($rider->lat === null || $rider->lang === null) {
             return null;
         }
-        // One delivery at a time: no new offers until the current one is done.
-        if (in_array((int) $rider->id, self::busyRiderIds(), true)) {
-            return null;
-        }
+        // A rider on a delivery only sees jobs he may combine with it
+        // (OrderBatchingService); otherwise no offers until he's done.
+        $busy = in_array((int) $rider->id, self::busyRiderIds(), true);
 
         $candidates = self::openJobs()
             ->where('vehicle_type_id', $vehicleTypeId)
             ->get()
+            ->filter(fn ($ride) => !$busy || OrderBatchingService::check((int) $rider->id, $ride) === null)
             ->filter(fn ($ride) => self::km($rider->lat, $rider->lang, $ride->pickup_latitude, $ride->pickup_longitude) <= self::radiusKm())
             ->sortBy(fn ($ride) => self::km($rider->lat, $rider->lang, $ride->pickup_latitude, $ride->pickup_longitude));
 
@@ -173,17 +173,18 @@ class FoodDispatchService
 
         $active = $logs->first(fn ($l) => $l->action === 'sent' && $l->updated_at->gt($cutoff));
         $tried = $logs->pluck('driver_id')->unique();
+        $busy = self::busyRiderIds();
 
         $pool = User::role('rider')
             ->where('online_status', '!=', 'offline')
             ->where('last_job_poll_at', '>=', now()->subSeconds(self::ACTIVE_SECONDS))
             ->whereNotNull('lat')->whereNotNull('lang')
             ->whereNotIn('id', $tried)
-            // Riders already on a delivery are skipped, so the job goes
-            // straight to the next nearest free rider.
-            ->whereNotIn('id', self::busyRiderIds())
             ->whereHas('driverVehicle', fn ($q) => $q->where('vehicle_type_id', $ride->vehicle_type_id))
             ->get(['id', 'lat', 'lang'])
+            // Riders already on a delivery are skipped (the job goes straight
+            // to the next nearest free rider) unless they may combine it.
+            ->filter(fn ($u) => !in_array((int) $u->id, $busy, true) || OrderBatchingService::check((int) $u->id, $ride) === null)
             ->map(function ($u) use ($ride) {
                 $u->setAttribute('km', self::km($u->lat, $u->lang, $ride->pickup_latitude, $ride->pickup_longitude));
                 return $u;

@@ -67,6 +67,11 @@ class PricingFeesController extends Controller
             'no_driver_handling' => 'required|in:0,1',
             'parcel_vehicle_type_id' => ['nullable', \Illuminate\Validation\Rule::exists('vehicle_types', 'id')],
             'allow_legacy_direct_accept' => 'nullable|boolean',
+            // Order batching: two orders per rider from the same restaurant.
+            'batching_enabled' => 'nullable|boolean',
+            'batch_max_orders' => 'required|integer|min:2|max:3',
+            'batch_customer_radius_km' => 'required|numeric|min:0.5|max:10',
+            'batch_max_delay_minutes' => 'required|integer|min:1|max:30',
         ]);
 
         if ($validator->fails()) {
@@ -80,6 +85,7 @@ class PricingFeesController extends Controller
             // unchecked, so validated() would never carry a "false" --
             // read it explicitly instead of relying on the field being present.
             $fields['allow_legacy_direct_accept'] = $request->boolean('allow_legacy_direct_accept');
+            $fields['batching_enabled'] = $request->boolean('batching_enabled');
             $fields['no_driver_handling'] = $request->input('no_driver_handling') === '1';
             $fields['parcel_vehicle_type_id'] = $request->input('parcel_vehicle_type_id') ?: null;
 
