@@ -266,6 +266,13 @@ class DeliveryController extends Controller
             ], Response::HTTP_FORBIDDEN);
         }
 
+        // One delivery at a time.
+        if (in_array((int) $request->user()->id, \App\Services\FoodDispatchService::busyRiderIds(), true)) {
+            return response()->json([
+                'message' => 'Finish your current delivery before accepting another one.'
+            ], Response::HTTP_BAD_REQUEST);
+        }
+
         try {
             $ride = Ride::find($request->ride_id);
             if ($ride->status !== 'requested' || RideOffer::where('ride_id', $ride->id)->where('status', 'accepted')->exists()) {

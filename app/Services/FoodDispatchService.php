@@ -50,6 +50,10 @@ class FoodDispatchService
         if ($rider->lat === null || $rider->lang === null) {
             return null;
         }
+        // One delivery at a time: no new offers until the current one is done.
+        if (in_array((int) $rider->id, self::busyRiderIds(), true)) {
+            return null;
+        }
 
         $candidates = self::openJobs()
             ->where('vehicle_type_id', $vehicleTypeId)
@@ -93,6 +97,31 @@ class FoodDispatchService
         }
 
         return null;
+    }
+
+    /**
+     * Riders and drivers who are on an unfinished delivery, parcel or ride
+     * (accepted through to picked up). A cancelled or delivered order frees
+     * the rider even if its delivery row lags behind.
+     *
+     * @return int[]
+     */
+    public static function busyRiderIds(): array
+    {
+        $active = Ride::whereIn('status', ['accepted', 'en_route', 'arrived', 'started'])
+            ->whereNotNull('driver_id')
+            ->get(['id', 'driver_id']);
+        if ($active->isEmpty()) {
+            return [];
+        }
+
+        $closed = RestaurantOrder::whereIn('ride_id', $active->pluck('id'))
+            ->whereIn('status', ['cancelled', 'rejected', 'delivered', 'completed'])
+            ->pluck('ride_id')
+            ->all();
+
+        return $active->reject(fn ($r) => in_array($r->id, $closed))
+            ->pluck('driver_id')->map(fn ($id) => (int) $id)->unique()->values()->all();
     }
 
     /**
@@ -150,6 +179,9 @@ class FoodDispatchService
             ->where('last_job_poll_at', '>=', now()->subSeconds(self::ACTIVE_SECONDS))
             ->whereNotNull('lat')->whereNotNull('lang')
             ->whereNotIn('id', $tried)
+            // Riders already on a delivery are skipped, so the job goes
+            // straight to the next nearest free rider.
+            ->whereNotIn('id', self::busyRiderIds())
             ->whereHas('driverVehicle', fn ($q) => $q->where('vehicle_type_id', $ride->vehicle_type_id))
             ->get(['id', 'lat', 'lang'])
             ->map(function ($u) use ($ride) {
