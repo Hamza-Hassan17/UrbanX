@@ -697,8 +697,17 @@
                 menuPicker.innerHTML = '<span class="text-muted">{{ __('Loading menu...') }}</span>';
                 try {
                     const res = await fetch(DISPATCH.menuUrlTemplate.replace('__ID__', restaurantId), { headers: { 'Accept': 'application/json' } });
-                    if (!res.ok) throw new Error();
-                    const data = await res.json();
+                    const data = await res.json().catch(() => ({}));
+                    if (!res.ok) {
+                        // e.g. "This restaurant is not verified yet..."
+                        menuPicker.innerHTML = '';
+                        const msg = document.createElement('span');
+                        msg.className = 'text-danger';
+                        msg.textContent = data.message || @json(__('Could not load the menu'));
+                        menuPicker.appendChild(msg);
+                        if (data.message) toast(data.message, 'error');
+                        return;
+                    }
                     if (this.value !== restaurantId) return; // restaurant changed while loading
                     menuItems = data.items;
                     renderMenu();

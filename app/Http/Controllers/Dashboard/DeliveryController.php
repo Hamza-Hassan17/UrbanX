@@ -116,7 +116,9 @@ class DeliveryController extends Controller
                 ->get();
             $rides = $this->withTypeKeys($rides)->map(fn ($ride) => $this->queueRow($ride, $geocoder));
 
+            // Only verified (approved) restaurants can be booked.
             $restaurants = \App\Models\Restaurant::where('is_active', 'active')
+                ->where('is_approved', true)
                 ->whereNotNull('latitude')
                 ->whereNotNull('longitude')
                 ->orderBy('name')
@@ -172,7 +174,9 @@ class DeliveryController extends Controller
                 ->get();
             $rides = $this->withTypeKeys($rides)->map(fn ($ride) => $this->queueRow($ride, $geocoder));
 
+            // Only verified (approved) restaurants can be booked.
             $restaurants = \App\Models\Restaurant::where('is_active', 'active')
+                ->where('is_approved', true)
                 ->whereNotNull('latitude')
                 ->whereNotNull('longitude')
                 ->orderBy('name')
@@ -406,6 +410,11 @@ class DeliveryController extends Controller
         $this->authorize('view delivery');
         $this->authorize('assign ride');
 
+        $menuRestaurant = \App\Models\Restaurant::find($restaurant_id);
+        if (!$menuRestaurant || !$menuRestaurant->is_approved) {
+            return response()->json(['message' => 'This restaurant is not verified yet. Only verified restaurants can take orders.'], 422);
+        }
+
         $menus = \App\Models\RestaurantMenu::where('restaurant_id', $restaurant_id)->pluck('name', 'id');
 
         $items = \App\Models\RestaurantItem::where('restaurant_id', $restaurant_id)
@@ -465,6 +474,14 @@ class DeliveryController extends Controller
         }
 
         $restaurant = \App\Models\Restaurant::find($request->restaurant_id);
+
+        // Even if an unverified restaurant reaches here (stale page, edited request).
+        if (!$restaurant->is_approved) {
+            return response()->json(['message' => "{$restaurant->name} is not verified yet. Only verified restaurants can take orders."], 422);
+        }
+        if ($restaurant->is_active !== 'active') {
+            return response()->json(['message' => "{$restaurant->name} is switched off. Turn it on before booking an order."], 422);
+        }
 
         // Same server-side pricing and add-on rules as a customer's order.
         $pricedLines = [];
