@@ -102,19 +102,8 @@ class DriverController extends Controller
     {
         // Rider app signs up as 'rider', Driver app as 'driver' -- the
         // account role decides the workspace, not the vehicle type.
-        // Old accounts made through the Driver app with a delivery vehicle
-        // (e.g. Bike) belong in Riders, not the taxi Drivers list.
-        $onDeliveryVehicle = fn ($q) => $q->whereHas('vehicleType', fn ($t) => $t->where('is_delivery', '1'));
-
-        $query = User::with('profile:id,user_id,phone_number,city', 'driverVerification');
-        if ($delivery) {
-            return $query->where(fn ($q) => $q->role('rider')
-                ->orWhere(fn ($d) => $d->role('driver')->whereHas('driverVehicle', $onDeliveryVehicle)));
-        }
-
-        return $query->role('driver')
-            ->whereDoesntHave('roles', fn ($r) => $r->where('name', 'rider'))
-            ->whereDoesntHave('driverVehicle', $onDeliveryVehicle);
+        return User::with('profile:id,user_id,phone_number,city', 'driverVerification')
+            ->role($delivery ? 'rider' : 'driver');
     }
 
     /**
