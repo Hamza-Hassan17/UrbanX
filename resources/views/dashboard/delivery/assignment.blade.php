@@ -1016,7 +1016,7 @@
 
         // ---------------- Queue actions + assign dialog ----------------
         window.renderQueueActions = function (ride) {
-            const payload = esc(JSON.stringify({ id: ride.id, type_label: ride.type_label, pickup_lat: ride.pickup_lat, pickup_lng: ride.pickup_lng, driver_id: ride.driver_id, driver: ride.driver }));
+            const payload = esc(JSON.stringify({ id: ride.id, type_label: ride.type_label, pickup_lat: ride.pickup_lat, pickup_lng: ride.pickup_lng, driver_id: ride.driver_id, driver: ride.driver, delivery_code: ride.delivery_code }));
             const view = `<a class="queue-action-btn outline" href="${DISPATCH.rideShowUrlTemplate.replace('__ID__', ride.id)}" title="View"><i class="fas fa-eye"></i></a>`;
             const edit = (ride.editable && DISPATCH.canEditOrder && DISPATCH.orderUrlTemplate)
                 ? `<button type="button" class="queue-action-btn outline" data-edit-order="${ride.id}" title="Edit order"><i class="fas fa-pen"></i></button>`
@@ -1039,7 +1039,7 @@
             modalState = { job, mode, riderId: null };
             document.getElementById('assign-title').textContent = mode === 'reassign' ? `Reassign DEL-${job.id}` : `Assign DEL-${job.id}`;
             document.getElementById('assign-subtitle').textContent = mode === 'reassign'
-                ? `${job.type_label} -- currently with ${job.driver ?? 'a rider'}`
+                ? `${job.type_label} -- currently with ${job.driver ?? 'a rider'}` + (job.delivery_code ? ` -- delivery code ${job.delivery_code} (stays the same)` : '')
                 : `${job.type_label} -- riders sorted by distance to pickup`;
             document.getElementById('assign-reason-wrap').style.display = mode === 'reassign' ? '' : 'none';
             document.getElementById('assign-reason').value = '';
@@ -1145,7 +1145,7 @@
             if (!d.editable) { toast('This order can no longer be edited (already picked up or finished).', 'error'); return; }
             editOrder = { rideId, data: d, coords: null };
             eo('edit-order-title').textContent = `Edit order #${d.order_number}`;
-            eo('edit-order-subtitle').textContent = `${d.restaurant ?? ''} -- food Rs ${Math.round(d.subtotal)}`;
+            eo('edit-order-subtitle').textContent = `${d.restaurant ?? ''} -- food Rs ${Math.round(d.subtotal)}` + (d.delivery_code ? ` -- delivery code ${d.delivery_code}` : '');
             eo('edit-order-status').innerHTML = Object.entries(d.statuses)
                 .map(([k, v]) => `<option value="${k}" ${k === d.status ? 'selected' : ''}>${v}</option>`).join('');
             eo('edit-order-address').value = d.delivery_address ?? '';

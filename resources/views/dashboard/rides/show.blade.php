@@ -259,6 +259,12 @@
                         <span class="badge bg-label-secondary">{{ ucwords(str_replace('_', ' ', $relatedOrder->status)) }}</span>
                     </div>
                     <div class="card-body">
+                        @if($relatedOrder->delivery_code)
+                            <div class="alert alert-primary py-2 d-flex justify-content-between align-items-center">
+                                <span>{{ __('Delivery code (customer gives this to the rider)') }}</span>
+                                <strong style="font-size:1.4rem;letter-spacing:4px;">{{ $relatedOrder->delivery_code }}</strong>
+                            </div>
+                        @endif
                         @if($relatedOrder->admin_booking_reason)
                             <div class="alert alert-warning py-2 small">
                                 <strong>{{ __('Booked manually by') }} {{ \App\Models\User::find($ride->created_by)?->name ?? __('admin') }}:</strong>

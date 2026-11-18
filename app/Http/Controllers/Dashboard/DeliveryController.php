@@ -991,6 +991,7 @@ class DeliveryController extends Controller
         return response()->json([
             'order_id' => $order->id,
             'order_number' => $order->order_number,
+            'delivery_code' => $order->delivery_code,
             'restaurant' => $order->restaurant?->name,
             'status' => $order->status,
             'has_rider' => (bool) $ride?->driver_id,
@@ -1342,6 +1343,9 @@ class DeliveryController extends Controller
         $orderStatuses = empty($rideIds)
             ? collect()
             : RestaurantOrder::whereIn('ride_id', $rideIds)->pluck('status', 'ride_id');
+        $orderCodes = empty($rideIds)
+            ? collect()
+            : RestaurantOrder::whereIn('ride_id', $rideIds)->pluck('delivery_code', 'ride_id');
         $openAlertRideIds = empty($rideIds)
             ? []
             : \App\Models\StaleJobAlert::where('status', 'open')
@@ -1350,9 +1354,10 @@ class DeliveryController extends Controller
                 ->pluck('subject_id')
                 ->all();
 
-        return $rides->map(function (Ride $ride) use ($orderStatuses, $openAlertRideIds) {
+        return $rides->map(function (Ride $ride) use ($orderStatuses, $orderCodes, $openAlertRideIds) {
             $ride->is_food = $orderStatuses->has($ride->id);
             $ride->order_status = $orderStatuses->get($ride->id);
+            $ride->delivery_code = $orderCodes->get($ride->id);
             $ride->has_open_alert = in_array($ride->id, $openAlertRideIds);
             return $ride;
         });
@@ -1404,6 +1409,7 @@ class DeliveryController extends Controller
             'pickup_lat' => (float) $ride->pickup_latitude,
             'pickup_lng' => (float) $ride->pickup_longitude,
             'order_status' => $orderStatus,
+            'delivery_code' => $ride->delivery_code ?? null,
             'assignable' => $assignable,
             'reassignable' => $reassignable,
             'editable' => $editable,
