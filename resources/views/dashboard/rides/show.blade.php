@@ -251,6 +251,37 @@
                 </div>
                 @endif
 
+                {{-- Admin actions on a food order: cancel / mark delivered --}}
+                @if($relatedOrder && !in_array($relatedOrder->status, ['cancelled', 'delivered', 'completed'], true))
+                @can('view delivery')
+                <div class="card mb-4 border border-warning">
+                    <div class="card-header"><h5 class="mb-0">{{ __('Admin actions') }}</h5></div>
+                    <div class="card-body">
+                        <form method="POST" action="{{ route('dashboard.delivery.order.cancel', $relatedOrder->id) }}" class="mb-3"
+                              onsubmit="return confirm('Cancel order #{{ $relatedOrder->order_number }}? The rider and restaurant will be told.');">
+                            @csrf
+                            <label class="form-label small mb-1">{{ __('Cancel this order') }}</label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" name="reason" class="form-control" required maxlength="500" placeholder="{{ __('Reason, e.g. customer asked to cancel') }}">
+                                <button type="submit" class="btn btn-danger">{{ __('Cancel order') }}</button>
+                            </div>
+                        </form>
+                        @if($ride->driver_id)
+                        <form method="POST" action="{{ route('dashboard.delivery.order.override-delivery', $relatedOrder->id) }}"
+                              onsubmit="return confirm('Mark order #{{ $relatedOrder->order_number }} as delivered without the delivery code?');">
+                            @csrf
+                            <label class="form-label small mb-1">{{ __('Mark as delivered (rider could not enter the code)') }}</label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" name="reason" class="form-control" required maxlength="500" placeholder="{{ __('Reason, e.g. customer confirmed by phone') }}">
+                                <button type="submit" class="btn btn-success">{{ __('Mark delivered') }}</button>
+                            </div>
+                        </form>
+                        @endif
+                    </div>
+                </div>
+                @endcan
+                @endif
+
                 {{-- Food order items with chosen add-ons (Batch 3 Part 2) --}}
                 @if($relatedOrder)
                 <div class="card mb-4">

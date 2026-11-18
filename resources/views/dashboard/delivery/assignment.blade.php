@@ -372,6 +372,7 @@
                 <input type="text" id="edit-order-reason" class="form-control form-control-sm" maxlength="500" placeholder="{{ __('e.g. customer called to change address') }}">
             </div>
             <footer>
+                <button type="button" class="btn btn-outline-danger btn-sm me-auto" id="edit-order-cancel-order">{{ __('Cancel order') }}</button>
                 <button type="button" class="btn btn-label-secondary btn-sm" id="edit-order-cancel">{{ __('Close') }}</button>
                 <button type="button" class="btn btn-primary btn-sm" id="edit-order-submit">{{ __('Save changes') }}</button>
             </footer>
@@ -394,6 +395,7 @@
             rideShowUrlTemplate: @json(route($isParcel ? 'dashboard.parcel-assignment.show' : 'dashboard.delivery.show', ['id' => '__ID__'])),
             canReassign: @json(auth()->user()->can('reassign ride')),
             canEditOrder: @json(auth()->user()->can('update ride')),
+            cancelOrderUrlTemplate: @json($isParcel ? null : route('dashboard.delivery.order.cancel', ['order_id' => '__ID__'])),
             orderUrlTemplate: @json($isParcel ? null : route('dashboard.delivery-assignment.order.edit', ['ride_id' => '__ID__'])),
             isParcel: @json($isParcel),
             foodUrl: @json($isParcel ? null : route('dashboard.delivery-assignment.food')),
@@ -1189,6 +1191,30 @@
             });
         });
         eo('edit-order-cancel').addEventListener('click', closeEditOrder);
+        eo('edit-order-cancel-order').addEventListener('click', async function () {
+            if (!editOrder) return;
+            const reason = eo('edit-order-reason').value.trim();
+            if (reason.length < 3) { toast('Write the reason for cancelling in "Reason for the change" first.', 'error'); return; }
+            if (!confirm(`Cancel order #${editOrder.data.order_number}? The customer, restaurant and rider will be told.`)) return;
+            this.disabled = true;
+            try {
+                const res = await fetch(DISPATCH.cancelOrderUrlTemplate.replace('__ID__', editOrder.data.order_id), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': DISPATCH.csrf },
+                    body: JSON.stringify({ reason }),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) { toast(data.message || 'Could not cancel the order', 'error'); return; }
+                toast(data.message || 'Order cancelled');
+                closeEditOrder();
+                refreshQueue();
+                refreshStats();
+            } catch (e) {
+                toast('Could not cancel the order', 'error');
+            } finally {
+                this.disabled = false;
+            }
+        });
         eo('edit-order-modal').addEventListener('click', e => { if (e.target.id === 'edit-order-modal') closeEditOrder(); });
         document.addEventListener('click', e => {
             const btn = e.target.closest('[data-edit-order]');

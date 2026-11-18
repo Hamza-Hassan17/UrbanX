@@ -1274,23 +1274,38 @@ class DeliveryController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return redirect()->back()->withErrors($validator)->with('error', 'Validation Error!');
+            return $this->actionReply($request, false, 'Please write a reason for cancelling.');
         }
 
         try {
             $order = RestaurantOrder::findOrFail($order_id);
 
             if ($order->status === 'cancelled') {
-                return redirect()->back()->with('error', 'This order is already cancelled.');
+                return $this->actionReply($request, false, 'This order is already cancelled.');
+            }
+            if (in_array($order->status, ['delivered', 'completed'], true)) {
+                return $this->actionReply($request, false, 'This order was already delivered and cannot be cancelled.');
             }
 
             RestaurantOrderCancellationService::cancel($order, 'admin', $request->reason);
 
-            return redirect()->back()->with('success', 'Order cancelled successfully');
+            AdminActivityLog::record('Cancelled food order', [], ['order_id' => $order->id, 'reason' => $request->reason], RestaurantOrder::class, $order->id);
+
+            return $this->actionReply($request, true, "Order #{$order->order_number} cancelled.");
         } catch (\Throwable $th) {
             Log::error('Admin Cancel Order Failed', ['error' => $th->getMessage()]);
-            return redirect()->back()->with('error', 'Something went wrong! Please try again later');
+            return $this->actionReply($request, false, 'Something went wrong! Please try again later');
         }
+    }
+
+    /** JSON for the dashboard dialogs, redirect-with-flash for plain forms. */
+    private function actionReply(Request $request, bool $ok, string $message)
+    {
+        if ($request->wantsJson()) {
+            return response()->json(['message' => $message], $ok ? 200 : 422);
+        }
+
+        return redirect()->back()->with($ok ? 'success' : 'error', $message);
     }
 
     /**
@@ -1307,11 +1322,17 @@ class DeliveryController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return redirect()->back()->withErrors($validator)->with('error', 'Validation Error!');
+            return $this->actionReply($request, false, 'Please write a reason for marking it delivered.');
         }
 
         try {
             $order = RestaurantOrder::findOrFail($order_id);
+            if (in_array($order->status, ['cancelled', 'delivered', 'completed'], true)) {
+                return $this->actionReply($request, false, 'This order is already ' . $order->status . '.');
+            }
+            if (!Ride::where('id', $order->ride_id)->whereNotNull('driver_id')->exists()) {
+                return $this->actionReply($request, false, 'No rider is on this order yet, so it cannot be marked delivered.');
+            }
             $order->status = 'delivered';
             $order->delivery_code_locked = false;
             $order->delivery_override_by = auth()->id();
@@ -1335,10 +1356,10 @@ class DeliveryController extends Controller
                 Log::error('RestaurantOrderUpdated broadcast failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
             }
 
-            return redirect()->back()->with('success', 'Delivery overridden successfully');
+            return $this->actionReply($request, true, "Order #{$order->order_number} marked as delivered.");
         } catch (\Throwable $th) {
             Log::error('Override Food Delivery Failed', ['error' => $th->getMessage()]);
-            return redirect()->back()->with('error', 'Something went wrong! Please try again later');
+            return $this->actionReply($request, false, 'Something went wrong! Please try again later');
         }
     }
 
