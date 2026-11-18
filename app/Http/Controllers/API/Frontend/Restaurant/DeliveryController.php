@@ -76,10 +76,14 @@ class DeliveryController extends Controller
         try {
             $driver = $request->user();
 
+            // The delivery this rider is on right now (accepted in the app or
+            // assigned by an admin), so the app can always show it.
+            $active = $this->activeDeliveryFor($driver);
+
             // Batch 3 Part 4 -- offline riders see no jobs. NULL (never used
             // the toggle) still counts as online.
             if ($driver->isOffline()) {
-                return response()->json(['rides' => [], 'online_status' => 'offline'], 200);
+                return response()->json(['rides' => [], 'online_status' => 'offline', 'active_delivery' => $active], 200);
             }
 
             // The rider's current position, sent with each job check. Jobs go
@@ -95,6 +99,7 @@ class DeliveryController extends Controller
                     'rides' => [],
                     'location_missing' => true,
                     'message' => 'Location needed: send latitude and longitude to see nearby jobs.',
+                    'active_delivery' => $active,
                 ], 200);
             }
 
@@ -110,7 +115,7 @@ class DeliveryController extends Controller
 
             if (!$driverVehicleType) {
                 Log::warning("Driver does not have a valid delivery vehicle type", ['driver_id' => $driver->id]);
-                return response()->json(['rides' => []], 200);
+                return response()->json(['rides' => [], 'active_delivery' => $active], 200);
             }
 
             // -------------------------
@@ -138,7 +143,8 @@ class DeliveryController extends Controller
             });
 
             return response()->json([
-                'rides' => $rides
+                'rides' => $rides,
+                'active_delivery' => $active,
             ], 200);
 
         } catch (\Throwable $e) {
@@ -186,6 +192,35 @@ class DeliveryController extends Controller
             Log::error('API My Deliveries failed', ['error' => $th->getMessage()]);
             return response()->json(['message' => 'Something went wrong!'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    /** The rider's current delivery, or null. GET /restaurant/delivery/active-delivery */
+    public function activeDelivery(Request $request)
+    {
+        return response()->json([
+            'message' => 'Active delivery',
+            'active_delivery' => $this->activeDeliveryFor($request->user()),
+        ], Response::HTTP_OK);
+    }
+
+    private function activeDeliveryFor($rider): ?array
+    {
+        $ride = \App\Services\RiderDeliveryHistoryService::query($rider)
+            ->whereIn('status', \App\Services\RiderDeliveryHistoryService::IN_PROGRESS)
+            ->latest('id')
+            ->first();
+        if (!$ride) {
+            return null;
+        }
+
+        $detail = \App\Services\RiderDeliveryHistoryService::detail($ride);
+        // Cancelled orders aren't active even if the delivery row lags behind.
+        if ($detail['status'] !== 'in_progress') {
+            return null;
+        }
+        $detail['assigned_by_admin'] = $ride->status_updated_by_role === 'admin';
+
+        return $detail;
     }
 
     /** One delivery's full details (order screen). */

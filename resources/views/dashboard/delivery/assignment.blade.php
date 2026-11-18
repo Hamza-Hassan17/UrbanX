@@ -362,6 +362,57 @@
             return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         }
 
+        // Booking confirmation: stays on screen (with the delivery code) until closed.
+        function showBooked(data) {
+            let box = document.getElementById('booked-card');
+            if (!box) {
+                box = document.createElement('div');
+                box.id = 'booked-card';
+                box.setAttribute('role', 'alertdialog');
+                box.style.cssText = 'position:fixed;top:calc(80px + env(safe-area-inset-top,0px));right:max(24px, env(safe-area-inset-right,0px));z-index:2000;width:340px;max-width:calc(100vw - 32px);background:#fff;color:#1f2937;border:2px solid #16a34a;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.18);padding:16px 18px;';
+                document.body.appendChild(box);
+            }
+            const code = data.delivery_code ? String(data.delivery_code) : '';
+            const summary = (data.message || '').replace(/\s*Delivery code:\s*\d+\s*$/, '');
+            box.innerHTML = '';
+            const title = document.createElement('div');
+            title.style.cssText = 'font-weight:700;color:#15803d;margin-bottom:6px;';
+            title.textContent = @json(__('Delivery booked'));
+            const text = document.createElement('div');
+            text.style.cssText = 'font-size:14px;margin-bottom:10px;';
+            text.textContent = summary;
+            box.append(title, text);
+            if (code) {
+                const label = document.createElement('div');
+                label.style.cssText = 'font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;';
+                label.textContent = @json(__('Delivery code: give it to the customer'));
+                const big = document.createElement('div');
+                big.style.cssText = 'font-size:32px;font-weight:800;letter-spacing:.3em;margin:2px 0 12px;font-variant-numeric:tabular-nums;';
+                big.textContent = code;
+                box.append(label, big);
+            }
+            const actions = document.createElement('div');
+            actions.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;';
+            if (code) {
+                const copy = document.createElement('button');
+                copy.type = 'button';
+                copy.className = 'btn btn-sm btn-outline-secondary';
+                copy.textContent = @json(__('Copy code'));
+                copy.onclick = () => {
+                    navigator.clipboard?.writeText(code).then(() => { copy.textContent = @json(__('Copied')); }).catch(() => {});
+                };
+                actions.append(copy);
+            }
+            const close = document.createElement('button');
+            close.type = 'button';
+            close.className = 'btn btn-sm btn-success';
+            close.textContent = @json(__('Close'));
+            close.onclick = () => { box.remove(); };
+            actions.append(close);
+            box.append(actions);
+            close.focus();
+        }
+
         function toast(message, type = 'success') {
             const el = document.getElementById('dispatch-toast');
             el.textContent = message;
@@ -830,7 +881,7 @@
                 });
                 const data = await res.json();
                 if (!res.ok) { toast(data.message || 'Could not book parcel', 'error'); return; }
-                toast(data.message);
+                showBooked(data);
                 resetForm();
                 refreshQueue();
                 refreshStats();
@@ -873,7 +924,7 @@
                 });
                 const data = await res.json();
                 if (!res.ok) { toast(data.message || 'Could not book delivery', 'error'); return; }
-                toast(data.message);
+                showBooked(data);
                 ['customer_name', 'customer_phone', 'rider_note', 'admin_reason'].forEach(id => { document.getElementById(id).value = ''; });
                 resetForm();
                 menuItems = [];
