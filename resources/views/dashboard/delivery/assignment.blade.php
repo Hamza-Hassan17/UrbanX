@@ -345,6 +345,10 @@
                 <select id="edit-order-status" class="form-select form-select-sm mb-1"></select>
                 <small class="text-muted d-block mb-2">{{ __('Picked up / delivered / cancelled have their own buttons on the order page.') }}</small>
 
+                <label class="form-label small mb-1">{{ __('Rider') }}</label>
+                <select id="edit-order-rider" class="form-select form-select-sm mb-1"></select>
+                <small class="text-muted d-block mb-2" id="edit-order-rider-hint"></small>
+
                 <label class="form-label small mb-1">{{ __('Delivery address') }}</label>
                 <div class="input-group input-group-sm mb-1">
                     <input type="text" id="edit-order-address" class="form-control" maxlength="500">
@@ -1148,6 +1152,18 @@
             eo('edit-order-subtitle').textContent = `${d.restaurant ?? ''} -- food Rs ${Math.round(d.subtotal)}` + (d.delivery_code ? ` -- delivery code ${d.delivery_code}` : '');
             eo('edit-order-status').innerHTML = Object.entries(d.statuses)
                 .map(([k, v]) => `<option value="${k}" ${k === d.status ? 'selected' : ''}>${v}</option>`).join('');
+            const hints = {
+                preferred: 'Restaurant has not accepted yet. This rider gets the order as soon as the restaurant accepts.',
+                assign: 'No rider yet. The rider you pick gets the order now.',
+                reassign: 'Picking a different rider takes the order from the current one (same as Reassign).',
+            };
+            eo('edit-order-rider-hint').textContent = hints[d.rider_mode] ?? '';
+            eo('edit-order-rider').innerHTML =
+                (d.rider_id ? '' : '<option value="">-- No rider chosen (nearby riders get it) --</option>') +
+                (d.riders || []).map(r => {
+                    const tags = [r.km !== null ? `${r.km} km` : null, r.busy ? 'busy' : null, !r.online ? 'offline' : null].filter(Boolean).join(', ');
+                    return `<option value="${r.id}" ${r.id === d.rider_id ? 'selected' : ''}>${esc(r.name)} (#${r.id})${tags ? ' - ' + tags : ''}</option>`;
+                }).join('');
             eo('edit-order-address').value = d.delivery_address ?? '';
             eo('edit-order-location-note').textContent = `Current location: ${d.dropoff_lat.toFixed(5)}, ${d.dropoff_lng.toFixed(5)}`;
             eo('edit-order-location-note').className = 'd-block mb-2 text-muted';
@@ -1191,6 +1207,8 @@
             };
             const fee = eo('edit-order-fee').value;
             if (fee !== '' && Number(fee) !== Math.round(d.delivery_fee)) body.delivery_fee = Number(fee);
+            const riderSel = eo('edit-order-rider').value;
+            if (riderSel && Number(riderSel) !== d.rider_id) body.rider_id = Number(riderSel);
             if (editOrder.coords) { body.dropoff_latitude = editOrder.coords[0]; body.dropoff_longitude = editOrder.coords[1]; }
             this.disabled = true;
             try {

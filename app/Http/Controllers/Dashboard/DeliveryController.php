@@ -1004,6 +1004,10 @@ class DeliveryController extends Controller
             'rider_note' => $order->rider_note,
             'editable' => in_array($order->status, self::EDITABLE_ORDER_STATUSES, true)
                 && !in_array($ride?->status, ['completed', 'cancelled', 'started'], true),
+            // Rider: the one on it, or (still at the restaurant) the one chosen for it.
+            'rider_id' => $ride?->driver_id ? (int) $ride->driver_id : ($ride?->preferred_rider_id ? (int) $ride->preferred_rider_id : null),
+            'rider_mode' => $ride?->driver_id ? 'reassign' : ($order->status === 'pending' ? 'preferred' : 'assign'),
+            'riders' => $this->riderChoicesFor($ride),
         ]);
     }
 
@@ -1025,6 +1029,7 @@ class DeliveryController extends Controller
             'delivery_fee' => 'nullable|numeric|min:0|max:100000',
             'rider_note' => 'nullable|string|max:255',
             'reason' => 'required|string|min:3|max:500',
+            'rider_id' => 'nullable|integer|exists:users,id',
         ], ['reason.required' => 'Please write why the order is being changed.']);
         if ($validator->fails()) {
             return response()->json(['message' => $validator->errors()->first()], 422);
@@ -1088,6 +1093,22 @@ class DeliveryController extends Controller
                 \App\Models\RideOffer::where('ride_id', $ride->id)->where('status', 'accepted')->update(['proposed_price' => $fee]);
             }
 
+            // Still at the restaurant: the chosen rider is remembered now so
+            // an "accepted" in this same save hands it straight to him.
+            $riderHandled = false;
+            if ($request->filled('rider_id') && !$ride->driver_id && $oldStatus === 'pending'
+                && (int) $request->rider_id !== (int) $ride->preferred_rider_id) {
+                $ok = \App\Models\User::role('rider')
+                    ->whereHas('driverVehicle', fn ($q) => $q->where('vehicle_type_id', $ride->vehicle_type_id))
+                    ->whereKey($request->rider_id)->exists();
+                if (!$ok) {
+                    DB::rollBack();
+                    return response()->json(['message' => 'Selected rider does not drive the vehicle type this order needs.'], 422);
+                }
+                $ride->preferred_rider_id = (int) $request->rider_id;
+                $riderHandled = true;
+            }
+
             $order->status = $request->status;
             $order->save();
             if ($oldStatus === 'pending' && $request->status === 'accepted' && $ride->status === 'requested') {
@@ -1133,7 +1154,88 @@ class DeliveryController extends Controller
             $order->id
         );
 
-        return response()->json(['message' => "Order #{$order->order_number} updated."]);
+        if ($request->filled('rider_id') && !$riderHandled) {
+            try {
+                $err = $this->applyRiderChange($ride->fresh(), $order->fresh(), (int) $request->rider_id, $request->reason);
+            } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
+                $err = 'You are not allowed to reassign deliveries.';
+            }
+            if ($err) {
+                return response()->json(['message' => "Order details saved, but the rider was not changed: {$err}"], 422);
+            }
+        }
+
+        $rideNow = $ride->fresh();
+        $riderName = $rideNow->driver_id ? \App\Models\User::find($rideNow->driver_id)?->name : null;
+        $chosen = !$riderName && $rideNow->preferred_rider_id ? \App\Models\User::find($rideNow->preferred_rider_id)?->name : null;
+
+        return response()->json(['message' => "Order #{$order->order_number} updated."
+            . ($riderName ? " Rider: {$riderName}." : ($chosen ? " {$chosen} gets it when the restaurant accepts." : ''))]);
+    }
+
+    /** Riders who can drive this job, nearest to the restaurant first, with a busy flag. */
+    private function riderChoicesFor(?Ride $ride): array
+    {
+        if (!$ride) {
+            return [];
+        }
+        $busy = \App\Services\FoodDispatchService::busyRiderIds();
+
+        return \App\Models\User::role('rider')
+            ->whereHas('driverVehicle', fn ($q) => $q->where('vehicle_type_id', $ride->vehicle_type_id))
+            ->get(['id', 'name', 'lat', 'lang', 'online_status'])
+            ->map(fn ($u) => [
+                'id' => (int) $u->id,
+                'name' => $u->name,
+                'busy' => in_array((int) $u->id, $busy, true) && (int) $u->id !== (int) $ride->driver_id,
+                'online' => $u->online_status !== 'offline',
+                'km' => ($u->lat && $u->lang) ? round($this->km($u->lat, $u->lang, $ride->pickup_latitude, $ride->pickup_longitude), 1) : null,
+            ])
+            ->sortBy(fn ($r) => $r['km'] ?? 9999)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Rider change from the Edit dialog. Null on success, else the error.
+     * Pending order -> remember as the chosen rider; accepted without a
+     * rider -> assign now; has a rider -> reassign (same rules as Reassign).
+     */
+    private function applyRiderChange(Ride $ride, RestaurantOrder $order, int $riderId, string $reason): ?string
+    {
+        if ((int) $ride->driver_id === $riderId) {
+            return null;
+        }
+        if ($ride->driver_id) {
+            $res = $this->reassign(new Request(['driver_id' => $riderId, 'reason' => $reason]), $ride->id);
+            return $res->getStatusCode() < 300 ? null : ($res->getData(true)['message'] ?? 'Could not reassign.');
+        }
+
+        $rider = \App\Models\User::role('rider')
+            ->whereHas('driverVehicle', fn ($q) => $q->where('vehicle_type_id', $ride->vehicle_type_id))
+            ->find($riderId);
+        if (!$rider) {
+            return 'Selected rider does not drive the vehicle type this order needs.';
+        }
+
+        if ($order->status === 'pending') {
+            $ride->preferred_rider_id = $rider->id;
+            $ride->save();
+            return null;
+        }
+
+        if ($busy = $this->busyMessage($rider, null, $ride)) {
+            return $busy;
+        }
+        $ride->driver_id = $rider->id;
+        $ride->status = 'accepted';
+        $ride->accepted_at = now();
+        $ride->status_updated_by = auth()->id();
+        $ride->status_updated_by_role = 'admin';
+        $ride->save();
+        \App\Services\DeliveryAssignmentService::assign($ride, $rider, $order->fresh());
+
+        return null;
     }
 
     /** Status choices for the Edit dialog: kitchen steps only, before pickup. */
