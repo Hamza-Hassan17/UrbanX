@@ -317,6 +317,9 @@ class DeliveryController extends Controller
             if (!$rider) {
                 return response()->json(['message' => 'Selected driver does not drive the parcel vehicle type.'], 422);
             }
+            if ($busy = $this->busyMessage($rider)) {
+                return response()->json(['message' => $busy], 422);
+            }
         }
 
         try {
@@ -510,6 +513,9 @@ class DeliveryController extends Controller
             if (!$rider) {
                 return response()->json(['message' => 'Selected rider does not have a delivery vehicle.'], 422);
             }
+            if ($busy = $this->busyMessage($rider)) {
+                return response()->json(['message' => $busy], 422);
+            }
         }
 
         $feeSettings = \App\Services\FareBreakdownService::foodDeliveryFeeSettings();
@@ -649,6 +655,30 @@ class DeliveryController extends Controller
      * (rider went quiet, broke down, etc). Old rider is told it was taken
      * back; the new one gets the same assignment side effects as Assign.
      */
+    /**
+     * Null if the rider/driver is free, else why they can't take another job:
+     * they're already on a delivery, parcel or ride that isn't finished.
+     */
+    private function busyMessage(\App\Models\User $person): ?string
+    {
+        $current = Ride::where('driver_id', $person->id)
+            ->whereIn('status', ['accepted', 'en_route', 'arrived', 'started'])
+            ->latest('id')
+            ->first();
+        if (!$current) {
+            return null;
+        }
+
+        $order = RestaurantOrder::where('ride_id', $current->id)->first();
+        if ($order && in_array($order->status, ['cancelled', 'rejected', 'delivered', 'completed'], true)) {
+            return null; // the order is closed; the delivery row just lags behind
+        }
+
+        $job = $order ? "order #{$order->order_number}" : ($current->ride_type === 'ride' ? "ride #{$current->id}" : "parcel #{$current->id}");
+
+        return "{$person->name} is already on duty with {$job}. Choose another rider, or wait until it's finished.";
+    }
+
     public function reassign(Request $request, $ride_id)
     {
         $this->authorizeDispatch();
@@ -690,6 +720,11 @@ class DeliveryController extends Controller
                 return response()->json(['message' => $hasVehicle
                     ? 'Selected ' . ($order ? 'rider' : 'driver') . ' drives a different vehicle type than this job needs.'
                     : 'Selected ' . ($order ? 'rider' : 'driver') . ' has no vehicle saved yet (verified without documents?). Add their vehicle first.'], 422);
+            }
+
+            if ($busy = $this->busyMessage($newRider)) {
+                \Illuminate\Support\Facades\DB::rollBack();
+                return response()->json(['message' => $busy], 422);
             }
 
             $oldRider = \App\Models\User::find($ride->driver_id);
