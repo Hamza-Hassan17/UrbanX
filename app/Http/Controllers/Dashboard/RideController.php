@@ -25,7 +25,10 @@ class RideController extends Controller
     {
         $this->authorize('view ride');
         try {
-            $rides = Ride::with('passenger:id,name','driver:id,name')->latest()->get();
+            // Taxi workspace: rides and parcels only; food deliveries live under Delivery.
+            $rides = Ride::with('passenger:id,name','driver:id,name')
+                ->whereIn('ride_type', Ride::TAXI_TYPES)
+                ->latest()->get();
             return view('dashboard.rides.index',compact('rides'));
         } catch (\Throwable $th) {
             Log::error('Rides Index Failed', ['error' => $th->getMessage()]);
