@@ -333,6 +333,47 @@
         </div>
     </div>
 
+    {{-- Edit food order dialog --}}
+    <div class="assign-modal-overlay" id="edit-order-modal">
+        <div class="assign-modal">
+            <header>
+                <h5 id="edit-order-title">{{ __('Edit Order') }}</h5>
+                <small id="edit-order-subtitle"></small>
+            </header>
+            <div class="modal-body-scroll">
+                <label class="form-label small mb-1">{{ __('Order status') }}</label>
+                <select id="edit-order-status" class="form-select form-select-sm mb-1"></select>
+                <small class="text-muted d-block mb-2">{{ __('Picked up / delivered / cancelled have their own buttons on the order page.') }}</small>
+
+                <label class="form-label small mb-1">{{ __('Delivery address') }}</label>
+                <div class="input-group input-group-sm mb-1">
+                    <input type="text" id="edit-order-address" class="form-control" maxlength="500">
+                    <button type="button" class="btn btn-outline-primary" id="edit-order-locate">{{ __('Find on map') }}</button>
+                </div>
+                <small class="d-block mb-2" id="edit-order-location-note"></small>
+
+                <div class="row g-2">
+                    <div class="col-6">
+                        <label class="form-label small mb-1">{{ __('Delivery fee (Rs)') }}</label>
+                        <input type="number" id="edit-order-fee" class="form-control form-control-sm" min="0" step="1">
+                        <small class="text-muted">{{ __('A new location recalculates it unless you change it.') }}</small>
+                    </div>
+                    <div class="col-6">
+                        <label class="form-label small mb-1">{{ __('Note for rider') }}</label>
+                        <input type="text" id="edit-order-note" class="form-control form-control-sm" maxlength="255">
+                    </div>
+                </div>
+
+                <label class="form-label small mb-1 mt-2">{{ __('Reason for the change') }} <span class="text-danger">*</span></label>
+                <input type="text" id="edit-order-reason" class="form-control form-control-sm" maxlength="500" placeholder="{{ __('e.g. customer called to change address') }}">
+            </div>
+            <footer>
+                <button type="button" class="btn btn-label-secondary btn-sm" id="edit-order-cancel">{{ __('Close') }}</button>
+                <button type="button" class="btn btn-primary btn-sm" id="edit-order-submit">{{ __('Save changes') }}</button>
+            </footer>
+        </div>
+    </div>
+
     <div class="dispatch-toast" id="dispatch-toast"></div>
 @endsection
 
@@ -348,6 +389,8 @@
             reassignUrlTemplate: @json(route($isParcel ? 'dashboard.parcel-assignment.reassign' : 'dashboard.delivery-assignment.reassign', ['ride_id' => '__ID__'])),
             rideShowUrlTemplate: @json(route($isParcel ? 'dashboard.parcel-assignment.show' : 'dashboard.delivery.show', ['id' => '__ID__'])),
             canReassign: @json(auth()->user()->can('reassign ride')),
+            canEditOrder: @json(auth()->user()->can('update ride')),
+            orderUrlTemplate: @json($isParcel ? null : route('dashboard.delivery-assignment.order.edit', ['ride_id' => '__ID__'])),
             isParcel: @json($isParcel),
             foodUrl: @json($isParcel ? null : route('dashboard.delivery-assignment.food')),
             menuUrlTemplate: @json($isParcel ? null : route('dashboard.delivery-assignment.menu', ['restaurant_id' => '__ID__'])),
@@ -975,16 +1018,19 @@
         window.renderQueueActions = function (ride) {
             const payload = esc(JSON.stringify({ id: ride.id, type_label: ride.type_label, pickup_lat: ride.pickup_lat, pickup_lng: ride.pickup_lng, driver_id: ride.driver_id, driver: ride.driver }));
             const view = `<a class="queue-action-btn outline" href="${DISPATCH.rideShowUrlTemplate.replace('__ID__', ride.id)}" title="View"><i class="fas fa-eye"></i></a>`;
+            const edit = (ride.editable && DISPATCH.canEditOrder && DISPATCH.orderUrlTemplate)
+                ? `<button type="button" class="queue-action-btn outline" data-edit-order="${ride.id}" title="Edit order"><i class="fas fa-pen"></i></button>`
+                : '';
             if (ride.assignable) {
-                return `<div style="display:flex;gap:4px;"><button type="button" class="queue-action-btn" data-assign='${payload}'><i class="fas fa-user-plus"></i> Assign</button>${view}</div>`;
+                return `<div style="display:flex;gap:4px;"><button type="button" class="queue-action-btn" data-assign='${payload}'><i class="fas fa-user-plus"></i> Assign</button>${edit}${view}</div>`;
             }
             if (ride.reassignable && DISPATCH.canReassign) {
-                return `<div style="display:flex;gap:4px;"><button type="button" class="queue-action-btn outline" data-reassign='${payload}'><i class="fas fa-right-left"></i> Reassign</button>${view}</div>`;
+                return `<div style="display:flex;gap:4px;"><button type="button" class="queue-action-btn outline" data-reassign='${payload}'><i class="fas fa-right-left"></i> Reassign</button>${edit}${view}</div>`;
             }
             if (ride.queue === 'dispatch' && ride.type_key === 'food') {
-                return `<span class="muted-cell" title="Restaurant has not accepted yet">At restaurant</span>`;
+                return `<div style="display:flex;gap:4px;align-items:center;"><span class="muted-cell" title="Restaurant has not accepted yet">At restaurant</span>${edit}${view}</div>`;
             }
-            return view;
+            return edit ? `<div style="display:flex;gap:4px;">${edit}${view}</div>` : view;
         };
 
         let modalState = null;
@@ -1085,6 +1131,84 @@
                 toast('Could not assign this delivery', 'error');
             } finally {
                 btn.disabled = false;
+            }
+        });
+
+        // ---------------- Edit food order ----------------
+        let editOrder = null;
+        const eo = id => document.getElementById(id);
+        function closeEditOrder() { eo('edit-order-modal').classList.remove('open'); editOrder = null; }
+        async function openEditOrder(rideId) {
+            const res = await fetch(DISPATCH.orderUrlTemplate.replace('__ID__', rideId), { headers: { 'Accept': 'application/json' } });
+            const d = await res.json().catch(() => ({}));
+            if (!res.ok) { toast(d.message || 'Could not load this order', 'error'); return; }
+            if (!d.editable) { toast('This order can no longer be edited (already picked up or finished).', 'error'); return; }
+            editOrder = { rideId, data: d, coords: null };
+            eo('edit-order-title').textContent = `Edit order #${d.order_number}`;
+            eo('edit-order-subtitle').textContent = `${d.restaurant ?? ''} -- food Rs ${Math.round(d.subtotal)}`;
+            eo('edit-order-status').innerHTML = Object.entries(d.statuses)
+                .map(([k, v]) => `<option value="${k}" ${k === d.status ? 'selected' : ''}>${v}</option>`).join('');
+            eo('edit-order-address').value = d.delivery_address ?? '';
+            eo('edit-order-location-note').textContent = `Current location: ${d.dropoff_lat.toFixed(5)}, ${d.dropoff_lng.toFixed(5)}`;
+            eo('edit-order-location-note').className = 'd-block mb-2 text-muted';
+            eo('edit-order-fee').value = Math.round(d.delivery_fee);
+            eo('edit-order-note').value = d.rider_note ?? '';
+            eo('edit-order-reason').value = '';
+            eo('edit-order-modal').classList.add('open');
+        }
+        eo('edit-order-locate').addEventListener('click', function () {
+            const address = eo('edit-order-address').value.trim();
+            if (!address || !editOrder) return;
+            new google.maps.Geocoder().geocode({ address }, (results, status) => {
+                if (status !== 'OK' || !results.length) {
+                    eo('edit-order-location-note').textContent = 'Address not found. Try adding the area and city.';
+                    eo('edit-order-location-note').className = 'd-block mb-2 text-danger';
+                    return;
+                }
+                const loc = results[0].geometry.location;
+                editOrder.coords = [loc.lat(), loc.lng()];
+                eo('edit-order-address').value = results[0].formatted_address;
+                eo('edit-order-location-note').textContent = `New location: ${loc.lat().toFixed(5)}, ${loc.lng().toFixed(5)} (fee recalculated on save unless you change it)`;
+                eo('edit-order-location-note').className = 'd-block mb-2 text-success';
+            });
+        });
+        eo('edit-order-cancel').addEventListener('click', closeEditOrder);
+        eo('edit-order-modal').addEventListener('click', e => { if (e.target.id === 'edit-order-modal') closeEditOrder(); });
+        document.addEventListener('click', e => {
+            const btn = e.target.closest('[data-edit-order]');
+            if (btn) openEditOrder(btn.dataset.editOrder);
+        });
+        eo('edit-order-submit').addEventListener('click', async function () {
+            if (!editOrder) return;
+            const reason = eo('edit-order-reason').value.trim();
+            if (reason.length < 3) { toast('Please write why the order is being changed.', 'error'); return; }
+            const d = editOrder.data;
+            const body = {
+                status: eo('edit-order-status').value,
+                delivery_address: eo('edit-order-address').value.trim() || null,
+                rider_note: eo('edit-order-note').value.trim() || null,
+                reason,
+            };
+            const fee = eo('edit-order-fee').value;
+            if (fee !== '' && Number(fee) !== Math.round(d.delivery_fee)) body.delivery_fee = Number(fee);
+            if (editOrder.coords) { body.dropoff_latitude = editOrder.coords[0]; body.dropoff_longitude = editOrder.coords[1]; }
+            this.disabled = true;
+            try {
+                const res = await fetch(DISPATCH.orderUrlTemplate.replace('__ID__', editOrder.rideId), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': DISPATCH.csrf },
+                    body: JSON.stringify(body),
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) { toast(data.message || 'Could not save the order', 'error'); return; }
+                toast(data.message || 'Order updated');
+                closeEditOrder();
+                refreshQueue();
+                refreshStats();
+            } catch (e) {
+                toast('Could not save the order', 'error');
+            } finally {
+                this.disabled = false;
             }
         });
 

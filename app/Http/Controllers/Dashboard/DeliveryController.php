@@ -11,6 +11,7 @@ use App\Services\GeocodingService;
 use App\Services\RestaurantOrderCancellationService;
 use App\Services\RideQueueFilterService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
@@ -29,6 +30,9 @@ use Illuminate\Support\Facades\Validator;
  */
 class DeliveryController extends Controller
 {
+    /** Food order details are editable by admin until the rider has the food. */
+    private const EDITABLE_ORDER_STATUSES = ['pending', 'accepted', 'rider_assigned', 'preparing', 'ready_for_pickup'];
+
     use HasQueuePresets;
 
     public function index()
@@ -570,7 +574,9 @@ class DeliveryController extends Controller
             $order->admin_booking_reason = $request->admin_reason;
             $order->payment_method = 'cod';
             $order->payment_status = 'unpaid';
-            $order->status = 'accepted'; // admin confirmed it with the restaurant
+            // Goes to the restaurant first, like a customer's order; riders
+            // get it once the restaurant accepts.
+            $order->status = 'pending';
             $order->delivery_code = str_pad((string) random_int(0, 9999), 4, '0', STR_PAD_LEFT);
             $order->discount_funded_by = 'platform';
             $order->fare_breakdown = \App\Services\FareBreakdownService::buildOrderSnapshot([
@@ -611,13 +617,9 @@ class DeliveryController extends Controller
             $ride->status = 'requested';
             $ride->ride_type = 'delivery';
             $ride->created_by = auth()->id();
-            if ($rider) {
-                $ride->driver_id = $rider->id;
-                $ride->status = 'accepted';
-                $ride->accepted_at = now();
-                $ride->status_updated_by = auth()->id();
-                $ride->status_updated_by_role = 'admin';
-            }
+            // The admin's chosen rider gets it when the restaurant accepts
+            // (DeliveryAssignmentService::assignPreferredRider).
+            $ride->preferred_rider_id = $rider?->id;
             $ride->save();
 
             $order->ride_id = $ride->id;
@@ -630,14 +632,11 @@ class DeliveryController extends Controller
             return response()->json(['message' => 'Something went wrong!'], 500);
         }
 
-        if ($rider) {
-            \App\Services\DeliveryAssignmentService::assign($ride, $rider, $order);
-        } else {
-            try {
-                broadcast(new \App\Events\RideStatusUpdated($ride));
-            } catch (\Throwable $e) {
-                Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
-            }
+        \App\Services\FoodOrderFlowService::notifyRestaurant($order, 'New order', "New order #{$order->order_number} - Rs. " . number_format((float) $order->total_price, 2) . ". Please accept it.");
+        try {
+            broadcast(new \App\Events\RideStatusUpdated($ride));
+        } catch (\Throwable $e) {
+            Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
         }
 
         AdminActivityLog::record(
@@ -654,8 +653,8 @@ class DeliveryController extends Controller
             'delivery_fee' => $deliveryFee,
             'delivery_code' => $order->delivery_code,
             'message' => ($rider
-                ? "Delivery booked and assigned to {$rider->name}."
-                : 'Delivery booked and sent to riders near the restaurant.')
+                ? "Order sent to {$restaurant->name}. Once they accept it, it goes to {$rider->name}."
+                : "Order sent to {$restaurant->name}. Once they accept it, it goes to riders near the restaurant.")
                 . " Collect Rs " . round($orderAmount + $deliveryFee) . ". Delivery code: {$order->delivery_code}",
         ]);
     }
@@ -977,6 +976,192 @@ class DeliveryController extends Controller
      * since this is the Delivery workspace's escalation path for a job
      * that's stuck or needs manual intervention.
      */
+    /** Food order details for the admin's Edit dialog (by delivery/ride id). */
+    public function editOrder($ride_id)
+    {
+        $this->authorize('view delivery');
+        $this->authorize('update ride');
+
+        $order = RestaurantOrder::with('restaurant:id,name')->where('ride_id', $ride_id)->first();
+        if (!$order) {
+            return response()->json(['message' => 'Food order not found.'], 404);
+        }
+        $ride = Ride::find($ride_id);
+
+        return response()->json([
+            'order_id' => $order->id,
+            'order_number' => $order->order_number,
+            'restaurant' => $order->restaurant?->name,
+            'status' => $order->status,
+            'has_rider' => (bool) $ride?->driver_id,
+            'statuses' => $this->editableStatusesFor($ride),
+            'delivery_address' => $order->delivery_address,
+            'dropoff_lat' => (float) $order->delivery_lat,
+            'dropoff_lng' => (float) $order->delivery_lang,
+            'delivery_fee' => (float) $order->delivery_fee,
+            'subtotal' => (float) $order->subtotal,
+            'rider_note' => $order->rider_note,
+            'editable' => in_array($order->status, self::EDITABLE_ORDER_STATUSES, true)
+                && !in_array($ride?->status, ['completed', 'cancelled', 'started'], true),
+        ]);
+    }
+
+    /**
+     * Admin edits a food order before pickup: kitchen status, delivery
+     * address/location, delivery fee, rider note. Picked up / delivered /
+     * cancelled have their own actions (override delivery, cancel).
+     */
+    public function updateOrder(Request $request, $ride_id)
+    {
+        $this->authorize('view delivery');
+        $this->authorize('update ride');
+
+        $validator = Validator::make($request->all(), [
+            'status' => 'required|string',
+            'delivery_address' => 'nullable|string|max:500',
+            'dropoff_latitude' => 'nullable|numeric|between:-90,90|required_with:dropoff_longitude',
+            'dropoff_longitude' => 'nullable|numeric|between:-180,180|required_with:dropoff_latitude',
+            'delivery_fee' => 'nullable|numeric|min:0|max:100000',
+            'rider_note' => 'nullable|string|max:255',
+            'reason' => 'required|string|min:3|max:500',
+        ], ['reason.required' => 'Please write why the order is being changed.']);
+        if ($validator->fails()) {
+            return response()->json(['message' => $validator->errors()->first()], 422);
+        }
+
+        $notifyCustomer = null;
+        try {
+            DB::beginTransaction();
+
+            $ride = Ride::lockForUpdate()->find($ride_id);
+            $order = RestaurantOrder::where('ride_id', $ride_id)->lockForUpdate()->first();
+            if (!$ride || !$order) {
+                DB::rollBack();
+                return response()->json(['message' => 'Food order not found.'], 404);
+            }
+            if (!in_array($order->status, self::EDITABLE_ORDER_STATUSES, true)
+                || in_array($ride->status, ['completed', 'cancelled', 'started'], true)) {
+                DB::rollBack();
+                return response()->json(['message' => 'This order can no longer be edited (already picked up or finished).'], 422);
+            }
+            $allowed = array_keys($this->editableStatusesFor($ride));
+            if (!in_array($request->status, $allowed, true)) {
+                DB::rollBack();
+                return response()->json(['message' => 'That status is not allowed for this order right now.'], 422);
+            }
+
+            $before = $order->only(['status', 'delivery_address', 'delivery_lat', 'delivery_lang', 'delivery_fee', 'rider_note']);
+            $oldStatus = $order->status;
+
+            // New drop-off location: the fee follows the distance unless the admin typed one.
+            $fee = $request->filled('delivery_fee') ? round((float) $request->delivery_fee, 2) : null;
+            if ($request->filled('dropoff_latitude')) {
+                $order->delivery_lat = $request->dropoff_latitude;
+                $order->delivery_lang = $request->dropoff_longitude;
+                $ride->dropoff_latitude = $request->dropoff_latitude;
+                $ride->dropoff_longitude = $request->dropoff_longitude;
+                $km = $this->km($ride->pickup_latitude, $ride->pickup_longitude, $request->dropoff_latitude, $request->dropoff_longitude);
+                $ride->distance_km = round($km, 2);
+                if ($fee === null) {
+                    $s = \App\Services\FareBreakdownService::foodDeliveryFeeSettings();
+                    $charged = max(\App\Services\FareBreakdownService::roundUpToKm($km), 1);
+                    $fee = round($s['first_km_fee'] + max($charged - 1, 0) * $s['per_km_fee'], 2);
+                }
+            }
+            if ($request->has('delivery_address')) {
+                $order->delivery_address = $request->delivery_address;
+            }
+            if ($request->has('rider_note')) {
+                $order->rider_note = $request->rider_note;
+            }
+            if ($fee !== null && $fee !== (float) $order->delivery_fee) {
+                $order->delivery_fee = $fee;
+                $order->total_price = round((float) $order->subtotal - (float) $order->discount + (float) $order->tax + (float) $order->platform_fee + $fee, 2);
+                $breakdown = is_array($order->fare_breakdown) ? $order->fare_breakdown : (json_decode((string) $order->fare_breakdown, true) ?: null);
+                if (is_array($breakdown) && array_key_exists('delivery_fee', $breakdown)) {
+                    $breakdown['delivery_fee'] = $fee;
+                    $order->fare_breakdown = $breakdown;
+                }
+                $ride->subtotal = $fee;
+                $ride->total_fare = $fee;
+                \App\Models\RideOffer::where('ride_id', $ride->id)->where('status', 'accepted')->update(['proposed_price' => $fee]);
+            }
+
+            $order->status = $request->status;
+            $order->save();
+            if ($oldStatus === 'pending' && $request->status === 'accepted' && $ride->status === 'requested') {
+                // Accepted on the restaurant's behalf: riders are offered it from now.
+                $ride->requested_at = now();
+            }
+            $ride->status_updated_by = auth()->id();
+            $ride->status_updated_by_role = 'admin';
+            $ride->save();
+
+            DB::commit();
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            Log::error('Admin Edit Food Order Failed', ['error' => $th->getMessage()]);
+            return response()->json(['message' => 'Something went wrong!'], 500);
+        }
+
+        if ($oldStatus !== $order->status) {
+            $labels = ['accepted' => 'Your order was accepted.', 'preparing' => 'Your food is being prepared.', 'ready_for_pickup' => 'Your food is ready and waiting for the rider.'];
+            if (isset($labels[$order->status])) {
+                \App\Services\FoodOrderFlowService::notifyCustomer($order, 'Order update', $labels[$order->status]);
+            }
+            \App\Services\FoodOrderFlowService::notifyRestaurant($order, 'Order updated by admin', "Order #{$order->order_number} status changed to " . str_replace('_', ' ', $order->status) . '.');
+            if ($oldStatus === 'pending' && $order->status === 'accepted') {
+                \App\Services\DeliveryAssignmentService::assignPreferredRider($order);
+            }
+        }
+        if ($ride->driver_id) {
+            app('notificationService')->notifyUsers([\App\Models\User::find($ride->driver_id)], 'Order updated', "Order #{$order->order_number} was updated by the admin. Please check the details.", 'rides', $ride->id, 'ride_details');
+        }
+        try {
+            broadcast(new \App\Events\RestaurantOrderUpdated($order->fresh()));
+            broadcast(new \App\Events\RideStatusUpdated($ride->fresh()));
+        } catch (\Throwable $e) {
+            Log::error('Order edit broadcast failed', ['order_id' => $order->id, 'error' => $e->getMessage()]);
+        }
+
+        AdminActivityLog::record(
+            'Edited food order',
+            $before,
+            $order->only(['status', 'delivery_address', 'delivery_lat', 'delivery_lang', 'delivery_fee', 'rider_note']) + ['reason' => $request->reason],
+            RestaurantOrder::class,
+            $order->id
+        );
+
+        return response()->json(['message' => "Order #{$order->order_number} updated."]);
+    }
+
+    /** Status choices for the Edit dialog: kitchen steps only, before pickup. */
+    private function editableStatusesFor(?Ride $ride): array
+    {
+        $labels = [
+            'pending' => 'Waiting for restaurant',
+            'accepted' => 'Accepted by restaurant',
+            'rider_assigned' => 'Rider assigned',
+            'preparing' => 'Preparing',
+            'ready_for_pickup' => 'Ready for pickup',
+        ];
+        // With a rider on it, it can't go back to "waiting for restaurant / a rider".
+        $keys = $ride?->driver_id
+            ? ['rider_assigned', 'preparing', 'ready_for_pickup']
+            : ['pending', 'accepted', 'preparing', 'ready_for_pickup'];
+
+        return array_intersect_key($labels, array_flip($keys));
+    }
+
+    private function km($lat1, $lng1, $lat2, $lng2): float
+    {
+        $dLat = deg2rad((float) $lat2 - (float) $lat1);
+        $dLng = deg2rad((float) $lng2 - (float) $lng1);
+        $a = sin($dLat / 2) ** 2 + cos(deg2rad((float) $lat1)) * cos(deg2rad((float) $lat2)) * sin($dLng / 2) ** 2;
+
+        return 6371 * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
+
     public function cancelOrder(Request $request, $order_id)
     {
         $this->authorize('view delivery');
@@ -1197,8 +1382,12 @@ class DeliveryController extends Controller
         $assignable = $queue === 'dispatch' && in_array($ride->status, ['requested', 'no_driver_found'], true)
             && (!$isFood || $orderStatus === 'accepted');
         $reassignable = $queue === 'booked' && ($isFood
-            ? $orderStatus === 'rider_assigned'
+            // Until pickup, same rule as reassign() / isReassignable().
+            ? in_array($orderStatus, ['rider_assigned', 'preparing', 'ready_for_pickup'], true)
             : in_array($ride->status, ['accepted', 'en_route', 'arrived'], true));
+        // Food order details can be edited until the rider has the food.
+        $editable = $isFood && in_array($orderStatus, self::EDITABLE_ORDER_STATUSES, true)
+            && !in_array($ride->status, ['completed', 'cancelled', 'started'], true);
 
         $staleReason = null;
         if (!empty($ride->has_open_alert)) {
@@ -1217,6 +1406,7 @@ class DeliveryController extends Controller
             'order_status' => $orderStatus,
             'assignable' => $assignable,
             'reassignable' => $reassignable,
+            'editable' => $editable,
             'stale' => $staleReason !== null,
             'stale_reason' => $staleReason,
             'id'        => $ride->id,

@@ -18,6 +18,29 @@ use Illuminate\Support\Facades\Validator;
 
 class RideController extends Controller
 {
+    /** A taxi ride's driver can be swapped until the trip starts. */
+    private const REASSIGNABLE_TAXI_STATUSES = ['accepted', 'en_route', 'arrived'];
+
+    /** Null if $driverId may take over this taxi ride, else why not. */
+    private function taxiReassignProblem(Ride $ride, int $driverId): ?string
+    {
+        $driver = User::role('driver')->with('driverVehicle')->find($driverId);
+        if (!$driver) {
+            return 'Selected person is not a taxi driver.';
+        }
+        if (!$driver->driverVehicle) {
+            return "{$driver->name} has no vehicle saved yet.";
+        }
+        if ($ride->vehicle_type_id && (int) $driver->driverVehicle->vehicle_type_id !== (int) $ride->vehicle_type_id) {
+            return "{$driver->name} drives a different vehicle type than this ride needs.";
+        }
+        if (in_array($driverId, \App\Services\FoodDispatchService::busyRiderIds(), true)) {
+            return "{$driver->name} is already on another ride. Choose a free driver.";
+        }
+
+        return null;
+    }
+
     /**
      * Display a listing of the resource.
      */
@@ -25,11 +48,27 @@ class RideController extends Controller
     {
         $this->authorize('view ride');
         try {
-            // Taxi workspace: rides and parcels only; food deliveries live under Delivery.
+            // Taxi rides only: parcels have their own list (parcels()),
+            // food deliveries live under the Delivery workspace.
             $rides = Ride::with('passenger:id,name','driver:id,name')
-                ->whereIn('ride_type', Ride::TAXI_TYPES)
+                ->where('ride_type', 'ride')
                 ->latest()->get();
-            return view('dashboard.rides.index',compact('rides'));
+            return view('dashboard.rides.index', ['rides' => $rides, 'listTitle' => __('All Rides')]);
+        } catch (\Throwable $th) {
+            Log::error('Rides Index Failed', ['error' => $th->getMessage()]);
+            return redirect()->back()->with('error', "Something went wrong! Please try again later");
+        }
+    }
+
+    /** Parcel deliveries, in their own list (Rides -> All Parcels). */
+    public function parcels()
+    {
+        $this->authorize('view ride');
+        try {
+            $rides = Ride::with('passenger:id,name','driver:id,name')
+                ->where('ride_type', 'parcel')
+                ->latest()->get();
+            return view('dashboard.rides.index', ['rides' => $rides, 'listTitle' => __('All Parcels')]);
         } catch (\Throwable $th) {
             Log::error('Rides Index Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', "Something went wrong! Please try again later");
@@ -221,8 +260,41 @@ class RideController extends Controller
                 // getOriginal(), not the live attribute -- $ride->status was
                 // already overwritten to the new status above.
                 $wasCancelled = $ride->getOriginal('status') === 'cancelled';
+                // Taxi ride the driver hasn't started yet: admin may swap the driver.
+                $isActiveSwap = $ride->ride_type === 'ride'
+                    && $ride->driver_id
+                    && (int) $ride->driver_id !== (int) $request->driver_id
+                    && in_array($ride->getOriginal('status'), self::REASSIGNABLE_TAXI_STATUSES, true);
 
-                if ($ride->driver_id && !$wasCancelled) {
+                if ($isActiveSwap) {
+                    if (!auth()->user()->can('reassign ride')) {
+                        DB::rollBack();
+                        return $wantsJson
+                            ? response()->json(['message' => 'You are not allowed to reassign rides.'], 403)
+                            : redirect()->back()->with('error', 'You are not allowed to reassign rides.');
+                    }
+                    $problem = $this->taxiReassignProblem($ride, (int) $request->driver_id);
+                    if ($problem) {
+                        DB::rollBack();
+                        return $wantsJson
+                            ? response()->json(['message' => $problem], 422)
+                            : redirect()->back()->with('error', $problem);
+                    }
+                    $bumpedDriver = User::find($ride->driver_id);
+                    // The old driver's accepted offer goes to the new driver
+                    // (the app's active-ride banner reads the accepted offer).
+                    $ride->rideOffers()->where('driver_id', $ride->driver_id)->where('status', 'accepted')
+                        ->update(['driver_id' => (int) $request->driver_id]);
+                    \App\Models\RideDriverLog::create([
+                        'ride_id' => $ride->id,
+                        'driver_id' => $ride->driver_id,
+                        'action' => 'cancelled',
+                        'note' => 'Reassigned by admin to driver #' . (int) $request->driver_id,
+                    ]);
+                    // Restart from "accepted": the new driver still has to drive to the pickup.
+                    $ride->status = 'accepted';
+                    $request->merge(['status' => 'accepted']);
+                } elseif ($ride->driver_id && !$wasCancelled) {
                     DB::rollBack();
                     $message = 'This ride already has a driver assigned.';
                     if ($wantsJson) {

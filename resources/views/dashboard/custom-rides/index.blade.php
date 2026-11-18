@@ -1882,6 +1882,8 @@
         let editDropoffCoords = null;
         let editAutocompleteDebounce = null;
 
+        const CAN_REASSIGN_RIDE = @json(auth()->user()->can('reassign ride'));
+
         function openEditRideModal(rideId, status, pickup, dropoff, type, queue, fare) {
             editRideIdEl.value = rideId;
             editRideStatusEl.value = status;
@@ -1905,13 +1907,18 @@
             // (Live Ops Task 6) -- status is force-set to 'requested' below
             // when the admin actually picks a driver for it, relaunching it.
             const isCancelled = queue === 'cancelled';
-            const canAssignDriver = (queue === 'dispatch' || isCancelled) && (type === 'ride' || type === 'delivery');
+            // A booked taxi ride can get a different driver until the trip starts.
+            const isActiveSwap = queue === 'booked' && type === 'ride'
+                && ['accepted', 'en_route', 'arrived'].includes(status) && CAN_REASSIGN_RIDE;
+            const canAssignDriver = ((queue === 'dispatch' || isCancelled) && (type === 'ride' || type === 'delivery')) || isActiveSwap;
             const isDelivery = type === 'delivery';
             editAssignDriverSelect.value = '';
             editAssignEtaInput.value = '';
             if (canAssignDriver) {
                 editAssignDriverField.style.display = '';
-                editAssignDriverHint.textContent = isCancelled
+                editAssignDriverHint.textContent = isActiveSwap
+                    ? 'Pick a different driver to take over this ride. The current driver is told it was taken back, and the ride restarts from Accepted for the new driver.'
+                    : isCancelled
                     ? 'Reassigning will relaunch this cancelled ride and notify the previous driver it was taken back to base.'
                     : (isDelivery
                         ? 'Only delivery-capable drivers are listed for a delivery job.'

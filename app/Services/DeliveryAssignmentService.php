@@ -18,6 +18,42 @@ use Illuminate\Support\Facades\Log;
  */
 class DeliveryAssignmentService
 {
+    /**
+     * Admin food booking where the admin picked a rider: once the restaurant
+     * accepts, give the job to that rider if he's still free (or may combine
+     * it, OrderBatchingService). Otherwise it goes to nearby riders as usual
+     * and admins are alerted. Returns true when assigned.
+     */
+    public static function assignPreferredRider(RestaurantOrder $order): bool
+    {
+        $ride = Ride::find($order->ride_id);
+        if (!$ride || !$ride->preferred_rider_id || $ride->driver_id || $ride->status !== 'requested') {
+            return false;
+        }
+        $rider = User::role('rider')->find($ride->preferred_rider_id);
+        $busy = $rider && in_array((int) $rider->id, FoodDispatchService::busyRiderIds(), true);
+        if (!$rider || ($busy && OrderBatchingService::check((int) $rider->id, $ride) !== null)) {
+            StaleJobAlertService::raise(
+                'preferred_rider_unavailable',
+                Ride::class,
+                $ride->id,
+                'delivery',
+                "Order #{$order->order_number}: the rider chosen at booking is busy now, so the order was offered to nearby riders instead."
+            );
+            return false;
+        }
+
+        $ride->driver_id = $rider->id;
+        $ride->status = 'accepted';
+        $ride->accepted_at = now();
+        $ride->status_updated_by_role = 'admin';
+        $ride->save();
+
+        self::assign($ride, $rider, $order->fresh());
+
+        return true;
+    }
+
     public static function assign(Ride $ride, User $rider, ?RestaurantOrder $order, int $etaMinutes = 15, string $note = 'Assigned by admin'): RideOffer
     {
         $rideOffer = new RideOffer();

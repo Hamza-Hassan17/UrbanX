@@ -54,6 +54,7 @@ return [
 
         // Rides
         'dashboard.rides.' => 'rides',
+        'dashboard.parcels.' => 'rides',
         'dashboard.drivers.index' => 'rides',
         'dashboard.drivers.pending-verifications' => 'rides',
         'dashboard.custom-rides.' => 'rides',

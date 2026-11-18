@@ -260,6 +260,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             //Rides
             // Numeric IDs only, so /rides/alerts etc. don't get caught as a ride ID.
             Route::resource('rides', RideController::class)->where(['ride' => '[0-9]+']);
+            Route::get('parcels', [RideController::class, 'parcels'])->name('parcels.index');
             Route::get('rides/{id}/route-pings', [RideController::class, 'routePings'])->name('rides.route-pings');
 
             //Operator/Driver Reports
@@ -365,6 +366,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::post('parcel-assignment/parcel', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'storeParcel'])->name('parcel-assignment.parcel');
             Route::post('parcel-assignment/{ride_id}/reassign', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'reassign'])->name('parcel-assignment.reassign');
             Route::post('delivery-assignment/{ride_id}/reassign', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'reassign'])->name('delivery-assignment.reassign');
+            Route::get('delivery-assignment/{ride_id}/order', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'editOrder'])->name('delivery-assignment.order.edit');
+            Route::post('delivery-assignment/{ride_id}/order', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'updateOrder'])->name('delivery-assignment.order.update');
             Route::post('delivery/order/{order_id}/cancel', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'cancelOrder'])->name('delivery.order.cancel');
             Route::post('delivery/order/{order_id}/override-delivery', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'overrideFoodDelivery'])->name('delivery.order.override-delivery');
             Route::post('delivery/ride/{ride_id}/override-delivery', [\App\Http\Controllers\Dashboard\DeliveryController::class, 'overrideParcelDelivery'])->name('delivery.ride.override-delivery');

@@ -81,6 +81,11 @@
                                 <div>{{__('All Rides')}}</div>
                             </a>
                         </li>
+                        <li class="menu-item {{ request()->routeIs('dashboard.parcels.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.parcels.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('All Parcels')}}</div>
+                            </a>
+                        </li>
                     @endcan
                     {{--
                         Moved here from Users per the sidebar restructure spec --

@@ -598,6 +598,8 @@ class RestaurantController extends Controller
             // Riders are offered the job from this moment, so their 10-minute
             // window starts at acceptance, not when the customer ordered.
             Ride::where('id', $order->ride_id)->where('status', 'requested')->update(['requested_at' => now()]);
+            // Admin booking with a chosen rider: he gets it now if he's free.
+            \App\Services\DeliveryAssignmentService::assignPreferredRider($order);
 
             \App\Services\FoodOrderFlowService::notifyCustomer($order, 'Order accepted', "{$restaurant->name} accepted your order.");
 

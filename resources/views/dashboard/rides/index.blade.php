@@ -1,13 +1,13 @@
 @extends('layouts.master')
 
-@section('title', __('Rides'))
+@section('title', $listTitle ?? __('Rides'))
 
 @section('css')
 @endsection
 
 
 @section('breadcrumb-items')
-    <li class="breadcrumb-item active">{{ __('Rides') }}</li>
+    <li class="breadcrumb-item active">{{ $listTitle ?? __('Rides') }}</li>
 @endsection
 @section('content')
     <div class="container-xxl flex-grow-1 container-p-y">
