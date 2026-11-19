@@ -413,6 +413,11 @@
                                 <div>{{__('Customers')}}</div>
                             </a>
                         </li>
+                        <li class="menu-item {{ request()->routeIs('dashboard.customer-insights.*') ? 'active' : '' }}">
+                            <a href="{{route('dashboard.customer-insights.index')}}" class="menu-link" style="color: #fff !important;">
+                                <div>{{__('Customer Insights')}}</div>
+                            </a>
+                        </li>
                     @endcan
                     @can(['view archived user'])
                         <li class="menu-item {{ request()->routeIs('dashboard.archived-user.*') ? 'active' : '' }}">

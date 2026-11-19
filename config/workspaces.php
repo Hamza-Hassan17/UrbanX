@@ -84,6 +84,7 @@ return [
         'dashboard.archived-user.' => 'platform',
         'dashboard.admin-users.' => 'platform',
         'dashboard.customers.' => 'platform',
+        'dashboard.customer-insights.' => 'platform',
         'dashboard.finance.' => 'platform',
         'dashboard.pricing-fees.' => 'platform',
         'dashboard.payroll.' => 'platform',
