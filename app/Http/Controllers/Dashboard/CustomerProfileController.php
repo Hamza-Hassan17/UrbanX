@@ -55,8 +55,15 @@ class CustomerProfileController extends Controller
 
         $insights = \App\Services\CustomerInsightsService::forCustomer((int) $id);
 
+        // Personal offers given to this customer, with how often each was used.
+        $offers = \App\Models\PromoCode::where('user_id', $id)->latest()->get()->map(function ($p) use ($id) {
+            $p->times_used = Ride::where('promo_code_id', $p->id)->where('passenger_id', $id)->where('status', '!=', 'cancelled')->count();
+            return $p;
+        });
+
         return view('dashboard.customers.show', compact(
             'insights',
+            'offers',
             'customer',
             'rides',
             'rentals',

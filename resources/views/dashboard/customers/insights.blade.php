@@ -128,6 +128,9 @@
                         </td>
                         <td class="text-end">
                             <a href="{{ route('dashboard.customers.show', $r['id']) }}" class="btn btn-sm btn-outline-primary">{{ __('History') }}</a>
+                            @can('create promo code')
+                                <a href="{{ route('dashboard.customers.show', $r['id']) }}#offer" class="btn btn-sm btn-primary">{{ __('Offer') }}</a>
+                            @endcan
                         </td>
                     </tr>
                 @empty

@@ -102,6 +102,74 @@
             </div>
         </div>
 
+        {{-- Personal offers --}}
+        <div class="card mb-4" id="offer">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">{{ __('Personal offers') }}</h5>
+                @if($group === 'at_risk')
+                    <span class="badge bg-label-danger">{{ __('Good time for an offer: this customer has gone quiet') }}</span>
+                @endif
+            </div>
+            <div class="card-body">
+                @can('create promo code')
+                <form method="POST" action="{{ route('dashboard.customers.offer', $customer->id) }}" class="row g-2 align-items-end mb-3"
+                      onsubmit="return confirm('Send this offer to {{ addslashes($customer->name) }}? They get a notification with the code.');">
+                    @csrf
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small mb-1">{{ __('Discount %') }}</label>
+                        <input type="number" name="discount_percentage" class="form-control form-control-sm" min="1" max="100" step="1" value="10" required>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small mb-1">{{ __('Valid for (days)') }}</label>
+                        <input type="number" name="valid_days" class="form-control form-control-sm" min="1" max="365" value="14" required>
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <label class="form-label small mb-1">{{ __('Number of rides') }}</label>
+                        <input type="number" name="uses" class="form-control form-control-sm" min="1" max="50" value="1" required>
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label small mb-1">{{ __('Message (optional)') }}</label>
+                        <input type="text" name="message" class="form-control form-control-sm" maxlength="300" placeholder="{{ __('We miss you! Here is a discount on your next ride.') }}">
+                    </div>
+                    <div class="col-6 col-md-2">
+                        <button class="btn btn-sm btn-primary w-100">{{ __('Give offer') }}</button>
+                    </div>
+                    <small class="text-muted">{{ __('Creates a taxi ride promo code only this customer can use and sends it to their phone.') }}</small>
+                </form>
+                @endcan
+
+                @if($offers->isNotEmpty())
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead><tr><th>{{ __('Code') }}</th><th>{{ __('Discount') }}</th><th>{{ __('Valid until') }}</th><th>{{ __('Used') }}</th><th>{{ __('Status') }}</th></tr></thead>
+                        <tbody>
+                        @foreach($offers as $p)
+                            @php
+                                $expired = $p->valid_until && \Carbon\Carbon::parse($p->valid_until)->isPast();
+                                $usedUp = $p->times_used >= $p->usage_limit_per_user;
+                            @endphp
+                            <tr>
+                                <td><code>{{ $p->code }}</code></td>
+                                <td>{{ rtrim(rtrim(number_format((float) $p->discount_percentage, 2), '0'), '.') }}% {{ __('off rides') }}</td>
+                                <td>{{ \Carbon\Carbon::parse($p->valid_until)->format('d M Y') }}</td>
+                                <td>{{ $p->times_used }} / {{ $p->usage_limit_per_user }}</td>
+                                <td>
+                                    @if($usedUp)<span class="badge bg-label-success">{{ __('Used') }}</span>
+                                    @elseif($expired)<span class="badge bg-label-secondary">{{ __('Expired') }}</span>
+                                    @elseif($p->is_active !== 'active')<span class="badge bg-label-secondary">{{ __('Off') }}</span>
+                                    @else<span class="badge bg-label-primary">{{ __('Waiting') }}</span>@endif
+                                </td>
+                            </tr>
+                        @endforeach
+                        </tbody>
+                    </table>
+                </div>
+                @else
+                    <p class="text-muted small mb-0">{{ __('No offers given yet.') }}</p>
+                @endif
+            </div>
+        </div>
+
         <ul class="nav nav-tabs mb-4" role="tablist">
             <li class="nav-item">
                 <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-rides" type="button">

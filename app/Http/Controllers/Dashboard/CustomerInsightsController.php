@@ -88,6 +88,57 @@ class CustomerInsightsController extends Controller
             ->with('success', "Customers are now \"at risk\" after {$data['customer_at_risk_days']} days without an order.");
     }
 
+    /**
+     * Personal offer: a ride promo code only this customer can use, sent to
+     * them as a push notification.
+     */
+    public function giveOffer(Request $request, string $id)
+    {
+        $this->authorize('view user');
+        $this->authorize('create promo code');
+
+        $data = $request->validate([
+            'discount_percentage' => 'required|numeric|min:1|max:100',
+            'valid_days' => 'required|integer|min:1|max:365',
+            'uses' => 'required|integer|min:1|max:50',
+            'message' => 'nullable|string|max:300',
+        ]);
+        $customer = User::role('user')->findOrFail($id);
+
+        $prefix = strtoupper(preg_replace('/[^A-Za-z]/', '', explode(' ', (string) $customer->name)[0]) ?: 'URBAN');
+        do {
+            $code = substr($prefix, 0, 8) . (int) $data['discount_percentage'] . '-' . strtoupper(\Illuminate\Support\Str::random(4));
+        } while (\App\Models\PromoCode::where('code', $code)->exists());
+
+        $until = now()->addDays((int) $data['valid_days'])->endOfDay();
+        $promo = \App\Models\PromoCode::create([
+            'name' => "Personal offer for {$customer->name}",
+            'code' => $code,
+            'service' => 'ride',
+            'discount_percentage' => $data['discount_percentage'],
+            'valid_from' => now(),
+            'valid_until' => $until,
+            'usage_limit' => (int) $data['uses'],
+            'usage_limit_per_user' => (int) $data['uses'],
+            'is_active' => 'active',
+            'user_id' => $customer->id,
+            'created_by' => auth()->id(),
+        ]);
+
+        $pct = rtrim(rtrim(number_format((float) $data['discount_percentage'], 2), '0'), '.');
+        $text = trim(($data['message'] ?? '') . ' ') ?: "We miss you! Here's {$pct}% off your next ride, just for you.";
+        $text .= " Use code {$code} before " . $until->format('d M') . '.';
+        app('notificationService')->notifyUsers([$customer], 'A special offer for you', $text, 'promo_codes', $promo->id, 'promo_code');
+
+        AdminActivityLog::record('Gave personal offer', [], [
+            'customer_id' => $customer->id, 'code' => $code, 'discount' => $data['discount_percentage'],
+            'valid_until' => $until->toDateString(), 'uses' => $data['uses'],
+        ], \App\Models\PromoCode::class, $promo->id);
+
+        return redirect()->route('dashboard.customers.show', $customer->id)
+            ->with('success', "Offer sent to {$customer->name}: {$pct}% off rides, code {$code}, valid until " . $until->format('d M Y') . '.');
+    }
+
     /** Distinct customers with any (not cancelled) order, per month, last 12 months. */
     private function activeCustomersByMonth(): array
     {

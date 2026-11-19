@@ -161,6 +161,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('admin-users', [UserController::class, 'adminUsers'])->name('admin-users.index');
             Route::get('customer-insights', [\App\Http\Controllers\Dashboard\CustomerInsightsController::class, 'index'])->name('customer-insights.index');
             Route::post('customer-insights/settings', [\App\Http\Controllers\Dashboard\CustomerInsightsController::class, 'updateSettings'])->name('customer-insights.settings');
+            Route::post('customers/{id}/offer', [\App\Http\Controllers\Dashboard\CustomerInsightsController::class, 'giveOffer'])->name('customers.offer');
             Route::get('customers/{id}', [\App\Http\Controllers\Dashboard\CustomerProfileController::class, 'show'])->name('customers.show');
             Route::put('admin-users/{id}/workspaces', [UserController::class, 'updateWorkspaces'])->name('admin-users.workspaces.update');
             Route::get('restaurant-owners', [UserController::class, 'restaurantOwners'])->name('restaurant-owners.index');

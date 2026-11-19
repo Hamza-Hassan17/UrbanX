@@ -18,5 +18,8 @@ class PromoCode extends Model
         'usage_limit_per_user',
         'usage_limit',
         'is_active',
+        'service',
+        'user_id',
+        'created_by',
     ];
 }

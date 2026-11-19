@@ -160,6 +160,8 @@ class RideController extends Controller
 
         try {
             $promoCode = PromoCode::where('code', $request->promo_code)
+                // Personal offers (user_id set) work only for that customer.
+                ->where(fn ($q) => $q->whereNull('user_id')->orWhere('user_id', auth()->id()))
                 ->where('is_active', 'active')
                 ->where('valid_from', '<=', now())
                 ->where('valid_until', '>=', now())
@@ -446,6 +448,7 @@ class RideController extends Controller
         $promoCodeId = null;
         if ($request->filled('promo_code_id')) {
             $promo = PromoCode::where('id', $request->promo_code_id)
+                ->where(fn ($q) => $q->whereNull('user_id')->orWhere('user_id', $request->user()->id))
                 ->where('is_active', 'active')
                 ->where('valid_from', '<=', now())
                 ->where('valid_until', '>=', now())
