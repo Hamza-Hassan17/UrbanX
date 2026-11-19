@@ -53,7 +53,7 @@
             const actionsCell = typeof window.renderQueueActions === 'function'
                 ? window.renderQueueActions(ride)
                 : (canEdit
-                    ? `<button type="button" class="queue-edit-btn" data-id="${ride.id}" data-status="${ride.status}" data-pickup="${ride.pickup ?? ''}" data-dropoff="${ride.dropoff ?? ''}" data-type="${ride.type_key}" data-queue="${ride.queue}" data-fare="${ride.fare ?? ''}"><i class="fas fa-pen"></i> Edit</button>`
+                    ? `<button type="button" class="queue-edit-btn" data-id="${ride.id}" data-status="${ride.status}" data-pickup="${ride.pickup ?? ''}" data-dropoff="${ride.dropoff ?? ''}" data-type="${ride.type_key}" data-queue="${ride.queue}" data-fare="${ride.fare ?? ''}" data-driver="${ride.driver ?? ''}"><i class="fas fa-pen"></i> Edit</button>`
                     : '--');
             const staleAttrs = ride.stale
                 ? ` class="table-danger" title="${(ride.stale_reason ?? 'Needs attention').replace(/"/g, '&quot;')}"`

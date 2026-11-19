@@ -140,7 +140,7 @@
                         </td>
                         <td>
                             @if(in_array($ride['queue'], ['dispatch', 'booked']) && isset($queueEditable) && $queueEditable)
-                                <button type="button" class="queue-edit-btn" data-id="{{ $ride['id'] }}" data-status="{{ $ride['status'] }}" data-pickup="{{ $ride['pickup'] }}" data-dropoff="{{ $ride['dropoff'] }}" data-type="{{ $ride['type_key'] }}" data-queue="{{ $ride['queue'] }}" data-fare="{{ $ride['fare'] }}">
+                                <button type="button" class="queue-edit-btn" data-id="{{ $ride['id'] }}" data-status="{{ $ride['status'] }}" data-pickup="{{ $ride['pickup'] }}" data-dropoff="{{ $ride['dropoff'] }}" data-type="{{ $ride['type_key'] }}" data-queue="{{ $ride['queue'] }}" data-fare="{{ $ride['fare'] }}" data-driver="{{ $ride['driver'] ?? '' }}">
                                     <i class="fas fa-pen"></i> Edit
                                 </button>
                             @else

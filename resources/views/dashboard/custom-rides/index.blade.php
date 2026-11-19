@@ -1000,6 +1000,10 @@
                     </select>
                     <small class="text-muted" id="edit_assign_driver_hint">Only available for unclaimed rides/jobs.</small>
                 </div>
+                <div class="field" id="edit_reassign_reason_field" style="display: none;">
+                    <label for="edit_reassign_reason">Reason for reassigning</label>
+                    <input type="text" id="edit_reassign_reason" class="form-control" maxlength="500" placeholder="e.g. driver not responding">
+                </div>
                 <div class="field" id="edit_assign_eta_field" style="display: none;">
                     <label for="edit_assign_eta">Rider ETA (minutes)</label>
                     <input type="number" id="edit_assign_eta" class="form-control" min="0" placeholder="15">
@@ -1884,7 +1888,7 @@
 
         const CAN_REASSIGN_RIDE = @json(auth()->user()->can('reassign ride'));
 
-        function openEditRideModal(rideId, status, pickup, dropoff, type, queue, fare) {
+        function openEditRideModal(rideId, status, pickup, dropoff, type, queue, fare, driverName) {
             editRideIdEl.value = rideId;
             editRideStatusEl.value = status;
 
@@ -1914,10 +1918,12 @@
             const isDelivery = type === 'delivery';
             editAssignDriverSelect.value = '';
             editAssignEtaInput.value = '';
+            document.getElementById('edit_reassign_reason').value = '';
+            document.getElementById('edit_reassign_reason_field').style.display = isActiveSwap ? '' : 'none';
             if (canAssignDriver) {
                 editAssignDriverField.style.display = '';
                 editAssignDriverHint.textContent = isActiveSwap
-                    ? 'Pick a different driver to take over this ride. The current driver is told it was taken back, and the ride restarts from Accepted for the new driver.'
+                    ? `Currently with ${driverName || 'a driver'}. Pick a different driver to take over this ride; the current driver is told it was taken back.`
                     : isCancelled
                     ? 'Reassigning will relaunch this cancelled ride and notify the previous driver it was taken back to base.'
                     : (isDelivery
@@ -1946,7 +1952,7 @@
         document.getElementById('queue-table-body').addEventListener('click', function (e) {
             const btn = e.target.closest('.queue-edit-btn');
             if (!btn) return;
-            openEditRideModal(btn.dataset.id, btn.dataset.status, btn.dataset.pickup, btn.dataset.dropoff, btn.dataset.type, btn.dataset.queue, btn.dataset.fare);
+            openEditRideModal(btn.dataset.id, btn.dataset.status, btn.dataset.pickup, btn.dataset.dropoff, btn.dataset.type, btn.dataset.queue, btn.dataset.fare, btn.dataset.driver);
         });
 
         document.getElementById('editRideCancelBtn').addEventListener('click', closeEditRideModal);
@@ -2046,6 +2052,11 @@
                 }
                 if (editAssignDriverField.style.display !== 'none' && editAssignDriverSelect.value) {
                     payload.driver_id = editAssignDriverSelect.value;
+                    const reasonField = document.getElementById('edit_reassign_reason_field');
+                    if (reasonField.style.display !== 'none') {
+                        const reason = document.getElementById('edit_reassign_reason').value.trim();
+                        if (reason) payload.reassign_reason = reason;
+                    }
                     if (editAssignEtaField.style.display !== 'none' && editAssignEtaInput.value) {
                         payload.eta_minutes = editAssignEtaInput.value;
                     }

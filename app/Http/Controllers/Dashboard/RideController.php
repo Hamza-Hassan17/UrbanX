@@ -214,6 +214,7 @@ class RideController extends Controller
             'driver_id' => 'nullable|exists:users,id',
             'eta_minutes' => 'nullable|integer|min:0',
             'total_fare' => 'nullable|numeric|min:0',
+            'reassign_reason' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -251,6 +252,7 @@ class RideController extends Controller
             $assignedDriver = null;
             $assignedRestaurantOrder = null;
             $bumpedDriver = null;
+            $swapLog = null;
             if ($request->filled('driver_id')) {
                 // Reassigning a cancelled ride to a different driver (Live Ops
                 // Task 6) is the one case where an existing driver_id is
@@ -282,6 +284,7 @@ class RideController extends Controller
                             : redirect()->back()->with('error', $problem);
                     }
                     $bumpedDriver = User::find($ride->driver_id);
+                    $swapLog = ['from' => (int) $ride->driver_id, 'to' => (int) $request->driver_id, 'reason' => $request->reassign_reason];
                     // The old driver's accepted offer goes to the new driver
                     // (the app's active-ride banner reads the accepted offer).
                     $ride->rideOffers()->where('driver_id', $ride->driver_id)->where('status', 'accepted')
@@ -290,7 +293,7 @@ class RideController extends Controller
                         'ride_id' => $ride->id,
                         'driver_id' => $ride->driver_id,
                         'action' => 'cancelled',
-                        'note' => 'Reassigned by admin to driver #' . (int) $request->driver_id,
+                        'note' => trim('Reassigned by admin to driver #' . (int) $request->driver_id . '. ' . ($request->reassign_reason ?? '')),
                     ]);
                     // The new driver starts from the beginning: an admin-assigned
                     // ride stays 'requested', otherwise back to 'accepted' (he
@@ -358,6 +361,10 @@ class RideController extends Controller
             $ride->status_updated_by_role = 'admin';
 
             $ride->save();
+
+            if ($swapLog) {
+                \App\Models\AdminActivityLog::record('Reassigned taxi driver', ['driver_id' => $swapLog['from']], ['driver_id' => $swapLog['to'], 'reason' => $swapLog['reason']], Ride::class, $ride->id);
+            }
 
             if ($bumpedDriver) {
                 app('notificationService')->notifyUsers(
