@@ -232,6 +232,35 @@
                     </div>
                 </div>
 
+                @can(['update driver'])
+                    @php
+                        $vehicleTypes = \App\Models\VehicleType::where('is_active', 'active')->orderBy('name')->get(['id', 'name', 'is_delivery']);
+                        $currentTypeId = $driver->driverVehicle?->vehicle_type_id;
+                        $needsVehicle = $driver->hasRole('driver') && !$driver->driverVehicle;
+                    @endphp
+                    {{-- Vehicle type (admin can set / change it) --}}
+                    <div class="card mb-6">
+                        <h5 class="card-header">{{ __('Vehicle type') }}</h5>
+                        <div class="card-body pt-1">
+                            @if($needsVehicle)
+                                <div class="alert alert-warning py-2 small mb-2">{{ __('No vehicle yet: this driver will not receive any rides or parcels until a vehicle type is set.') }}</div>
+                            @endif
+                            <form action="{{ route('dashboard.drivers.vehicle-type', $driver->id) }}" method="POST" class="d-flex gap-2 align-items-center flex-wrap"
+                                  onsubmit="return confirm('{{ __('Change this vehicle type? It decides which jobs they receive.') }}')">
+                                @csrf
+                                <select name="vehicle_type_id" class="form-select" style="max-width:260px" required>
+                                    <option value="">{{ __('Choose vehicle type') }}</option>
+                                    @foreach($vehicleTypes as $vt)
+                                        <option value="{{ $vt->id }}" @selected($currentTypeId === $vt->id)>{{ $vt->name }}{{ $vt->is_delivery == '1' ? ' (' . __('delivery') . ')' : '' }}</option>
+                                    @endforeach
+                                </select>
+                                <button type="submit" class="btn btn-primary">{{ __('Save vehicle type') }}</button>
+                            </form>
+                            <small class="text-muted d-block mt-2">{{ __('Taxi drivers get rides for this vehicle type; if it is the parcel vehicle type (Pricing & Fees), they also get parcels.') }}</small>
+                        </div>
+                    </div>
+                @endcan
+
                 {{-- Verification Review --}}
                 @can(['update driver'])
                     <div class="card mb-6">
@@ -243,8 +272,16 @@
                                 </div>
                             @endif
                             <div class="d-flex gap-2">
-                                <form action="{{ route('dashboard.drivers.verification.approve', $driver->id) }}" method="POST">
+                                <form action="{{ route('dashboard.drivers.verification.approve', $driver->id) }}" method="POST" class="d-flex gap-2">
                                     @csrf
+                                    @if($needsVehicle)
+                                        <select name="vehicle_type_id" class="form-select" required title="{{ __('Vehicle type is required to verify a taxi driver') }}">
+                                            <option value="">{{ __('Vehicle type...') }}</option>
+                                            @foreach($vehicleTypes as $vt)
+                                                <option value="{{ $vt->id }}">{{ $vt->name }}</option>
+                                            @endforeach
+                                        </select>
+                                    @endif
                                     <button type="submit" class="btn btn-success"
                                         {{ !$verification || $verification->status !== 'submitted' ? 'disabled' : '' }}>
                                         Approve

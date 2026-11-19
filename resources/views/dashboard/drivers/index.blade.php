@@ -59,7 +59,7 @@
                             <tr>
                                 <td>{{ $index + 1 }}</td>
                                 <td>@include('dashboard.partials.person-cell', ['name' => $driver->name, 'email' => $driver->email, 'url' => auth()->user()->can('view driver') ? route('dashboard.drivers.show', $driver->id) : null])</td>
-                                <td>{{ $driver->profile->phone_number }}</td>
+                                <td>{{ $driver->profile?->phone_number ?? $driver->phone }}</td>
                                 <td>
                                     {{-- Read-only -- city is set automatically from the driver's
                                          location at registration, not typed in by an admin. --}}
@@ -85,6 +85,13 @@
                                     @if ($verificationStatus !== 'approved' && \App\Http\Controllers\Dashboard\DriverController::canQuickApprove())
                                         <form action="{{ route('dashboard.drivers.verification.quick-approve', $driver->id) }}" method="POST" class="mt-1" onsubmit="return confirm('{{ __('Verify this account?') }}')">
                                             @csrf
+                                            @if ($driver->hasRole('driver') && !$driver->driverVehicle)
+                                                @php $vtList ??= \App\Models\VehicleType::where('is_active', 'active')->orderBy('name')->get(['id', 'name']); @endphp
+                                                <select name="vehicle_type_id" class="form-select form-select-sm mb-1" required title="{{ __('No vehicle yet: choose one to verify') }}">
+                                                    <option value="">{{ __('Vehicle type...') }}</option>
+                                                    @foreach ($vtList as $vt)<option value="{{ $vt->id }}">{{ $vt->name }}</option>@endforeach
+                                                </select>
+                                            @endif
                                             <button type="submit" class="btn btn-xs btn-success"><i class="ti ti-bolt ti-xs me-1"></i>{{ __('Verify') }}</button>
                                         </form>
                                     @endif

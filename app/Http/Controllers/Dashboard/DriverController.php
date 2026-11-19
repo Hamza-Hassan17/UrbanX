@@ -102,7 +102,7 @@ class DriverController extends Controller
     {
         // Rider app signs up as 'rider', Driver app as 'driver' -- the
         // account role decides the workspace, not the vehicle type.
-        return User::with('profile:id,user_id,phone_number,city', 'driverVerification')
+        return User::with('profile:id,user_id,phone_number,city', 'driverVerification', 'driverVehicle')
             ->role($delivery ? 'rider' : 'driver');
     }
 
@@ -192,13 +192,82 @@ class DriverController extends Controller
             : redirect()->back()->with('error', 'Please view the documents first (eye icon) before approving or rejecting.');
     }
 
-    public function approveVerification(string $id)
+    /**
+     * Admin sets / changes a driver's or rider's vehicle type (e.g. BIKE for
+     * a taxi driver who should get parcels). Creates the vehicle record if
+     * they have none yet.
+     */
+    public function updateVehicleType(Request $request, string $id)
+    {
+        $this->authorize('update driver');
+        $request->validate(['vehicle_type_id' => 'required|integer']);
+
+        $driver = User::findOrFail($id);
+        abort_unless($driver->hasAnyRole(['driver', 'rider']), 404);
+        if (in_array((int) $driver->id, \App\Services\FoodDispatchService::busyRiderIds(), true)) {
+            return redirect()->back()->with('error', "{$driver->name} is on a job right now. Change the vehicle type after it's finished.");
+        }
+
+        $old = $driver->driverVehicle?->vehicleType?->name;
+        if ($error = self::applyVehicleType($driver, (int) $request->vehicle_type_id)) {
+            return redirect()->back()->with('error', $error);
+        }
+        $new = \App\Models\VehicleType::find($request->vehicle_type_id)->name;
+
+        \App\Models\AdminActivityLog::record('Changed driver vehicle type', ['vehicle_type' => $old], ['vehicle_type' => $new], User::class, $driver->id);
+
+        return redirect()->back()->with('success', "Vehicle type set to {$new}.");
+    }
+
+    /** Null on success, else the error. */
+    public static function applyVehicleType(User $driver, int $typeId): ?string
+    {
+        $type = \App\Models\VehicleType::where('is_active', 'active')->find($typeId);
+        if (!$type) {
+            return 'Choose an active vehicle type.';
+        }
+        $vehicle = \App\Models\DriverVehicle::where('driver_id', $driver->id)->first();
+        if ($vehicle) {
+            $vehicle->vehicle_type_id = $type->id;
+            $vehicle->save();
+        } else {
+            \App\Models\DriverVehicle::create([
+                'driver_id' => $driver->id,
+                'vehicle_type_id' => $type->id,
+                'vehicle_name' => $type->name,
+                'vehicle_images' => json_encode([]),
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * A taxi driver can't be verified with no vehicle (he'd never get a
+     * ride). Applies the chosen type if one was sent. Null = OK.
+     */
+    private function vehicleForVerification(Request $request, User $driver): ?string
+    {
+        if ($request->filled('vehicle_type_id')) {
+            return self::applyVehicleType($driver, (int) $request->vehicle_type_id);
+        }
+        if ($driver->hasRole('driver') && !\App\Models\DriverVehicle::where('driver_id', $driver->id)->exists()) {
+            return "{$driver->name} has no vehicle yet. Choose a vehicle type when verifying.";
+        }
+
+        return null;
+    }
+
+    public function approveVerification(Request $request, string $id)
     {
         $this->authorize('update driver');
         try {
             $driver = User::findOrFail($id);
             if ($blocked = $this->mustViewFirst($driver)) {
                 return $blocked;
+            }
+            if ($error = $this->vehicleForVerification($request, $driver)) {
+                return redirect()->back()->with('error', $error);
             }
             $verification = $driver->driverVerification()->firstOrCreate(['driver_id' => $driver->id]);
             $verification->status = 'approved';
@@ -220,7 +289,7 @@ class DriverController extends Controller
     }
 
     /** Super admin / admin only: verify any unverified driver or rider, documents or not. */
-    public function quickApproveVerification(string $id)
+    public function quickApproveVerification(Request $request, string $id)
     {
         $this->authorize('update driver');
         abort_unless(self::canQuickApprove(), 403);
@@ -231,6 +300,9 @@ class DriverController extends Controller
             $verification = $driver->driverVerification()->firstOrCreate(['driver_id' => $driver->id]);
             if ($verification->status === 'approved') {
                 return redirect()->back()->with('error', 'This account is already verified.');
+            }
+            if ($error = $this->vehicleForVerification($request, $driver)) {
+                return redirect()->back()->with('error', $error);
             }
 
             $verification->status = 'approved';

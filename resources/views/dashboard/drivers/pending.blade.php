@@ -48,6 +48,13 @@
                                             <form action="{{ route('dashboard.drivers.verification.quick-approve', $driver->id) }}" method="POST"
                                                 onsubmit="return confirm('{{ __('Verify without reviewing the documents?') }}')">
                                                 @csrf
+                                            @if ($driver->hasRole('driver') && !$driver->driverVehicle)
+                                                @php $vtList ??= \App\Models\VehicleType::where('is_active', 'active')->orderBy('name')->get(['id', 'name']); @endphp
+                                                <select name="vehicle_type_id" class="form-select form-select-sm mb-1" required title="{{ __('No vehicle yet: choose one to verify') }}">
+                                                    <option value="">{{ __('Vehicle type...') }}</option>
+                                                    @foreach ($vtList as $vt)<option value="{{ $vt->id }}">{{ $vt->name }}</option>@endforeach
+                                                </select>
+                                            @endif
                                                 <button type="submit" class="btn btn-sm btn-success me-2">
                                                     <i class="ti ti-bolt ti-xs me-1"></i>{{ __('Verify') }}
                                                 </button>
