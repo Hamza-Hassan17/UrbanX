@@ -298,18 +298,20 @@ class ParcelToDriversTest extends TestCase
 
         $admin = $this->makeAdmin(['rides', 'delivery'], ['view custom rides', 'view delivery', 'view complain', 'view live tracking']);
 
+        // Manual Ride Assignment is taxi-only; parcels live on Manual Parcel Assignment.
         $ridesQueue = collect($this->actingAs($admin)->getJson(route('dashboard.custom-rides.queue', ['window' => 'all']))->assertOk()->json('rides'));
-        $row = $ridesQueue->firstWhere('id', $rideId);
+        $this->assertNull($ridesQueue->firstWhere('id', $rideId));
+
+        $admin->givePermissionTo('view custom rides');
+        $parcelQueue = collect($this->actingAs($admin)->getJson(route('dashboard.parcel-assignment.queue', ['window' => 'all', 'from' => now('Asia/Karachi')->subHour()->format('Y-m-d H:i')]))->assertOk()->json('rides'));
+        $row = $parcelQueue->firstWhere('id', $rideId);
         $this->assertSame('parcel', $row['type_key']);
         $this->assertSame('Ali', $row['sender_name']);
-
-        $onlyTaxi = collect($this->actingAs($admin)->getJson(route('dashboard.custom-rides.queue', ['window' => 'all', 'type' => 'ride']))->json('rides'));
-        $this->assertNull($onlyTaxi->firstWhere('id', $rideId));
 
         $deliveryQueue = collect($this->actingAs($admin)->getJson(route('dashboard.delivery.queue', ['window' => 'all']))->json('rides'));
         $this->assertNull($deliveryQueue->firstWhere('id', $rideId));
 
-        $this->actingAs($admin)->get(route('dashboard.custom-rides.index'))->assertOk()->assertSee('Parcel');
+        $this->actingAs($admin)->get(route('dashboard.custom-rides.index'))->assertOk()->assertDontSee('📦 Parcel');
 
         // Parcel complaints show in Rides, not Delivery.
         Complain::create(['user_id' => $customer->id, 'name' => 'PC Parcel Complaint', 'subject' => 's', 'complain_text' => 't', 'service' => 'parcel', 'ride_id' => $rideId]);
