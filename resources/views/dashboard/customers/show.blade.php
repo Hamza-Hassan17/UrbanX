@@ -28,6 +28,80 @@
             </div>
         </div>
 
+        @php
+            $s = $insights['summary'];
+            $groupColors = ['top' => 'success', 'at_risk' => 'danger', 'new' => 'info', 'regular' => 'primary', 'inactive' => 'secondary', 'never' => 'secondary'];
+            $group = $insights['group'];
+        @endphp
+        {{-- History summary: every service, one place --}}
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h5 class="mb-0">{{ __('Customer history') }}</h5>
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                    <span class="badge bg-label-{{ $groupColors[$group] }} fs-6">{{ __(\App\Services\CustomerInsightsService::GROUPS[$group]) }}</span>
+                    @if($insights['days_since_last'] !== null)
+                        <small class="text-muted">{{ __('Last order') }}: {{ $insights['days_since_last'] === 0 ? __('today') : trans_choice(':count day ago|:count days ago', $insights['days_since_last'], ['count' => $insights['days_since_last']]) }}</small>
+                    @endif
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row g-3 mb-3">
+                    <div class="col-6 col-md-3"><div class="border rounded p-3 h-100">
+                        <small class="text-muted d-block">{{ __('Completed orders') }}</small>
+                        <h4 class="mb-0">{{ $s['orders'] }}</h4>
+                        <small class="text-muted">{{ __('Average customer') }}: {{ $insights['average_orders'] }}</small>
+                    </div></div>
+                    <div class="col-6 col-md-3"><div class="border rounded p-3 h-100">
+                        <small class="text-muted d-block">{{ __('Total spent') }}</small>
+                        <h4 class="mb-0">{{ \App\Helpers\Helper::formatCurrency($s['spent']) }}</h4>
+                        <small class="text-muted">{{ __('Average order') }}: {{ \App\Helpers\Helper::formatCurrency($s['avg_order']) }}</small>
+                    </div></div>
+                    <div class="col-6 col-md-3"><div class="border rounded p-3 h-100">
+                        <small class="text-muted d-block">{{ __('Requested / cancelled') }}</small>
+                        <h4 class="mb-0">{{ $s['requested'] }} / {{ $s['cancelled'] }}</h4>
+                        <small class="text-muted">{{ $s['requested'] > 0 ? round($s['cancelled'] / $s['requested'] * 100) : 0 }}% {{ __('cancelled') }}</small>
+                    </div></div>
+                    <div class="col-6 col-md-3"><div class="border rounded p-3 h-100">
+                        <small class="text-muted d-block">{{ __('Customer since') }}</small>
+                        <h6 class="mb-0">{{ $s['first_at'] ? $s['first_at']->format('d M Y') : '--' }}</h6>
+                        <small class="text-muted">{{ __('Last order') }}: {{ $s['last_at'] ? $s['last_at']->format('d M Y') : '--' }}</small>
+                    </div></div>
+                </div>
+
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm mb-0">
+                        <thead><tr>
+                            <th>{{ __('Service') }}</th><th class="text-end">{{ __('Requested') }}</th><th class="text-end">{{ __('Completed') }}</th>
+                            <th class="text-end">{{ __('Cancelled') }}</th><th class="text-end">{{ __('Spent') }}</th>
+                        </tr></thead>
+                        <tbody>
+                        @foreach(\App\Services\CustomerInsightsService::SERVICES as $key => $label)
+                            @php $row = $s['services'][$key]; @endphp
+                            <tr>
+                                <td>{{ __($label) }}</td>
+                                <td class="text-end">{{ $row['requested'] }}</td>
+                                <td class="text-end">{{ $row['completed'] }}</td>
+                                <td class="text-end">{{ $row['cancelled'] }}</td>
+                                <td class="text-end">{{ \App\Helpers\Helper::formatCurrency($row['spent']) }}</td>
+                            </tr>
+                        @endforeach
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-5">
+                        <h6 class="mb-1">{{ __('Spending by service') }}</h6>
+                        <div id="customer-spend-pie"></div>
+                    </div>
+                    <div class="col-md-7">
+                        <h6 class="mb-1">{{ __('Orders per month (last 12 months)') }}</h6>
+                        <div id="customer-monthly-bar"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <ul class="nav nav-tabs mb-4" role="tablist">
             <li class="nav-item">
                 <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-rides" type="button">
@@ -216,4 +290,48 @@
             </div>
         </div>
     </div>
+@endsection
+
+@section('script')
+    @php
+        $svcLabels = array_values(\App\Services\CustomerInsightsService::SERVICES);
+        $spend = array_map(fn ($k) => round($insights['summary']['services'][$k]['spent']), array_keys(\App\Services\CustomerInsightsService::SERVICES));
+        $monthKeys = array_keys($insights['monthly']);
+        $monthLabels = array_map(fn ($ym) => \Carbon\Carbon::createFromFormat('Y-m', $ym)->format('M y'), $monthKeys);
+        $series = [];
+        foreach (\App\Services\CustomerInsightsService::SERVICES as $k => $label) {
+            $series[] = ['name' => $label, 'data' => array_map(fn ($ym) => $insights['monthly'][$ym][$k], $monthKeys)];
+        }
+    @endphp
+    <script>
+        (function () {
+            if (typeof ApexCharts === 'undefined') return;
+            const colors = ['#7367f0', '#ff9f43', '#28c76f', '#00cfe8'];
+            const spend = @json($spend);
+            const pieEl = document.querySelector('#customer-spend-pie');
+            if (spend.some(v => v > 0)) {
+                new ApexCharts(pieEl, {
+                    chart: { type: 'donut', height: 260 },
+                    labels: @json($svcLabels),
+                    series: spend,
+                    colors,
+                    legend: { position: 'bottom' },
+                    dataLabels: { enabled: true },
+                    tooltip: { y: { formatter: v => 'Rs ' + v.toLocaleString() } },
+                }).render();
+            } else {
+                pieEl.innerHTML = '<p class="text-muted small mt-3">No completed orders yet.</p>';
+            }
+            new ApexCharts(document.querySelector('#customer-monthly-bar'), {
+                chart: { type: 'bar', height: 260, stacked: true, toolbar: { show: false } },
+                series: @json($series),
+                xaxis: { categories: @json($monthLabels) },
+                yaxis: { labels: { formatter: v => Math.round(v) } },
+                colors,
+                legend: { position: 'bottom' },
+                dataLabels: { enabled: false },
+                plotOptions: { bar: { columnWidth: '55%' } },
+            }).render();
+        })();
+    </script>
 @endsection

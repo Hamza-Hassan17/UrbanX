@@ -53,7 +53,10 @@ class CustomerProfileController extends Controller
             ->latest()
             ->get();
 
+        $insights = \App\Services\CustomerInsightsService::forCustomer((int) $id);
+
         return view('dashboard.customers.show', compact(
+            'insights',
             'customer',
             'rides',
             'rentals',
