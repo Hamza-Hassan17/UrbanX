@@ -1909,7 +1909,7 @@
             const isCancelled = queue === 'cancelled';
             // A booked taxi ride can get a different driver until the trip starts.
             const isActiveSwap = queue === 'booked' && type === 'ride'
-                && ['accepted', 'en_route', 'arrived'].includes(status) && CAN_REASSIGN_RIDE;
+                && ['requested', 'accepted', 'en_route', 'arrived'].includes(status) && CAN_REASSIGN_RIDE;
             const canAssignDriver = ((queue === 'dispatch' || isCancelled) && (type === 'ride' || type === 'delivery')) || isActiveSwap;
             const isDelivery = type === 'delivery';
             editAssignDriverSelect.value = '';

@@ -19,7 +19,8 @@ use Illuminate\Support\Facades\Validator;
 class RideController extends Controller
 {
     /** A taxi ride's driver can be swapped until the trip starts. */
-    private const REASSIGNABLE_TAXI_STATUSES = ['accepted', 'en_route', 'arrived'];
+    // 'requested' with a driver = admin-assigned, driver hasn't moved yet.
+    private const REASSIGNABLE_TAXI_STATUSES = ['requested', 'accepted', 'en_route', 'arrived'];
 
     /** Null if $driverId may take over this taxi ride, else why not. */
     private function taxiReassignProblem(Ride $ride, int $driverId): ?string
@@ -291,9 +292,12 @@ class RideController extends Controller
                         'action' => 'cancelled',
                         'note' => 'Reassigned by admin to driver #' . (int) $request->driver_id,
                     ]);
-                    // Restart from "accepted": the new driver still has to drive to the pickup.
-                    $ride->status = 'accepted';
-                    $request->merge(['status' => 'accepted']);
+                    // The new driver starts from the beginning: an admin-assigned
+                    // ride stays 'requested', otherwise back to 'accepted' (he
+                    // still has to drive to the pickup).
+                    $restart = $ride->getOriginal('status') === 'requested' ? 'requested' : 'accepted';
+                    $ride->status = $restart;
+                    $request->merge(['status' => $restart]);
                 } elseif ($ride->driver_id && !$wasCancelled) {
                     DB::rollBack();
                     $message = 'This ride already has a driver assigned.';
