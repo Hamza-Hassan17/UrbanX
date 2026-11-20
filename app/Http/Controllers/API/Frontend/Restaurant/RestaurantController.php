@@ -1001,7 +1001,7 @@ class RestaurantController extends Controller
             $verification->save();
 
             if ($verification->status === 'submitted') {
-                $admins = User::role(['super admin', 'admin', 'operator', 'dispatcher'])->get();
+                $admins = User::whereHas('roles', fn ($q) => $q->whereIn('name', ['super-admin', 'admin', 'operator', 'dispatcher']))->get();
                 app('notificationService')->notifyUsers(
                     $admins,
                     'New Restaurant Verification Request',

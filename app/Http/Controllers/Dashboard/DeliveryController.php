@@ -1372,18 +1372,56 @@ class DeliveryController extends Controller
         ]);
 
         if ($validator->fails()) {
-            return redirect()->back()->withErrors($validator)->with('error', 'Validation Error!');
+            return $this->actionReply($request, false, 'Please write a reason for marking it delivered.');
         }
 
         try {
             $ride = Ride::findOrFail($ride_id);
+            if (in_array($ride->status, ['completed', 'cancelled'], true)) {
+                return $this->actionReply($request, false, "This parcel is already {$ride->status}.");
+            }
+            if (!$ride->driver_id) {
+                return $this->actionReply($request, false, 'No driver is on this parcel, so it cannot be marked delivered.');
+            }
+
+            // Same money bookkeeping as the driver completing it himself
+            // (Driver\RideController::updateRideStatus), so balances and
+            // earnings stay right when an admin closes it.
             $ride->status = 'completed';
             $ride->completed_at = now();
+            if ($ride->distance_km !== null) {
+                $ride->distance_charged_km = \App\Services\FareBreakdownService::roundUpToKm((float) $ride->distance_km);
+            }
+            $ride->fare_breakdown = \App\Services\FareBreakdownService::buildRideSnapshot([
+                'subtotal' => $ride->total_fare,
+                'is_delivery' => $ride->ride_type === 'delivery',
+                'distance_actual_km' => $ride->distance_km,
+                'distance_charged_km' => $ride->distance_charged_km,
+            ]);
+            $cashWasDue = $ride->payment_method === 'cod' && $ride->payment_status !== 'collected';
+            if ($cashWasDue) {
+                $ride->payment_status = 'collected';
+            }
             $ride->delivery_code_locked = false;
             $ride->delivery_override_by = auth()->id();
             $ride->delivery_override_reason = $request->reason;
             $ride->delivery_override_at = now();
-            $ride->save();
+            $ride->status_updated_by = auth()->id();
+            $ride->status_updated_by_role = 'admin';
+
+            DB::transaction(function () use ($ride, $cashWasDue) {
+                $ride->save();
+                if ($cashWasDue && $ride->ride_type === 'parcel') {
+                    // Taxi driver kept the COD fee: owes commission + SST.
+                    $owed = round(($ride->fare_breakdown['commission_amount'] ?? 0) + ($ride->fare_breakdown['sst_amount'] ?? 0), 2);
+                    if ($owed > 0) {
+                        \App\Services\TaxiBalanceService::recordOwed($ride->driver_id, $owed, Ride::class, $ride->id);
+                    }
+                } elseif ($cashWasDue) {
+                    // Older delivery-rider parcel: cash in the rider's hand.
+                    \App\Services\RiderCashService::recordCollected($ride->driver_id, (float) $ride->total_fare, Ride::class, $ride->id);
+                }
+            });
 
             AdminActivityLog::record(
                 'Overrode parcel delivery',
@@ -1393,10 +1431,22 @@ class DeliveryController extends Controller
                 $ride->id
             );
 
-            return redirect()->back()->with('success', 'Delivery overridden successfully');
+            if ($ride->driver_id) {
+                app('notificationService')->notifyUsers([\App\Models\User::find($ride->driver_id)], 'Parcel delivered', "Parcel #{$ride->id} was marked delivered by the admin.", 'rides', $ride->id, 'ride_details');
+            }
+            if ($ride->passenger) {
+                app('notificationService')->notifyUsers([$ride->passenger], 'Parcel delivered', 'Your parcel has been delivered.', 'rides', $ride->id, 'ride_details');
+            }
+            try {
+                broadcast(new \App\Events\RideStatusUpdated($ride));
+            } catch (\Throwable $e) {
+                Log::error('RideStatusUpdated broadcast failed', ['ride_id' => $ride->id, 'error' => $e->getMessage()]);
+            }
+
+            return $this->actionReply($request, true, "Parcel #{$ride->id} marked as delivered.");
         } catch (\Throwable $th) {
             Log::error('Override Parcel Delivery Failed', ['error' => $th->getMessage()]);
-            return redirect()->back()->with('error', 'Something went wrong! Please try again later');
+            return $this->actionReply($request, false, 'Something went wrong! Please try again later');
         }
     }
 

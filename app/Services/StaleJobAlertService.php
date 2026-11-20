@@ -39,7 +39,7 @@ class StaleJobAlertService
         Log::info('Stale job alert raised', ['alert_id' => $alert->id, 'type' => $type, 'subject_type' => $subjectType, 'subject_id' => $subjectId]);
 
         try {
-            $recipients = User::role(['super admin', 'admin', 'operator', 'dispatcher'])->get();
+            $recipients = User::whereHas('roles', fn ($q) => $q->whereIn('name', ['super-admin', 'admin', 'operator', 'dispatcher']))->get();
             app('notificationService')->notifyUsers(
                 $recipients,
                 'Stale Job Alert',

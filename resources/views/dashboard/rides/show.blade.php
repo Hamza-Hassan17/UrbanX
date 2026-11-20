@@ -282,6 +282,40 @@
                 @endcan
                 @endif
 
+                {{-- Parcel: admin can mark delivered (e.g. code locked after 5 wrong tries) --}}
+                @if(!$relatedOrder && in_array($ride->ride_type, ['parcel', 'delivery'], true) && $ride->driver_id
+                    && !in_array($ride->status, ['completed', 'cancelled'], true))
+                @can('view delivery')
+                <div class="card mb-4 border border-warning">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">{{ __('Admin actions') }}</h5>
+                        @if($ride->delivery_code_locked)
+                            <span class="badge bg-label-danger">{{ __('Delivery code locked after 5 wrong tries') }}</span>
+                        @elseif($ride->delivery_code_attempts)
+                            <span class="badge bg-label-warning">{{ $ride->delivery_code_attempts }} {{ __('wrong code tries') }}</span>
+                        @endif
+                    </div>
+                    <div class="card-body">
+                        @if($ride->delivery_code)
+                            <p class="small mb-2">{{ __('Delivery code') }}: <strong style="letter-spacing:3px;">{{ $ride->delivery_code }}</strong></p>
+                        @endif
+                        <form method="POST" action="{{ route('dashboard.delivery.ride.override-delivery', $ride->id) }}"
+                              onsubmit="return confirm('Mark parcel #{{ $ride->id }} as delivered without the delivery code?');">
+                            @csrf
+                            <label class="form-label small mb-1">{{ __('Mark as delivered (driver could not complete it in the app)') }}</label>
+                            <div class="input-group input-group-sm">
+                                <input type="text" name="reason" class="form-control" required maxlength="500" placeholder="{{ __('Reason, e.g. receiver confirmed by phone') }}">
+                                <button type="submit" class="btn btn-success">{{ __('Mark delivered') }}</button>
+                            </div>
+                            @if($ride->payment_method === 'cod' && $ride->payment_status !== 'collected')
+                                <small class="text-muted">{{ __('Cash on delivery: this records the cash as collected by the driver.') }}</small>
+                            @endif
+                        </form>
+                    </div>
+                </div>
+                @endcan
+                @endif
+
                 {{-- Food order items with chosen add-ons (Batch 3 Part 2) --}}
                 @if($relatedOrder)
                 <div class="card mb-4">

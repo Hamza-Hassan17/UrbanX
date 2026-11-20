@@ -1136,6 +1136,15 @@ class RideController extends Controller
                     ], Response::HTTP_FORBIDDEN);
                 }
 
+                // No code sent at all (e.g. tapped Complete before the
+                // code box): ask for it, without using up an attempt.
+                if (!$request->filled('delivery_code')) {
+                    return response()->json([
+                        'message' => 'Enter the 4-digit delivery code from the receiver to complete this parcel.',
+                        'code_required' => true,
+                    ], Response::HTTP_UNPROCESSABLE_ENTITY);
+                }
+
                 if ($request->delivery_code !== $ride->delivery_code) {
                     $ride->delivery_code_attempts++;
                     if ($ride->delivery_code_attempts >= 5) {
