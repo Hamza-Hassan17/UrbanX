@@ -108,6 +108,21 @@ class RideController extends Controller
                 return response()->json(['rides' => []], 200);
             }
 
+            // A job already on this driver (accepted .. started), e.g. a ride
+            // or parcel the admin assigned: the app polls this endpoint, so
+            // return it here as active_ride (and no new offers on top of it).
+            $active = Ride::with('stops')
+                ->where('driver_id', $driver->id)
+                ->whereIn('ride_type', ['ride', 'parcel'])
+                ->whereIn('status', ['accepted', 'en_route', 'arrived', 'started'])
+                ->latest('accepted_at')
+                ->first();
+            if ($active) {
+                $active->assigned_by_admin = $active->status_updated_by_role === 'admin' && $active->status === 'accepted';
+                $active->type = $active->ride_type === 'parcel' ? 'parcel' : 'taxi_ride';
+                return response()->json(['rides' => [], 'active_ride' => $active], 200);
+            }
+
             // Batch 3 Part 4 -- offline drivers see no jobs. NULL (never used
             // the toggle) still counts as online.
             if ($driver->isOffline()) {
