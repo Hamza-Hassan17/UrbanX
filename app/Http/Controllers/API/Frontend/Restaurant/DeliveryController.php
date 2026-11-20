@@ -497,7 +497,7 @@ class DeliveryController extends Controller
                     : $flow::riderArrived($order, $request->user());
 
                 return response()->json([
-                    'message' => 'Delivery status updated.',
+                    'message' => 'Delivery status updated.', ...\App\Services\RiderDeliveryHistoryService::riderStep(\App\Models\Ride::find($order->ride_id), $order->fresh()), 'ride_status' => \App\Models\Ride::whereKey($order->ride_id)->value('status'),
                     'order'   => $order->fresh(),
                 ], Response::HTTP_OK);
             }
@@ -509,7 +509,7 @@ class DeliveryController extends Controller
                 $flow::pickedUp($order, 'rider');
 
                 return response()->json([
-                    'message' => 'Delivery status updated.',
+                    'message' => 'Delivery status updated.', ...\App\Services\RiderDeliveryHistoryService::riderStep(\App\Models\Ride::find($order->ride_id), $order->fresh()), 'ride_status' => \App\Models\Ride::whereKey($order->ride_id)->value('status'),
                     'order'   => $order->fresh(),
                 ], Response::HTTP_OK);
             }
@@ -597,7 +597,7 @@ class DeliveryController extends Controller
                     }
 
                     return response()->json([
-                        'message' => 'Delivery status updated.',
+                        'message' => 'Delivery status updated.', ...\App\Services\RiderDeliveryHistoryService::riderStep(\App\Models\Ride::find($order->ride_id), $order->fresh()), 'ride_status' => \App\Models\Ride::whereKey($order->ride_id)->value('status'),
                         'order'   => $order,
                     ], Response::HTTP_OK);
                 }
@@ -617,7 +617,7 @@ class DeliveryController extends Controller
             }
 
             return response()->json([
-                'message' => 'Delivery status updated.',
+                'message' => 'Delivery status updated.', ...\App\Services\RiderDeliveryHistoryService::riderStep(\App\Models\Ride::find($order->ride_id), $order->fresh()), 'ride_status' => \App\Models\Ride::whereKey($order->ride_id)->value('status'),
                 'order'   => $order,
             ], Response::HTTP_OK);
 

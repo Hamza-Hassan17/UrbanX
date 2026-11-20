@@ -83,6 +83,37 @@ class RiderDeliveryHistoryService
         ];
     }
 
+    /**
+     * Where the rider is in the job, and the status the app should send next
+     * (null = nothing to send). "On the way to / arrived at restaurant" live
+     * on the ride, not the order, so the app can't tell them from the order
+     * status alone.
+     */
+    public static function riderStep(Ride $ride, ?RestaurantOrder $order): array
+    {
+        $o = $order?->status;
+        if (in_array($o, ['delivered', 'completed'], true) || $ride->status === 'completed') {
+            return ['rider_step' => 'delivered', 'next_status' => null];
+        }
+        if (in_array($o, ['cancelled', 'rejected'], true) || $ride->status === 'cancelled') {
+            return ['rider_step' => 'cancelled', 'next_status' => null];
+        }
+        if ($o === 'on_the_way') {
+            return ['rider_step' => 'heading_to_customer', 'next_status' => 'delivered'];
+        }
+        if ($o === 'picked_up' || $ride->status === 'started') {
+            return ['rider_step' => 'picked_up', 'next_status' => 'on_the_way'];
+        }
+        if ($ride->status === 'arrived') {
+            return ['rider_step' => 'at_restaurant', 'next_status' => 'picked_up'];
+        }
+        if ($ride->status === 'en_route') {
+            return ['rider_step' => 'heading_to_restaurant', 'next_status' => 'arrived_at_restaurant'];
+        }
+
+        return ['rider_step' => 'assigned', 'next_status' => 'on_the_way_to_restaurant'];
+    }
+
     /** Full detail for the order screen. */
     public static function detail(Ride $ride): array
     {
@@ -91,7 +122,8 @@ class RiderDeliveryHistoryService
         $customer = $order ? User::find($order->customer_id) : null;
         $closed = in_array($ride->status, ['completed', 'cancelled'], true);
 
-        return self::row($ride, $order, $restaurant) + [
+        return self::row($ride, $order, $restaurant) + self::riderStep($ride, $order) + [
+            'ride_status' => $ride->status,
             'restaurant' => [
                 'name' => $restaurant?->name,
                 'address' => $restaurant?->address,
