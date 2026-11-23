@@ -1404,9 +1404,16 @@ class RideController extends Controller
                 ->orderBy('requested_at', 'desc')
                 ->get();
 
+            // A food order's delivery job is a ride row too. Tell the app
+            // what each row is, so an "en_route" food delivery is never taken
+            // for a taxi ride in progress (and opened in the taxi screen).
+            $foodOrders = \App\Models\RestaurantOrder::whereIn('ride_id', $rideHistory->pluck('id'))->pluck('id', 'ride_id');
+
             $complainedRideIds = \App\Models\Complain::rideIdsWithComplaint($user->id, $rideHistory->pluck('id')->all());
-            $rideHistory->each(function ($ride) use ($complainedRideIds) {
+            $rideHistory->each(function ($ride) use ($complainedRideIds, $foodOrders) {
                 $ride->setAttribute('has_complaint', in_array($ride->id, $complainedRideIds));
+                $ride->setAttribute('service', $foodOrders->has($ride->id) ? 'food' : ($ride->ride_type === 'ride' ? 'taxi_ride' : 'parcel'));
+                $ride->setAttribute('restaurant_order_id', $foodOrders->get($ride->id));
             });
 
             return response()->json([
