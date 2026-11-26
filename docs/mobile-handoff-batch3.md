@@ -448,6 +448,18 @@ settings screen.
 
 ---
 
+## Taxi driver balance reminders
+
+When the outstanding taxi balance reaches the limit, `GET /api/driver/get-rides` returns HTTP 200 with
+`rides: []`, `offer_block_reason: "taxi_balance_limit"`, `outstanding_balance`, and `outstanding_limit`.
+Both amounts are in PKR. While this reason is present, replace “Searching for rides nearby” with
+“New ride offers paused,” show the balance and limit, and offer a **View balance** action to open
+Wallet. Clear the notice after the next successful response without this reason.
+
+The server creates a driver notification when a cash charge takes the balance from below the limit
+to the limit or higher. Admin and Finance can also use **Send Payment Reminder** on the driver's
+balance page to notify a driver who is already blocked.
+
 ## New statuses and settings reference
 
 | What | Values | Notes |

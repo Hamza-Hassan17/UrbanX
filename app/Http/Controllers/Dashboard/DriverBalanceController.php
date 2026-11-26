@@ -7,6 +7,7 @@ use App\Models\RiderCashLedger;
 use App\Models\User;
 use App\Services\DispatchSettingsService;
 use App\Services\RiderCashService;
+use App\Services\TaxiBalanceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -65,6 +66,23 @@ class DriverBalanceController extends Controller
         } catch (\Throwable $th) {
             Log::error('Driver Balances Show Failed', ['error' => $th->getMessage()]);
             return redirect()->back()->with('error', 'Something went wrong! Please try again later');
+        }
+    }
+
+    public function sendReminder(string $driverId)
+    {
+        $this->authorize('manage driver balances');
+        $driver = User::role('driver')->findOrFail($driverId);
+
+        try {
+            if (!TaxiBalanceService::sendPaymentReminder($driver)) {
+                return back()->with('error', 'The driver’s balance is below the limit.');
+            }
+
+            return back()->with('success', 'Payment reminder added to the driver’s notifications.');
+        } catch (\Throwable $e) {
+            Log::error('Driver balance reminder failed', ['driver_id' => $driver->id, 'error' => $e->getMessage()]);
+            return back()->with('error', 'Could not send the payment reminder.');
         }
     }
 

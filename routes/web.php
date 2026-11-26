@@ -391,6 +391,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
             Route::get('driver-balances', [\App\Http\Controllers\Dashboard\DriverBalanceController::class, 'index'])->name('driver-balances.index');
             Route::get('driver-balances/{driverId}', [\App\Http\Controllers\Dashboard\DriverBalanceController::class, 'show'])->name('driver-balances.show');
             Route::post('driver-balances/{driverId}/settle', [\App\Http\Controllers\Dashboard\DriverBalanceController::class, 'recordSettlement'])->name('driver-balances.settle');
+            Route::post('driver-balances/{driverId}/remind', [\App\Http\Controllers\Dashboard\DriverBalanceController::class, 'sendReminder'])->name('driver-balances.remind');
         });
     });
 

@@ -42,6 +42,12 @@
                             </div>
                             <button type="submit" class="btn btn-primary w-100">{{ __('Record Settlement') }}</button>
                         </form>
+                        @if ($currentBalance >= $outstandingLimit && $driver->hasRole('driver'))
+                            <form method="POST" action="{{ route('dashboard.driver-balances.remind', $driver->id) }}" class="mt-3">
+                                @csrf
+                                <button type="submit" class="btn btn-outline-warning w-100">{{ __('Send Payment Reminder') }}</button>
+                            </form>
+                        @endif
                     </div>
                 </div>
             </div>

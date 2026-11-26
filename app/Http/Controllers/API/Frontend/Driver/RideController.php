@@ -159,11 +159,18 @@ class RideController extends Controller
             // balance (commission+SST owed on cash fares) get no new
             // offers until they settle. Same pattern/wording as the
             // rider cash limit above, worded for taxi drivers.
-            if (!$isDeliveryVehicle && \App\Services\TaxiBalanceService::isOverLimit($driver->id)) {
-                return response()->json([
-                    'rides' => [],
-                    'message' => 'Your outstanding balance is over the limit. Please settle with the office before accepting new rides.',
-                ], 200);
+            if (!$isDeliveryVehicle) {
+                $balance = \App\Services\TaxiBalanceService::currentBalance($driver->id);
+                $limit = \App\Services\DispatchSettingsService::taxiOutstandingLimit();
+                if ($balance >= $limit) {
+                    return response()->json([
+                        'rides' => [],
+                        'message' => 'Your outstanding balance is over the limit. Please settle with the office before accepting new rides.',
+                        'offer_block_reason' => 'taxi_balance_limit',
+                        'outstanding_balance' => $balance,
+                        'outstanding_limit' => $limit,
+                    ], 200);
+                }
             }
 
             // -------------------------

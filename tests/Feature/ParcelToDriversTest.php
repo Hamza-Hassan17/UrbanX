@@ -52,6 +52,26 @@ class ParcelToDriversTest extends TestCase
         SystemSetting::query()->update(['parcel_vehicle_type_id' => $type?->id]);
     }
 
+    public function test_taxi_balance_blocks_offers_and_notifies_once_at_the_limit(): void
+    {
+        SystemSetting::query()->update(['taxi_outstanding_limit' => 8000]);
+        $driver = $this->makeDriver($this->carType);
+
+        \App\Services\TaxiBalanceService::recordOwed($driver->id, 7999, Ride::class, 1);
+        $this->assertSame([], $this->pushes);
+        \App\Services\TaxiBalanceService::recordOwed($driver->id, 1, Ride::class, 2);
+        \App\Services\TaxiBalanceService::recordOwed($driver->id, 10, Ride::class, 3);
+        $this->assertSame(['New ride offers paused'], $this->pushes);
+
+        Sanctum::actingAs($driver, ['*']);
+        $this->getJson('/api/driver/get-rides')->assertOk()->assertJson([
+            'rides' => [],
+            'offer_block_reason' => 'taxi_balance_limit',
+            'outstanding_balance' => 8010,
+            'outstanding_limit' => 8000,
+        ]);
+    }
+
     private function makeUser(string $role, array $attributes = []): User
     {
         $user = User::factory()->create(array_merge([
