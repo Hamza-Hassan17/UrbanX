@@ -58,6 +58,9 @@ class RestaurantController extends Controller
 
             $ratings = $reports::ratings($restaurant->id);
 
+            $restaurant->logo = $this->restaurantMediaUrl($restaurant->logo);
+            $restaurant->cover_image = $this->restaurantMediaUrl($restaurant->cover_image);
+
             return response()->json([
                 'message' => 'Restaurant Home Data',
                 'user' => $user,
@@ -101,8 +104,8 @@ class RestaurantController extends Controller
                 $restaurant->weekly_schedule = json_decode($restaurant->weekly_schedule);
                 $restaurant->special_opening_hours = json_decode($restaurant->special_opening_hours);
 
-                $restaurant->logo = url($restaurant->logo);
-                $restaurant->cover_image = url($restaurant->cover_image);
+                $restaurant->logo = $this->restaurantMediaUrl($restaurant->logo);
+                $restaurant->cover_image = $this->restaurantMediaUrl($restaurant->cover_image);
             }
 
             return response()->json([
@@ -198,8 +201,8 @@ class RestaurantController extends Controller
                     'phone' => $restaurant->phone,
                     'weekly_schedule' => json_decode($restaurant->weekly_schedule, true),
                     'special_opening_hours' => json_decode($restaurant->special_opening_hours, true),
-                    'logo' => $restaurant->logo ? url($restaurant->logo) : null,
-                    'cover_image' => $restaurant->cover_image ? url($restaurant->cover_image) : null,
+                    'logo' => $this->restaurantMediaUrl($restaurant->logo),
+                    'cover_image' => $this->restaurantMediaUrl($restaurant->cover_image),
                     'minimum_order_amount' => $restaurant->minimum_order_amount,
                 ]
             ], Response::HTTP_OK);
@@ -209,6 +212,21 @@ class RestaurantController extends Controller
                 'message' => 'Something went wrong!'
             ], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private function restaurantMediaUrl(?string $path): ?string
+    {
+        if (!$path) {
+            return null;
+        }
+
+        if (str_starts_with($path, 'https://') || str_starts_with($path, 'http://')) {
+            return $path;
+        }
+
+        $path = ltrim($path, '/');
+
+        return url(str_starts_with($path, 'storage/') ? $path : 'storage/' . $path);
     }
 
     public function getMenus(Request $request)

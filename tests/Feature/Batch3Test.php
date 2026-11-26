@@ -524,6 +524,22 @@ class Batch3Test extends TestCase
         $this->assertNull($r['restaurant']->fresh()->minimum_order_amount);
     }
 
+    public function test_partner_home_and_shop_return_public_restaurant_media_urls(): void
+    {
+        $r = $this->makeRestaurant();
+        $cover = 'uploads/restaurant-cover-images/banner.png';
+        $r['restaurant']->forceFill(['cover_image' => $cover, 'logo' => null])->save();
+        Sanctum::actingAs($r['owner'], ['*']);
+
+        foreach (['home', 'shop'] as $endpoint) {
+            $this->getJson('/api/restaurant/' . $endpoint)->assertOk()
+                ->assertJsonPath('restaurant.cover_image', url('storage/' . $cover))
+                ->assertJsonPath('restaurant.logo', null);
+        }
+
+        $this->assertSame($cover, $r['restaurant']->fresh()->cover_image);
+    }
+
     // ------------------------------------------------- Part 4: online/offline
 
     public function test_go_online_offline_and_offline_driver_gets_no_jobs(): void
